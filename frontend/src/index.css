@@ -398,6 +398,10 @@ button:disabled {
   padding: 16px;
 }
 
+.图卡.图卡-跨列 {
+  grid-column: 1 / -1;
+}
+
 .图卡头 {
   display: flex;
   align-items: center;
@@ -414,6 +418,41 @@ button:disabled {
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--brand-dark);
+}
+
+.图提示 {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
+.走势控制区 {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.切换组 {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.切换按钮 {
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #bcd0f8;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.切换按钮.激活 {
+  border-color: #1d4ed8;
+  background: #1d4ed8;
+  color: #ffffff;
 }
 
 .图卡头 select {
@@ -634,6 +673,10 @@ button:disabled {
 
   .图表区 {
     grid-template-columns: 1fr;
+  }
+
+  .图卡.图卡-跨列 {
+    grid-column: auto;
   }
 }
 

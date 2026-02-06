@@ -247,6 +247,8 @@ def _default_user_settings() -> dict[str, Any]:
             "favorite_fund_ids": [],
             "only_favorites": False,
             "table_density": "comfortable",
+            "chart_range": "day",
+            "chart_style": "line",
         },
         "notifications": {
             "feishu": {

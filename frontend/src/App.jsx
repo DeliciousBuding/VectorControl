@@ -11,7 +11,24 @@ import {
   getStoredToken
 } from './api.js'
 
-const 日内时刻 = ['09:30', '10:00', '10:30', '11:00', '11:30', '13:30', '14:00', '14:30', '15:00']
+const 图表周期选项 = [
+  { key: 'day', label: '当日' },
+  { key: 'week', label: '近一周' },
+  { key: 'month', label: '近一月' },
+  { key: 'since', label: '成立来' }
+]
+
+const 图表样式选项 = [
+  { key: 'line', label: '波形图' },
+  { key: 'kline', label: '类K线' }
+]
+
+const 周期标签映射 = {
+  day: ['09:30', '10:00', '10:30', '11:00', '11:30', '13:30', '14:00', '14:30', '15:00'],
+  week: ['周一', '周二', '周三', '周四', '周五'],
+  month: ['第1周', '第2周', '第3周', '第4周', '本周'],
+  since: ['第1月', '第2月', '第3月', '第4月', '第5月', '第6月', '第7月', '第8月', '第9月', '第10月', '第11月', '本月']
+}
 
 const 默认设置 = {
   display: {
@@ -25,7 +42,9 @@ const 默认设置 = {
     auto_refresh_visible_only: true,
     favorite_fund_ids: [],
     only_favorites: false,
-    table_density: 'comfortable'
+    table_density: 'comfortable',
+    chart_range: 'day',
+    chart_style: 'line'
   },
   notifications: {
     feishu: {
@@ -126,11 +145,25 @@ const 合并对象 = (base, incoming) => {
   return result
 }
 
-const 构造波形 = (基准涨跌幅, seed = 1, 幅度 = 0.3) => {
+const 周期参数映射 = {
+  day: { 幅度: 0.28, 漂移: 0.3 },
+  week: { 幅度: 0.35, 漂移: 0.42 },
+  month: { 幅度: 0.5, 漂移: 0.58 },
+  since: { 幅度: 0.65, 漂移: 0.72 }
+}
+
+const 获取周期标签 = (range) => {
+  const labels = 周期标签映射[range]
+  if (!Array.isArray(labels) || labels.length < 2) return 周期标签映射.day
+  return labels
+}
+
+const 构造波形 = (基准涨跌幅, labels, seed = 1, 幅度 = 0.3, 漂移强度 = 0.36) => {
   const base = Number.isFinite(Number(基准涨跌幅)) ? Number(基准涨跌幅) : 0
-  const raw = 日内时刻.map((label, index) => {
-    const progress = index / (日内时刻.length - 1)
-    const drift = (progress - 0.5) * base * 0.36
+  const ticks = Array.isArray(labels) && labels.length > 1 ? labels : 周期标签映射.day
+  const raw = ticks.map((label, index) => {
+    const progress = index / (ticks.length - 1)
+    const drift = (progress - 0.5) * base * 漂移强度
     const swing = Math.sin((index + 1) * 1.17 + seed) * 幅度
     const swing2 = Math.cos((index + 1) * 0.68 + seed * 0.61) * 幅度 * 0.52
     return { label, value: base * 0.6 + drift + swing + swing2 }
@@ -144,6 +177,19 @@ const 构造波形 = (基准涨跌幅, seed = 1, 幅度 = 0.3) => {
       label: point.label,
       value: Number((point.value + delta * progress).toFixed(3))
     }
+  })
+}
+
+const 构造类K线 = (基准涨跌幅, labels, seed = 1, 幅度 = 0.3, 漂移强度 = 0.36) => {
+  const line = 构造波形(基准涨跌幅, labels, seed, 幅度, 漂移强度)
+  return line.map((point, index) => {
+    const prev = line[index - 1]?.value ?? point.value * 0.96
+    const wave = Math.sin(seed + index * 1.13) * (幅度 * 0.64)
+    const open = Number(prev.toFixed(3))
+    const close = Number((point.value + wave * 0.25).toFixed(3))
+    const high = Number((Math.max(open, close) + Math.abs(wave) * 0.72 + 0.08).toFixed(3))
+    const low = Number((Math.min(open, close) - Math.abs(wave) * 0.72 - 0.08).toFixed(3))
+    return { label: point.label, open, close, high, low }
   })
 }
 
@@ -192,6 +238,77 @@ const 波形图 = ({ data, color, areaColor }) => {
   )
 }
 
+const 类K线图 = ({ data }) => {
+  if (!Array.isArray(data) || data.length < 2) {
+    return <div className="图占位">暂无类K线数据</div>
+  }
+
+  const width = 760
+  const height = 220
+  const padding = 18
+  const highs = data.map((d) => d.high)
+  const lows = data.map((d) => d.low)
+  const max = Math.max(...highs)
+  const min = Math.min(...lows)
+  const gap = Math.max(max - min, 0.4)
+  const barSpace = (width - padding * 2) / data.length
+  const candleWidth = Math.max(6, barSpace * 0.55)
+
+  const yOf = (value) => height - padding - ((value - min) / gap) * (height - padding * 2)
+
+  return (
+    <div className="图容器">
+      <svg viewBox={`0 0 ${width} ${height}`} className="波形图" role="img" aria-label="类K线图">
+        <rect x="0" y="0" width={width} height={height} fill="url(#kbg)" opacity="0.95" />
+        <defs>
+          <linearGradient id="kbg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#f8fbff" />
+            <stop offset="100%" stopColor="#eff6ff" />
+          </linearGradient>
+        </defs>
+        {data.map((item, index) => {
+          const x = padding + index * barSpace + (barSpace - candleWidth) / 2
+          const openY = yOf(item.open)
+          const closeY = yOf(item.close)
+          const highY = yOf(item.high)
+          const lowY = yOf(item.low)
+          const rising = item.close >= item.open
+          const top = Math.min(openY, closeY)
+          const body = Math.max(Math.abs(closeY - openY), 1.8)
+
+          return (
+            <g key={`${item.label}-${index}`}>
+              <line
+                x1={x + candleWidth / 2}
+                y1={highY}
+                x2={x + candleWidth / 2}
+                y2={lowY}
+                stroke={rising ? '#dc2626' : '#0f766e'}
+                strokeWidth="1.6"
+              />
+              <rect
+                x={x}
+                y={top}
+                width={candleWidth}
+                height={body}
+                fill={rising ? '#fecaca' : '#99f6e4'}
+                stroke={rising ? '#dc2626' : '#0f766e'}
+                strokeWidth="1.4"
+                rx="1.8"
+              />
+            </g>
+          )
+        })}
+      </svg>
+      <div className="图刻度">
+        {data.map((item) => (
+          <span key={item.label}>{item.label}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [user, setUser] = useState(null)
   const [authMode, setAuthMode] = useState('login')
@@ -216,6 +333,8 @@ function App() {
 
   const [filterMode, setFilterMode] = useState('all')
   const [sortMode, setSortMode] = useState('market_value_desc')
+  const [chartRange, setChartRange] = useState('day')
+  const [chartStyle, setChartStyle] = useState('line')
 
   const 自动刷新秒数 = useMemo(() => {
     const raw = Number(settings.display.auto_refresh_seconds)
@@ -231,6 +350,8 @@ function App() {
   const 应用设置 = (nextSettings) => {
     setFilterMode(nextSettings.display.filter_mode || 'all')
     setSortMode(nextSettings.display.sort_mode || 'market_value_desc')
+    setChartRange(nextSettings.display.chart_range || 'day')
+    setChartStyle(nextSettings.display.chart_style || 'line')
   }
 
   const 加载设置 = async () => {
@@ -520,11 +641,52 @@ function App() {
     [filteredRows, selectedFundId]
   )
 
-  const 总波形 = useMemo(() => 构造波形(总体涨跌幅, 8.2, 0.24), [总体涨跌幅])
+  const 图表周期标签 = useMemo(() => 获取周期标签(chartRange), [chartRange])
+  const 图表参数 = useMemo(() => 周期参数映射[chartRange] || 周期参数映射.day, [chartRange])
+
+  const 总波形 = useMemo(
+    () => 构造波形(总体涨跌幅, 图表周期标签, 8.2, 图表参数.幅度 * 0.86, 图表参数.漂移),
+    [总体涨跌幅, 图表周期标签, 图表参数]
+  )
+  const 总类K线 = useMemo(
+    () => 构造类K线(总体涨跌幅, 图表周期标签, 8.2, 图表参数.幅度 * 0.82, 图表参数.漂移),
+    [总体涨跌幅, 图表周期标签, 图表参数]
+  )
+
   const 单基金波形 = useMemo(() => {
     if (!当前基金) return []
-    return 构造波形(当前基金.estimate_pct ?? 0, 计算种子(当前基金.fund_id), 0.32)
-  }, [当前基金])
+    return 构造波形(
+      当前基金.estimate_pct ?? 0,
+      图表周期标签,
+      计算种子(当前基金.fund_id),
+      Math.max(0.24, 图表参数.幅度),
+      图表参数.漂移
+    )
+  }, [当前基金, 图表周期标签, 图表参数])
+  const 单基金类K线 = useMemo(() => {
+    if (!当前基金) return []
+    return 构造类K线(
+      当前基金.estimate_pct ?? 0,
+      图表周期标签,
+      计算种子(当前基金.fund_id),
+      Math.max(0.24, 图表参数.幅度),
+      图表参数.漂移
+    )
+  }, [当前基金, 图表周期标签, 图表参数])
+
+  const 总图表首尾变化 = useMemo(() => {
+    if (!总波形.length) return '--'
+    const first = Number(总波形[0].value)
+    const last = Number(总波形[总波形.length - 1].value)
+    return 百分比格式化(last - first)
+  }, [总波形])
+
+  const 单图表首尾变化 = useMemo(() => {
+    if (!单基金波形.length) return '--'
+    const first = Number(单基金波形[0].value)
+    const last = Number(单基金波形[单基金波形.length - 1].value)
+    return 百分比格式化(last - first)
+  }, [单基金波形])
 
   const 设置展示字段 = (key, value) => {
     setSettingsDraft((prev) => ({
@@ -829,6 +991,22 @@ function App() {
                   <option value="relaxed">宽松</option>
                 </select>
               </label>
+              <label>
+                默认图表周期
+                <select value={settingsDraft.display.chart_range} onChange={(e) => 设置展示字段('chart_range', e.target.value)}>
+                  {图表周期选项.map((item) => (
+                    <option key={item.key} value={item.key}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                默认图表样式
+                <select value={settingsDraft.display.chart_style} onChange={(e) => 设置展示字段('chart_style', e.target.value)}>
+                  {图表样式选项.map((item) => (
+                    <option key={item.key} value={item.key}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
               <label className="复选">
                 <input
                   type="checkbox"
@@ -1034,16 +1212,53 @@ function App() {
       </section>
 
       <section className="图表区">
-        <article className="图卡">
+        <article className="图卡 图卡-跨列">
           <div className="图卡头">
-            <h3>总持仓波形图（市值加权）</h3>
-            <span>{百分比格式化(总体涨跌幅)}</span>
+            <h3>走势视图切换</h3>
+            <span>参考支付宝基金常用的周期切换习惯</span>
           </div>
-          <波形图 data={总波形} color="#2563eb" areaColor="#93c5fd" />
+          <div className="走势控制区">
+            <div className="切换组">
+              {图表周期选项.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`切换按钮 ${chartRange === item.key ? '激活' : ''}`}
+                  onClick={() => setChartRange(item.key)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+            <div className="切换组">
+              {图表样式选项.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`切换按钮 ${chartStyle === item.key ? '激活' : ''}`}
+                  onClick={() => setChartStyle(item.key)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </article>
         <article className="图卡">
           <div className="图卡头">
-            <h3>单基金波形图</h3>
+            <h3>总持仓走势（市值加权）</h3>
+            <span>{百分比格式化(总体涨跌幅)}</span>
+          </div>
+          <div className="图提示">周期变化：{总图表首尾变化} · 周期：{图表周期选项.find((item) => item.key === chartRange)?.label}</div>
+          {chartStyle === 'kline' ? (
+            <类K线图 data={总类K线} />
+          ) : (
+            <波形图 data={总波形} color="#2563eb" areaColor="#93c5fd" />
+          )}
+        </article>
+        <article className="图卡">
+          <div className="图卡头">
+            <h3>单基金走势</h3>
             <select value={当前基金?.fund_id || ''} onChange={(event) => setSelectedFundId(event.target.value)}>
               {filteredRows.map((item) => (
                 <option key={item.fund_id} value={item.fund_id}>
@@ -1054,9 +1269,13 @@ function App() {
           </div>
           <div className="单基金信息">
             <strong>{当前基金?.name || '暂无基金'}</strong>
-            <span>{当前基金 ? `当前估算涨跌：${百分比格式化(当前基金.estimate_pct)}` : '--'}</span>
+            <span>{当前基金 ? `当前估算涨跌：${百分比格式化(当前基金.estimate_pct)}，周期变化：${单图表首尾变化}` : '--'}</span>
           </div>
-          <波形图 data={单基金波形} color="#0f766e" areaColor="#99f6e4" />
+          {chartStyle === 'kline' ? (
+            <类K线图 data={单基金类K线} />
+          ) : (
+            <波形图 data={单基金波形} color="#0f766e" areaColor="#99f6e4" />
+          )}
         </article>
       </section>
 
