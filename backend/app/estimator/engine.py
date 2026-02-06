@@ -41,6 +41,33 @@ def _market_value(item: dict[str, Any]) -> float:
     return 0.0
 
 
+def _cost_basis(item: dict[str, Any]) -> float:
+    for key in ("cost_basis_cny", "cost_basis", "cost"):
+        value = _to_float(item.get(key))
+        if value is not None and value >= 0:
+            return value
+    return 0.0
+
+
+def _normalize_tags(item: dict[str, Any]) -> list[str]:
+    raw = item.get("tags")
+    if isinstance(raw, list):
+        return [str(v).strip().lower() for v in raw if str(v).strip()]
+    if isinstance(raw, str) and raw.strip():
+        return [raw.strip().lower()]
+    return []
+
+
+def _market_group(name: str, tags: list[str]) -> str:
+    tag_set = set(tags)
+    if "nasdaq" in tag_set or "qdii" in tag_set:
+        return "us_overseas"
+    lower_name = name.lower()
+    if "qdii" in lower_name or "纳斯达克" in name:
+        return "us_overseas"
+    return "cn_hk"
+
+
 def _bucket_summary(bucket: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
     if not rows:
         return {
@@ -114,6 +141,10 @@ def build_estimate(
         fund_id = str(item.get("fund_id", "")).strip()
         name = str(item.get("name", "")).strip()
         market_value = _market_value(item)
+        cost_basis = _cost_basis(item)
+        holding_profit = round(market_value - cost_basis, 2)
+        tags = _normalize_tags(item)
+        market_group = _market_group(name, tags)
 
         quote: dict[str, Any] | None = None
         request_error = ""
@@ -150,12 +181,16 @@ def build_estimate(
             "name": name,
             "bucket": bucket,
             "market_value_cny": round(market_value, 2),
+            "cost_basis_cny": round(cost_basis, 2),
+            "holding_profit_cny": holding_profit,
             "estimate_pct": estimate_pct,
             "status": status,
             "reason": reason,
             "source": source,
             "asof": quote_asof,
             "quote_asof": quote_asof,
+            "tags": tags,
+            "market_group": market_group,
         }
         per_fund.append(fund_row)
         by_bucket[bucket].append(fund_row)
