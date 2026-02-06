@@ -41,6 +41,7 @@ export function normalizeFundRows(funds) {
       source: item.source || '--',
       status: item.status || 'failed',
       reason: item.reason || '',
+      yesterday_profit_source: item.yesterday_profit_source || 'estimated_today',
       market_group: item.market_group || 'cn_hk',
       holding_days: holdingDays,
       tags: Array.isArray(item.tags) ? item.tags : []

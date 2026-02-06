@@ -385,6 +385,11 @@ button:disabled {
   background: #e8efff;
 }
 
+.badge-updated {
+  color: #0f766e;
+  background: #e6fffa;
+}
+
 .badge-error {
   color: #b91c1c;
   background: #fee2e2;

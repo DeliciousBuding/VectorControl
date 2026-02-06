@@ -100,14 +100,26 @@ export function HoldingsTable({
               const isEditing = editingId === row.fund_id
               const weight = totalMarket > 0 ? (row.market_value_cny / totalMarket) * 100 : 0
               const startDateText = row.start_date ? String(row.start_date).slice(0, 10) : '--'
+              const statusText =
+                row.status !== 'ok'
+                  ? '异常'
+                  : row.yesterday_profit_source === 'confirmed'
+                    ? '已更新'
+                    : '估算中'
+              const statusClass =
+                row.status !== 'ok'
+                  ? 'badge-error'
+                  : row.yesterday_profit_source === 'confirmed'
+                    ? 'badge-updated'
+                    : 'badge-wait'
               return (
                 <tr key={row.fund_id} className={selected ? 'row-selected' : ''} onClick={() => onSelectFund(row.fund_id)}>
                   <td>
                     <div className="fund-name">{row.name}</div>
                     <div className="fund-sub">
                       <span className="fund-code">{row.fund_id}</span>
-                      <span className={`badge ${row.status === 'ok' ? 'badge-wait' : 'badge-error'}`}>
-                        {row.status === 'ok' ? '估算中' : '异常'}
+                      <span className={`badge ${statusClass}`}>
+                        {statusText}
                       </span>
                       <span>{formatMoney(row.market_value_cny)}</span>
                     </div>
