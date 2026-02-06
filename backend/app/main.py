@@ -1,7 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import logging
 from datetime import datetime
+
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
@@ -11,13 +12,18 @@ from app.core.settings import ensure_api_token
 from app.estimator.engine import build_estimate
 from app.policy.advice import build_advice
 from app.storage.db import (
+    create_session,
+    create_user,
+    delete_session,
     get_latest_estimate_snapshot,
+    get_user_by_session_token,
     init_db,
     insert_action,
     list_actions,
     list_holdings,
     save_estimate_snapshot,
-    seed_holdings,
+    seed_user_holdings_if_empty,
+    verify_user_credentials,
 )
 
 API_TOKEN = ensure_api_token()
@@ -25,11 +31,13 @@ API_TOKEN = ensure_api_token()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 LOGGER = logging.getLogger("vectorcontrol")
 
-app = FastAPI(title="vectorcontrol-backend", version="0.0.1")
+app = FastAPI(title="vectorcontrol-backend", version="0.1.0")
 
-
-def _today_str() -> str:
-    return datetime.now().astimezone().date().isoformat()
+PUBLIC_PATHS = {
+    "/api/health",
+    "/api/auth/register",
+    "/api/auth/login",
+}
 
 
 class ActionIn(BaseModel):
@@ -37,6 +45,15 @@ class ActionIn(BaseModel):
     action_key: str
     amount: float
     done: bool
+
+
+class AuthIn(BaseModel):
+    username: str
+    password: str
+
+
+def _today_str() -> str:
+    return datetime.now().astimezone().date().isoformat()
 
 
 def _extract_token(request: Request) -> str | None:
@@ -47,15 +64,36 @@ def _extract_token(request: Request) -> str | None:
     return request.query_params.get("token")
 
 
+def _get_user_id(request: Request) -> str:
+    return str(getattr(request.state, "user_id", ""))
+
+
+def _is_admin(request: Request) -> bool:
+    return bool(getattr(request.state, "is_admin", False))
+
+
 @app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/api/") and path != "/api/health":
+    if path.startswith("/api/") and path not in PUBLIC_PATHS:
         token_value = _extract_token(request)
         if not token_value:
-            return JSONResponse({"detail": "Missing API token"}, status_code=401)
-        if token_value != API_TOKEN:
-            return JSONResponse({"detail": "Invalid API token"}, status_code=403)
+            return JSONResponse({"detail": "缺少访问令牌，请先登录"}, status_code=401)
+
+        if token_value == API_TOKEN:
+            request.state.user_id = "admin"
+            request.state.username = "admin"
+            request.state.is_admin = True
+            return await call_next(request)
+
+        user = get_user_by_session_token(token_value)
+        if not user:
+            return JSONResponse({"detail": "访问令牌无效或已过期"}, status_code=403)
+
+        request.state.user_id = user["id"]
+        request.state.username = user["username"]
+        request.state.is_admin = False
+
     return await call_next(request)
 
 
@@ -64,9 +102,6 @@ def on_startup() -> None:
     config = load_all()
     app.state.config = config
     init_db()
-    inserted = seed_holdings(config.get("portfolio", {}))
-    if inserted:
-        LOGGER.info("Seeded %s holdings from portfolio.yaml", inserted)
 
 
 @app.get("/api/health")
@@ -74,42 +109,142 @@ async def health() -> dict:
     return {"ok": True, "service": "vectorcontrol-backend"}
 
 
-@app.get("/api/config")
-async def get_config() -> dict:
+@app.post("/api/auth/register")
+async def register(payload: AuthIn) -> dict:
     config = getattr(app.state, "config", {})
-    return summarize_config(config)
+    portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+
+    try:
+        user = create_user(payload.username, payload.password)
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    seed_user_holdings_if_empty(user["id"], portfolio)
+    token = create_session(user["id"])
+    return {"token": token, "user": user}
+
+
+@app.post("/api/auth/login")
+async def login(payload: AuthIn) -> dict:
+    config = getattr(app.state, "config", {})
+    portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+
+    user = verify_user_credentials(payload.username, payload.password)
+    if not user:
+        return JSONResponse({"detail": "用户名或密码错误"}, status_code=401)
+
+    seed_user_holdings_if_empty(user["id"], portfolio)
+    token = create_session(user["id"])
+    return {"token": token, "user": user}
+
+
+@app.get("/api/auth/me")
+async def me(request: Request) -> dict:
+    user_id = _get_user_id(request)
+    username = getattr(request.state, "username", "")
+
+    if _is_admin(request):
+        return {
+            "user": {"id": "admin", "username": "admin"},
+            "holdings_count": len(list_holdings("legacy")),
+            "mode": "admin",
+        }
+
+    holdings = list_holdings(user_id)
+    return {
+        "user": {"id": user_id, "username": username},
+        "holdings_count": len(holdings),
+        "mode": "user",
+    }
+
+
+@app.post("/api/auth/logout")
+async def logout(request: Request) -> dict:
+    if _is_admin(request):
+        return {"ok": True}
+
+    token_value = _extract_token(request)
+    if token_value:
+        delete_session(token_value)
+    return {"ok": True}
+
+
+@app.get("/api/config")
+async def get_config(request: Request) -> dict:
+    config = getattr(app.state, "config", {})
+    summary = summarize_config(config)
+
+    user_id = _get_user_id(request)
+    if not user_id:
+        return summary
+
+    if _is_admin(request):
+        holdings = list_holdings("legacy")
+        username = "admin"
+    else:
+        holdings = list_holdings(user_id)
+        username = str(getattr(request.state, "username", ""))
+
+    buckets = sorted({str(item.get("bucket", "")) for item in holdings if item.get("bucket")})
+
+    summary["session"] = {
+        "user_id": user_id,
+        "username": username,
+        "mode": "admin" if _is_admin(request) else "user",
+    }
+    summary["portfolio"]["holdings_count"] = len(holdings)
+    summary["portfolio"]["buckets"] = buckets
+    return summary
 
 
 @app.get("/api/estimate")
-async def get_estimate() -> dict:
+async def get_estimate(request: Request) -> dict:
+    user_id = _get_user_id(request)
     config = getattr(app.state, "config", {})
-    portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+
+    if _is_admin(request):
+        portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+        snapshot_user_id = "admin"
+    else:
+        holdings = list_holdings(user_id)
+        portfolio = {"holdings": holdings}
+        snapshot_user_id = user_id
+
     payload = build_estimate(portfolio=portfolio)
-    save_estimate_snapshot(payload["asof"], payload)
+    save_estimate_snapshot(snapshot_user_id, payload["asof"], payload)
     return payload
 
 
 @app.get("/api/advice")
-async def get_advice() -> dict:
+async def get_advice(request: Request) -> dict:
+    user_id = _get_user_id(request)
     config = getattr(app.state, "config", {})
-    portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
-    estimate = build_estimate(portfolio=portfolio)
-    holdings = list_holdings()
     policy = config.get("policy", {}) if isinstance(config, dict) else {}
+
+    if _is_admin(request):
+        portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+        holdings = list_holdings("legacy")
+    else:
+        holdings = list_holdings(user_id)
+        portfolio = {"holdings": holdings}
+
+    estimate = build_estimate(portfolio=portfolio)
     return build_advice(estimate, holdings, policy)
 
 
 @app.get("/api/actions")
-async def get_actions(date: str | None = None) -> dict:
+async def get_actions(request: Request, date: str | None = None) -> dict:
     date_str = date or _today_str()
-    actions = list_actions(date_str)
+    user_id = "legacy" if _is_admin(request) else _get_user_id(request)
+    actions = list_actions(user_id, date_str)
     return {"date": date_str, "actions": actions}
 
 
 @app.post("/api/actions")
-async def post_actions(payload: ActionIn) -> dict:
+async def post_actions(request: Request, payload: ActionIn) -> dict:
     date_str = payload.date or _today_str()
-    ts = insert_action(date_str, payload.action_key, payload.amount, payload.done)
+    user_id = "legacy" if _is_admin(request) else _get_user_id(request)
+    ts = insert_action(user_id, date_str, payload.action_key, payload.amount, payload.done)
     return {
         "date": date_str,
         "actions": [
@@ -124,13 +259,23 @@ async def post_actions(payload: ActionIn) -> dict:
 
 
 @app.get("/api/report/daily")
-async def get_daily_report(date: str | None = None) -> dict:
+async def get_daily_report(request: Request, date: str | None = None) -> dict:
     date_str = date or _today_str()
     config = getattr(app.state, "config", {})
     policy = config.get("policy", {}) if isinstance(config, dict) else {}
 
-    estimate = get_latest_estimate_snapshot() or build_estimate()
-    actions = list_actions(date_str)
+    snapshot_user_id = "admin" if _is_admin(request) else _get_user_id(request)
+    estimate = get_latest_estimate_snapshot(snapshot_user_id)
+
+    if not estimate:
+        if _is_admin(request):
+            portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+        else:
+            portfolio = {"holdings": list_holdings(snapshot_user_id)}
+        estimate = build_estimate(portfolio=portfolio)
+
+    actions_user_id = "legacy" if _is_admin(request) else _get_user_id(request)
+    actions = list_actions(actions_user_id, date_str)
 
     estimate_lines: list[str] = []
     for bucket in estimate.get("buckets", []):
@@ -154,8 +299,9 @@ async def get_daily_report(date: str | None = None) -> dict:
         threshold = float(policy.get("tech_threshold_pct", -1.5))
     except Exception:
         threshold = -1.5
+
     plan_line = (
-        f"固定动作：摩根纳指A +10、摩根纳指C +10；"
+        "固定动作：摩根纳指A +10、摩根纳指C +10；"
         f"条件：tech <= {threshold}% 触发南方纳指 +50"
     )
 

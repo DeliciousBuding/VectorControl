@@ -112,25 +112,47 @@ body {
   font-size: 15px;
 }
 
-.控制右 {
+.认证区 {
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: auto 1fr 1fr auto;
   gap: 10px;
+  align-items: center;
 }
 
-.控制右 input {
-  min-width: 240px;
+.认证模式 {
+  display: flex;
+  gap: 8px;
+}
+
+.认证区 input {
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 11px 14px;
+  padding: 10px 12px;
+  font-size: 15px;
+}
+
+.登录态区 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.登录态文案 {
   font-size: 16px;
+  font-weight: 700;
+}
+
+.登录态操作 {
+  display: flex;
+  gap: 10px;
 }
 
 button {
   border: none;
   border-radius: 12px;
-  padding: 11px 18px;
-  font-size: 16px;
+  padding: 11px 16px;
+  font-size: 15px;
   font-weight: 700;
   color: #fff;
   background: var(--brand);
@@ -139,6 +161,11 @@ button {
 
 button:hover {
   filter: brightness(0.95);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
 }
 
 .次按钮 {
@@ -400,13 +427,22 @@ button:hover {
   padding: 30px 12px !important;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1180px) {
   .控制区 {
     grid-template-columns: 1fr;
   }
 
   .刷新时间 {
     justify-self: start;
+  }
+
+  .认证区 {
+    grid-template-columns: 1fr;
+  }
+
+  .登录态区 {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .摘要区 {
@@ -438,10 +474,6 @@ button:hover {
 
   .搜索框 {
     width: 100%;
-  }
-
-  .控制右 {
-    grid-template-columns: 1fr;
   }
 
   .摘要区 {

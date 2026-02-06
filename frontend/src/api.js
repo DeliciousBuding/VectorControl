@@ -1,8 +1,8 @@
-const TOKEN_STORAGE_KEY = 'vectorcontrol_token'
+const SESSION_TOKEN_KEY = 'vectorcontrol_session_token'
 
 export function getStoredToken() {
   try {
-    return localStorage.getItem(TOKEN_STORAGE_KEY) || ''
+    return localStorage.getItem(SESSION_TOKEN_KEY) || ''
   } catch {
     return ''
   }
@@ -11,35 +11,23 @@ export function getStoredToken() {
 export function setStoredToken(token) {
   try {
     if (token) {
-      localStorage.setItem(TOKEN_STORAGE_KEY, token)
+      localStorage.setItem(SESSION_TOKEN_KEY, token)
     } else {
-      localStorage.removeItem(TOKEN_STORAGE_KEY)
+      localStorage.removeItem(SESSION_TOKEN_KEY)
     }
   } catch {
-    // ignore storage errors (private mode, denied access)
+    // ignore storage errors
   }
-}
-
-export function getQueryToken() {
-  try {
-    return new URLSearchParams(window.location.search).get('token') || ''
-  } catch {
-    return ''
-  }
-}
-
-export function getAuthToken() {
-  const stored = getStoredToken()
-  if (stored) return stored
-  return getQueryToken()
 }
 
 export async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {})
   headers.set('Accept', 'application/json')
 
-  const token = getAuthToken()
-  if (token) headers.set('Authorization', `Bearer ${token}`)
+  const token = getStoredToken()
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
+  }
 
   let body = options.body
   if (body && typeof body === 'object' && !(body instanceof FormData)) {
@@ -54,7 +42,7 @@ export async function apiFetch(path, options = {}) {
       headers,
       body
     })
-  } catch (error) {
+  } catch {
     throw new Error('网络请求失败，请检查连接。')
   }
 
@@ -64,37 +52,42 @@ export async function apiFetch(path, options = {}) {
     try {
       payload = JSON.parse(text)
     } catch {
-      payload = { message: text }
+      payload = { detail: text }
     }
   }
 
   if (!response.ok) {
-    const message = payload?.message || payload?.error || `请求失败 (${response.status})`
+    const message = payload?.detail || payload?.message || payload?.error || `请求失败 (${response.status})`
     throw new Error(message)
   }
 
   return payload
 }
 
-export function fetchEstimate() {
-  return apiFetch('/api/estimate')
-}
-
-export function fetchAdvice() {
-  return apiFetch('/api/advice')
-}
-
-export function fetchReportDaily() {
-  return apiFetch('/api/report/daily')
-}
-
-export function fetchActions() {
-  return apiFetch('/api/actions')
-}
-
-export function saveActions(payload) {
-  return apiFetch('/api/actions', {
+export function registerUser(payload) {
+  return apiFetch('/api/auth/register', {
     method: 'POST',
     body: payload
   })
+}
+
+export function loginUser(payload) {
+  return apiFetch('/api/auth/login', {
+    method: 'POST',
+    body: payload
+  })
+}
+
+export function fetchMe() {
+  return apiFetch('/api/auth/me')
+}
+
+export function logoutUser() {
+  return apiFetch('/api/auth/logout', {
+    method: 'POST'
+  })
+}
+
+export function fetchEstimate() {
+  return apiFetch('/api/estimate')
 }
