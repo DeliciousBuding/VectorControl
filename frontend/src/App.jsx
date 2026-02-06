@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchEstimate,
   fetchMe,
@@ -19,7 +19,10 @@ const 默认设置 = {
     filter_mode: 'all',
     sort_mode: 'market_value_desc',
     group_order: 'cn_first',
-    auto_select_fund: true
+    auto_select_fund: true,
+    auto_refresh_enabled: false,
+    auto_refresh_seconds: 60,
+    auto_refresh_visible_only: true
   },
   notifications: {
     feishu: {
@@ -83,6 +86,18 @@ const 收益格式化 = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '--'
   const num = Number(value)
   return `${num > 0 ? '+' : ''}${金额格式化(num)}`
+}
+
+const 数据源名称映射 = {
+  eastmoney: '东方财富',
+  tencent: '腾讯',
+  em: '东方财富',
+  tx: '腾讯'
+}
+
+const 数据源中文 = (value) => {
+  const key = String(value || '').trim().toLowerCase()
+  return 数据源名称映射[key] || (value ? String(value) : '未知来源')
 }
 
 const 计算种子 = (text) => {
@@ -182,6 +197,9 @@ function App() {
 
   const [status, setStatus] = useState({ type: 'info', message: '请先登录' })
   const [lastRefresh, setLastRefresh] = useState('--')
+  const [lastAutoRefresh, setLastAutoRefresh] = useState('--')
+  const [refreshing, setRefreshing] = useState(false)
+  const refreshingRef = useRef(false)
   const [search, setSearch] = useState('')
   const [rows, setRows] = useState([])
   const [selectedFundId, setSelectedFundId] = useState('')
@@ -193,6 +211,12 @@ function App() {
 
   const [filterMode, setFilterMode] = useState('all')
   const [sortMode, setSortMode] = useState('market_value_desc')
+
+  const 自动刷新秒数 = useMemo(() => {
+    const raw = Number(settings.display.auto_refresh_seconds)
+    if (!Number.isFinite(raw)) return 60
+    return Math.min(600, Math.max(15, Math.round(raw)))
+  }, [settings.display.auto_refresh_seconds])
 
   const 应用设置 = (nextSettings) => {
     setFilterMode(nextSettings.display.filter_mode || 'all')
@@ -267,13 +291,20 @@ function App() {
     setStatus({ type: 'info', message: '已退出登录' })
   }
 
-  const 刷新数据 = async () => {
+  const 刷新数据 = useCallback(async (options = {}) => {
+    const { 静默 = false, 自动触发 = false } = options
     if (!user && !getStoredToken()) {
       setStatus({ type: 'warning', message: '请先登录后再刷新' })
       return
     }
+    if (refreshingRef.current) return
 
-    setStatus({ type: 'info', message: '正在拉取持仓估值...' })
+    refreshingRef.current = true
+    setRefreshing(true)
+    if (!静默) {
+      setStatus({ type: 'info', message: 自动触发 ? '正在自动刷新持仓估值...' : '正在拉取持仓估值...' })
+    }
+
     try {
       const payload = await fetchEstimate()
       if (!Array.isArray(payload?.funds)) {
@@ -297,7 +328,7 @@ function App() {
             : marketValue - 数值化(item.cost_basis_cny),
           estimate_pct: estimatePct,
           day_profit_cny: estimatePct === null ? null : (marketValue * estimatePct) / 100,
-          source: item.source || '未知来源',
+          source: 数据源中文(item.source || '未知来源'),
           status: item.status || 'failed',
           reason: item.reason || '',
           market_group: item.market_group || 'cn_hk'
@@ -306,20 +337,44 @@ function App() {
 
       setRows(normalized)
       setLastRefresh(格式化时间())
+      if (自动触发) {
+        setLastAutoRefresh(格式化时间())
+      }
       if ((settings.display.auto_select_fund ?? true) && (!selectedFundId || !normalized.some((row) => row.fund_id === selectedFundId))) {
         setSelectedFundId(normalized[0]?.fund_id || '')
       }
 
       const failed = normalized.filter((row) => row.status !== 'ok').length
       if (failed > 0) {
-        setStatus({ type: 'warning', message: `刷新成功，但有 ${failed} 只基金估值异常` })
-      } else {
-        setStatus({ type: 'success', message: '刷新成功' })
+        setStatus({ type: 'warning', message: `${自动触发 ? '自动刷新完成' : '刷新成功'}，但有 ${failed} 只基金估值异常` })
+      } else if (!静默) {
+        setStatus({ type: 'success', message: 自动触发 ? '自动刷新完成' : '刷新成功' })
       }
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message || '刷新失败' })
+      setStatus({ type: 'error', message: error?.message || `${自动触发 ? '自动刷新' : '刷新'}失败` })
+    } finally {
+      refreshingRef.current = false
+      setRefreshing(false)
     }
-  }
+  }, [selectedFundId, settings.display.auto_select_fund, user])
+
+  useEffect(() => {
+    if (!user) return undefined
+    if (!settings.display.auto_refresh_enabled) return undefined
+
+    const timer = window.setInterval(() => {
+      if (settings.display.auto_refresh_visible_only && document.visibilityState !== 'visible') return
+      void 刷新数据({ 静默: true, 自动触发: true })
+    }, 自动刷新秒数 * 1000)
+
+    return () => window.clearInterval(timer)
+  }, [
+    user,
+    settings.display.auto_refresh_enabled,
+    settings.display.auto_refresh_visible_only,
+    自动刷新秒数,
+    刷新数据
+  ])
 
   const filteredRows = useMemo(() => {
     let result = [...rows]
@@ -420,8 +475,18 @@ function App() {
   const 保存设置 = async () => {
     setSettingsSaving(true)
     try {
-      const response = await saveSettings({ settings: settingsDraft })
-      const merged = 合并对象(默认设置, response?.settings || settingsDraft)
+      const normalizedDraft = {
+        ...settingsDraft,
+        display: {
+          ...settingsDraft.display,
+          auto_refresh_seconds: Math.min(
+            600,
+            Math.max(15, Number(settingsDraft.display.auto_refresh_seconds) || 60)
+          )
+        }
+      }
+      const response = await saveSettings({ settings: normalizedDraft })
+      const merged = 合并对象(默认设置, response?.settings || normalizedDraft)
       setSettings(merged)
       setSettingsDraft(merged)
       应用设置(merged)
@@ -542,7 +607,41 @@ function App() {
           <div className="登录态区">
             <div className="登录态文案">当前用户：{user.username}</div>
             <div className="登录态操作">
-              <button type="button" onClick={刷新数据}>刷新数据</button>
+              <button type="button" onClick={() => 刷新数据()} disabled={refreshing}>
+                {refreshing ? '刷新中...' : '刷新数据'}
+              </button>
+              <button
+                type="button"
+                className="次按钮"
+                onClick={async () => {
+                  const nextEnabled = !settings.display.auto_refresh_enabled
+                  const next = {
+                    ...settings,
+                    display: {
+                      ...settings.display,
+                      auto_refresh_enabled: nextEnabled
+                    }
+                  }
+                  setSettings(next)
+                  setSettingsDraft(next)
+                  try {
+                    const response = await saveSettings({ settings: next })
+                    const merged = 合并对象(默认设置, response?.settings || next)
+                    setSettings(merged)
+                    setSettingsDraft(merged)
+                    setStatus({
+                      type: 'info',
+                      message: nextEnabled
+                        ? `自动刷新已开启，每 ${自动刷新秒数} 秒执行一次`
+                        : '自动刷新已关闭'
+                    })
+                  } catch (error) {
+                    setStatus({ type: 'error', message: error?.message || '自动刷新状态保存失败' })
+                  }
+                }}
+              >
+                {settings.display.auto_refresh_enabled ? '关闭自动刷新' : '开启自动刷新'}
+              </button>
               <button type="button" className="次按钮" onClick={() => setSettingsOpen((v) => !v)}>{settingsOpen ? '收起设置' : '设置中心'}</button>
               <button type="button" className="次按钮" onClick={退出登录}>退出登录</button>
             </div>
@@ -550,7 +649,11 @@ function App() {
         )}
 
         <div className={状态样式映射[status.type] || 状态样式映射.info}>状态：{status.message}</div>
-        <div className="刷新时间">上次刷新：{lastRefresh}</div>
+        <div className="刷新时间">
+          <div>上次刷新：{lastRefresh}</div>
+          <div>自动刷新：{settings.display.auto_refresh_enabled ? `已开启（${自动刷新秒数} 秒）` : '已关闭'}</div>
+          <div>上次自动刷新：{lastAutoRefresh}</div>
+        </div>
       </section>
 
       {user && settingsOpen && (
@@ -598,6 +701,32 @@ function App() {
                 />
                 刷新后自动定位到首只基金
               </label>
+              <label className="复选">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settingsDraft.display.auto_refresh_enabled)}
+                  onChange={(e) => 设置展示字段('auto_refresh_enabled', e.target.checked)}
+                />
+                开启自动刷新
+              </label>
+              <label>
+                自动刷新间隔（秒，15-600）
+                <input
+                  type="number"
+                  min={15}
+                  max={600}
+                  value={settingsDraft.display.auto_refresh_seconds}
+                  onChange={(e) => 设置展示字段('auto_refresh_seconds', Number(e.target.value) || 60)}
+                />
+              </label>
+              <label className="复选">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settingsDraft.display.auto_refresh_visible_only)}
+                  onChange={(e) => 设置展示字段('auto_refresh_visible_only', e.target.checked)}
+                />
+                页面不可见时暂停自动刷新
+              </label>
             </article>
 
             <article className="设置卡">
@@ -616,7 +745,7 @@ function App() {
                   type="text"
                   value={settingsDraft.notifications.feishu.webhook_url}
                   onChange={(e) => 设置飞书字段('webhook_url', e.target.value)}
-                  placeholder="https://open.feishu.cn/..."
+                  placeholder="粘贴飞书机器人地址"
                 />
               </label>
               <label>
@@ -649,7 +778,7 @@ function App() {
               </label>
               <label>
                 SMTP 主机
-                <input type="text" value={settingsDraft.notifications.email.smtp_host} onChange={(e) => 设置邮箱字段('smtp_host', e.target.value)} placeholder="smtp.example.com" />
+                <input type="text" value={settingsDraft.notifications.email.smtp_host} onChange={(e) => 设置邮箱字段('smtp_host', e.target.value)} placeholder="示例：smtp.服务商.com" />
               </label>
               <label>
                 SMTP 端口
@@ -657,11 +786,11 @@ function App() {
               </label>
               <label>
                 发件人
-                <input type="text" value={settingsDraft.notifications.email.sender} onChange={(e) => 设置邮箱字段('sender', e.target.value)} placeholder="no-reply@example.com" />
+                <input type="text" value={settingsDraft.notifications.email.sender} onChange={(e) => 设置邮箱字段('sender', e.target.value)} placeholder="示例：robot@服务商.com" />
               </label>
               <label>
                 收件人（逗号分隔）
-                <input type="text" value={settingsDraft.notifications.email.recipients} onChange={(e) => 设置邮箱字段('recipients', e.target.value)} placeholder="a@x.com,b@y.com" />
+                <input type="text" value={settingsDraft.notifications.email.recipients} onChange={(e) => 设置邮箱字段('recipients', e.target.value)} placeholder="示例：甲@邮箱.com,乙@邮箱.com" />
               </label>
               <label className="复选">
                 <input type="checkbox" checked={Boolean(settingsDraft.notifications.email.use_tls)} onChange={(e) => 设置邮箱字段('use_tls', e.target.checked)} />

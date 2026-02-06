@@ -166,6 +166,7 @@ body {
 .登录态操作 {
   display: flex;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
 button {
@@ -222,6 +223,10 @@ button:disabled {
 .刷新时间 {
   color: var(--muted);
   justify-self: end;
+  display: grid;
+  gap: 3px;
+  text-align: right;
+  font-size: 0.93rem;
 }
 
 .设置区 {

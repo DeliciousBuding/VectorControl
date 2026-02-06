@@ -241,6 +241,9 @@ def _default_user_settings() -> dict[str, Any]:
             "sort_mode": "market_value_desc",
             "group_order": "cn_first",
             "auto_select_fund": True,
+            "auto_refresh_enabled": False,
+            "auto_refresh_seconds": 60,
+            "auto_refresh_visible_only": True,
         },
         "notifications": {
             "feishu": {
