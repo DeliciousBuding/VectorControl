@@ -7,7 +7,10 @@ export function TopToolbar({
   lastRefresh,
   asof,
   searchQuery,
+  suggestions,
+  searchLoading,
   onSearchChange,
+  onPickSuggestion,
   autoRefreshEnabled,
   onRefresh,
   onToggleAutoRefresh,
@@ -34,6 +37,22 @@ export function TopToolbar({
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder="输入基金代码/名称/拼音"
             />
+            {(searchLoading || suggestions.length > 0) && (
+              <div className="toolbar-suggest">
+                {searchLoading && <div className="suggest-item muted">正在加载联想...</div>}
+                {!searchLoading && suggestions.map((item) => (
+                  <button
+                    type="button"
+                    key={item.fund_id}
+                    className="suggest-item"
+                    onClick={() => onPickSuggestion(item)}
+                  >
+                    <strong>{item.name}</strong>
+                    <span>{item.fund_id}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </label>
         </div>
         <div className="toolbar-row">

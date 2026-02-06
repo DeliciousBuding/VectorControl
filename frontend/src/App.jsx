@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from './hooks/useAuth.js'
 import { usePortfolio } from './hooks/usePortfolio.js'
+import { fetchFundSuggest } from './api.js'
 import { buildFundSeries, splitMarketGroups } from './utils/chart.js'
 import { cycleSortState } from './utils/holdings.js'
 import { classBySign, formatDate, formatPercent } from './utils/format.js'
@@ -18,6 +19,8 @@ function App() {
   const [selectedFundId, setSelectedFundId] = useState('')
   const [activeTab, setActiveTab] = useState('home')
   const [searchQuery, setSearchQuery] = useState('')
+  const [suggestions, setSuggestions] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const { user, authLoading, authReady, login, logout } = useAuth()
@@ -79,6 +82,38 @@ function App() {
     setAutoRefreshEnabled(!settings.display.auto_refresh_enabled)
   }
 
+  useEffect(() => {
+    const keyword = searchQuery.trim()
+    if (!keyword) {
+      setSuggestions([])
+      setSearchLoading(false)
+      return undefined
+    }
+
+    const timer = window.setTimeout(async () => {
+      try {
+        setSearchLoading(true)
+        const payload = await fetchFundSuggest(keyword, 8)
+        setSuggestions(Array.isArray(payload?.items) ? payload.items : [])
+      } catch {
+        setSuggestions([])
+      } finally {
+        setSearchLoading(false)
+      }
+    }, 280)
+
+    return () => window.clearTimeout(timer)
+  }, [searchQuery])
+
+  const handlePickSuggestion = (item) => {
+    const pickedCode = String(item?.fund_id || '').trim()
+    if (!pickedCode) return
+    setSearchQuery(pickedCode)
+    setSelectedFundId(pickedCode)
+    setActiveTab('holdings')
+    setSuggestions([])
+  }
+
   const onAuthSubmit = async (payload) => {
     try {
       await login(payload)
@@ -112,7 +147,10 @@ function App() {
         lastRefresh={lastRefresh}
         asof={asof}
         searchQuery={searchQuery}
+        suggestions={suggestions}
+        searchLoading={searchLoading}
         onSearchChange={setSearchQuery}
+        onPickSuggestion={handlePickSuggestion}
         autoRefreshEnabled={Boolean(settings.display.auto_refresh_enabled)}
         onRefresh={() => refresh()}
         onToggleAutoRefresh={handleToggleAutoRefresh}

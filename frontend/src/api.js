@@ -119,3 +119,11 @@ export function updateHolding(fundId, payload) {
     body: payload
   })
 }
+
+export function fetchFundSuggest(keyword, limit = 8) {
+  const query = new URLSearchParams({
+    keyword: String(keyword || ''),
+    limit: String(limit)
+  })
+  return apiFetch(`/api/funds/suggest?${query.toString()}`)
+}
