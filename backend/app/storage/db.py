@@ -2,6 +2,7 @@
 
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -104,3 +105,52 @@ def list_holdings() -> list[dict[str, Any]]:
             "SELECT fund_id, name, bucket, shares, cost, start_date FROM holdings"
         ).fetchall()
     return [dict(row) for row in rows]
+
+
+def insert_action(date: str, action_key: str, amount: float, done: bool) -> str:
+    ts = datetime.now().astimezone().isoformat()
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO actions_log (date, action_key, amount, done, ts)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (date, action_key, float(amount), 1 if done else 0, ts),
+        )
+        conn.commit()
+    return ts
+
+
+def list_actions(date: str) -> list[dict[str, Any]]:
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT action_key, amount, done, ts
+            FROM actions_log
+            WHERE date = ?
+            ORDER BY ts ASC
+            """,
+            (date,),
+        ).fetchall()
+    return [
+        {
+            "action_key": row["action_key"],
+            "amount": row["amount"],
+            "done": bool(row["done"]),
+            "ts": row["ts"],
+        }
+        for row in rows
+    ]
+
+
+def get_latest_estimate_snapshot() -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT payload_json FROM estimate_snapshot ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        return json.loads(row["payload_json"])
+    except Exception:
+        return None
