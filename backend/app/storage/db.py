@@ -96,6 +96,8 @@ def _migrate_holdings(conn: sqlite3.Connection) -> None:
         "start_date",
         "tags_json",
         "market_group",
+        "archived",
+        "archived_at",
     }
     if required.issubset(cols):
         return
@@ -114,6 +116,8 @@ def _migrate_holdings(conn: sqlite3.Connection) -> None:
             start_date TEXT NOT NULL,
             tags_json TEXT NOT NULL DEFAULT '[]',
             market_group TEXT NOT NULL DEFAULT 'cn_hk',
+            archived INTEGER NOT NULL DEFAULT 0,
+            archived_at TEXT NOT NULL DEFAULT '',
             PRIMARY KEY (user_id, fund_id)
         )
         """
@@ -161,13 +165,15 @@ def _migrate_holdings(conn: sqlite3.Connection) -> None:
             market_group = str(row["market_group"])
         else:
             market_group = _guess_market_group(name, tags)
+        archived = int(row["archived"]) if "archived" in cols and row["archived"] else 0
+        archived_at = str(row["archived_at"]) if "archived_at" in cols and row["archived_at"] else ""
 
         conn.execute(
             """
             INSERT OR REPLACE INTO holdings_new (
                 user_id, fund_id, name, bucket, market_value_cny, cost_basis_cny,
-                shares, cost, start_date, tags_json, market_group
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                shares, cost, start_date, tags_json, market_group, archived, archived_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -181,6 +187,8 @@ def _migrate_holdings(conn: sqlite3.Connection) -> None:
                 start_date,
                 tags_json,
                 market_group,
+                archived,
+                archived_at,
             ),
         )
 
@@ -334,6 +342,8 @@ def init_db() -> None:
                 start_date TEXT NOT NULL,
                 tags_json TEXT NOT NULL DEFAULT '[]',
                 market_group TEXT NOT NULL DEFAULT 'cn_hk',
+                archived INTEGER NOT NULL DEFAULT 0,
+                archived_at TEXT NOT NULL DEFAULT '',
                 PRIMARY KEY (user_id, fund_id)
             )
             """
@@ -411,6 +421,14 @@ def init_db() -> None:
         _migrate_holdings(conn)
         _migrate_actions_log(conn)
         _migrate_estimate_snapshot(conn)
+        _ensure_columns(
+            conn,
+            "holdings",
+            {
+                "archived": "INTEGER NOT NULL DEFAULT 0",
+                "archived_at": "TEXT NOT NULL DEFAULT ''",
+            },
+        )
         _ensure_columns(
             conn,
             "user_profiles",
@@ -615,8 +633,8 @@ def seed_user_holdings_if_empty(user_id: str, portfolio: dict[str, Any]) -> int:
                 """
                 INSERT INTO holdings (
                     user_id, fund_id, name, bucket, market_value_cny, cost_basis_cny,
-                    shares, cost, start_date, tags_json, market_group
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    shares, cost, start_date, tags_json, market_group, archived, archived_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '')
                 """,
                 (
                     user_id,
@@ -642,42 +660,113 @@ def seed_holdings(portfolio: dict[str, Any]) -> int:
     return seed_user_holdings_if_empty("legacy", portfolio)
 
 
-def list_holdings(user_id: str = "legacy") -> list[dict[str, Any]]:
+def _holding_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    tags = []
+    try:
+        tags = _normalize_tags(json.loads(row["tags_json"]))
+    except Exception:
+        tags = []
+
+    return {
+        "fund_id": row["fund_id"],
+        "name": row["name"],
+        "bucket": row["bucket"],
+        "market_value_cny": _to_float(row["market_value_cny"]),
+        "cost_basis_cny": _to_float(row["cost_basis_cny"]),
+        "shares": _to_float(row["shares"]),
+        "cost": _to_float(row["cost"]),
+        "start_date": row["start_date"],
+        "tags": tags,
+        "market_group": row["market_group"],
+        "archived": bool(row["archived"]),
+        "archived_at": str(row["archived_at"] or ""),
+    }
+
+
+def list_holdings(user_id: str = "legacy", include_archived: bool = False) -> list[dict[str, Any]]:
+    where_sql = "WHERE user_id = ?"
+    if not include_archived:
+        where_sql += " AND archived = 0"
     with connect() as conn:
         rows = conn.execute(
-            """
+            f"""
             SELECT fund_id, name, bucket, market_value_cny, cost_basis_cny,
-                   shares, cost, start_date, tags_json, market_group
+                   shares, cost, start_date, tags_json, market_group, archived, archived_at
             FROM holdings
-            WHERE user_id = ?
-            ORDER BY market_value_cny DESC, fund_id ASC
+            {where_sql}
+            ORDER BY market_group ASC, market_value_cny DESC, fund_id ASC
             """,
             (user_id,),
         ).fetchall()
 
     result: list[dict[str, Any]] = []
     for row in rows:
-        tags = []
-        try:
-            tags = _normalize_tags(json.loads(row["tags_json"]))
-        except Exception:
-            tags = []
-
-        result.append(
-            {
-                "fund_id": row["fund_id"],
-                "name": row["name"],
-                "bucket": row["bucket"],
-                "market_value_cny": _to_float(row["market_value_cny"]),
-                "cost_basis_cny": _to_float(row["cost_basis_cny"]),
-                "shares": _to_float(row["shares"]),
-                "cost": _to_float(row["cost"]),
-                "start_date": row["start_date"],
-                "tags": tags,
-                "market_group": row["market_group"],
-            }
-        )
+        result.append(_holding_row_to_dict(row))
     return result
+
+
+def create_or_replace_holding(user_id: str, item: dict[str, Any]) -> dict[str, Any]:
+    fund_id = str(item.get("fund_id", "")).strip()
+    name = str(item.get("name", "")).strip()
+    bucket = str(item.get("bucket", "")).strip()
+    if not fund_id or not name or not bucket:
+        raise ValueError("fund_id、name、bucket 为必填字段")
+
+    market_value_cny = _to_float(item.get("market_value_cny", item.get("market_value", 0)))
+    cost_basis_cny = _to_float(item.get("cost_basis_cny", item.get("cost_basis", market_value_cny)))
+    shares = _to_float(item.get("shares", 0))
+    cost = _to_float(item.get("cost", cost_basis_cny))
+    start_date = str(item.get("start_date", "")).strip() or datetime.now().date().isoformat()
+    tags = _normalize_tags(item.get("tags", []))
+    market_group = str(item.get("market_group", "")).strip() or _guess_market_group(name, tags)
+
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO holdings (
+                user_id, fund_id, name, bucket, market_value_cny, cost_basis_cny,
+                shares, cost, start_date, tags_json, market_group, archived, archived_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, '')
+            ON CONFLICT(user_id, fund_id) DO UPDATE SET
+                name = excluded.name,
+                bucket = excluded.bucket,
+                market_value_cny = excluded.market_value_cny,
+                cost_basis_cny = excluded.cost_basis_cny,
+                shares = excluded.shares,
+                cost = excluded.cost,
+                start_date = excluded.start_date,
+                tags_json = excluded.tags_json,
+                market_group = excluded.market_group,
+                archived = 0,
+                archived_at = ''
+            """,
+            (
+                user_id,
+                fund_id,
+                name,
+                bucket,
+                market_value_cny,
+                cost_basis_cny,
+                shares,
+                cost,
+                start_date,
+                json.dumps(tags, ensure_ascii=False),
+                market_group,
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            """
+            SELECT fund_id, name, bucket, market_value_cny, cost_basis_cny,
+                   shares, cost, start_date, tags_json, market_group, archived, archived_at
+            FROM holdings
+            WHERE user_id = ? AND fund_id = ?
+            """,
+            (user_id, fund_id),
+        ).fetchone()
+    if not row:
+        raise ValueError("持仓写入失败")
+    return _holding_row_to_dict(row)
 
 
 def update_holding_fields(
@@ -685,12 +774,28 @@ def update_holding_fields(
     fund_id: str,
     updates: dict[str, Any],
 ) -> dict[str, Any] | None:
-    allowed_fields = {"market_value_cny", "cost_basis_cny", "shares", "start_date"}
+    allowed_fields = {
+        "name",
+        "bucket",
+        "market_group",
+        "tags",
+        "market_value_cny",
+        "cost_basis_cny",
+        "shares",
+        "start_date",
+    }
     cleaned: dict[str, Any] = {}
     for key, value in updates.items():
         if key not in allowed_fields:
             continue
-        if key == "start_date":
+        if key in {"name", "bucket", "market_group"}:
+            text = str(value or "").strip()
+            if not text:
+                continue
+            cleaned[key] = text
+        elif key == "tags":
+            cleaned["tags_json"] = json.dumps(_normalize_tags(value), ensure_ascii=False)
+        elif key == "start_date":
             text = str(value or "").strip()
             if not text:
                 continue
@@ -708,7 +813,7 @@ def update_holding_fields(
             f"""
             UPDATE holdings
             SET {set_sql}
-            WHERE user_id = ? AND fund_id = ?
+            WHERE user_id = ? AND fund_id = ? AND archived = 0
             """,
             params,
         )
@@ -717,7 +822,7 @@ def update_holding_fields(
         row = conn.execute(
             """
             SELECT fund_id, name, bucket, market_value_cny, cost_basis_cny,
-                   shares, cost, start_date, tags_json, market_group
+                   shares, cost, start_date, tags_json, market_group, archived, archived_at
             FROM holdings
             WHERE user_id = ? AND fund_id = ?
             """,
@@ -725,22 +830,33 @@ def update_holding_fields(
         ).fetchone()
     if not row:
         return None
-    try:
-        tags = _normalize_tags(json.loads(row["tags_json"]))
-    except Exception:
-        tags = []
-    return {
-        "fund_id": row["fund_id"],
-        "name": row["name"],
-        "bucket": row["bucket"],
-        "market_value_cny": _to_float(row["market_value_cny"]),
-        "cost_basis_cny": _to_float(row["cost_basis_cny"]),
-        "shares": _to_float(row["shares"]),
-        "cost": _to_float(row["cost"]),
-        "start_date": row["start_date"],
-        "tags": tags,
-        "market_group": row["market_group"],
-    }
+    return _holding_row_to_dict(row)
+
+
+def archive_holding(user_id: str, fund_id: str) -> dict[str, Any] | None:
+    archived_at = _now_iso()
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE holdings
+            SET archived = 1, archived_at = ?
+            WHERE user_id = ? AND fund_id = ? AND archived = 0
+            """,
+            (archived_at, user_id, fund_id),
+        )
+        conn.commit()
+        row = conn.execute(
+            """
+            SELECT fund_id, name, bucket, market_value_cny, cost_basis_cny,
+                   shares, cost, start_date, tags_json, market_group, archived, archived_at
+            FROM holdings
+            WHERE user_id = ? AND fund_id = ?
+            """,
+            (user_id, fund_id),
+        ).fetchone()
+    if not row:
+        return None
+    return _holding_row_to_dict(row)
 
 
 def save_estimate_snapshot(user_id: str, asof: str, payload: dict[str, Any]) -> None:

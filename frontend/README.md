@@ -1,33 +1,33 @@
 # VectorControl 前端
 
-当前前端已完成 F5：在单页看板中接入 `/api/report/daily`，并保留手动刷新与执行记录能力。
+前端定位：面向用户的“持仓工作台”，不是开发调试台。
 
-## 环境要求
-- Node.js 18+（包含 npm）。
-
-## 本地开发
+## 1. 运行命令
 ```bash
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
-```
-
-## 打包构建
-```bash
 npm run build
 ```
 
-构建产物输出到 `dist/`，可用于后端静态托管。
+## 2. 页面设计原则
+- 文案全部中文，不显示开发术语。
+- 信息高密度但可读：主值大、次值小、右对齐。
+- 红涨绿跌，图表必须有中轴虚线（0% 或成本线）。
+- 持仓列表分组固定：国内/港股在上，美股/海外在下。
 
-## 接口对接约定
-- 仅使用相对路径，例如：`/api/estimate`、`/api/advice`、`/api/actions`、`/api/report/daily`。
-- token 保存在 `localStorage`，键名：`vectorcontrol_token`。
-- 支持查询参数兜底：`?token=YOUR_TOKEN`。
-- 若存在 token，请求自动附带 `Authorization: Bearer <token>`。
-- 仅手动刷新；接口异常在状态栏展示。
+## 3. API 对接原则
+- 仅使用相对路径 `/api/*`。
+- token 保存在 `localStorage`：`vectorcontrol_token`。
+- 所有请求自动附带 `Authorization: Bearer <token>`（若存在）。
+- 请求失败必须给出用户可理解状态提示。
 
-## 页面结构
-- 顶栏：标题、token 输入、刷新按钮、上次刷新时间。
-- 四船看板：渲染 `/api/estimate` 的 `buckets`。
-- 今日指令：渲染 `/api/advice` 的 `actions`。
-- 执行记录：通过 `/api/actions` 读写勾选状态。
-- 复盘预览：渲染 `/api/report/daily` 的 `summary` 与 `sections`。
+## 4. 关键页面模块
+- 顶栏：用户、刷新、自动刷新、设置、状态提示。
+- 持仓主表：排序、编辑、分组、日期化表头。
+- 基金详情：指标卡、当日图、业绩图、多周期切换。
+- 风险中枢：放在页面底部，作为辅助决策区。
+
+## 5. 联调约束
+- 不直接读写 YAML。
+- 不依赖后端未冻结字段。
+- 详情图与列表小波形保持同口径计算。

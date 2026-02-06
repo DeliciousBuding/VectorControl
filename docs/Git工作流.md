@@ -1,48 +1,44 @@
 # Git 工作流（VectorControl）
 
-## 分支模型
+## 1. 分支模型（2 Agent + 总控）
+- `main`：正式可发布分支，仅接收通过 Gate 的变更。
+- `dev`：集成分支，所有功能先合入此分支。
+- `backend-milestones`：后端并行主线。
+- `frontend-milestones`：前端并行主线。
 
-- `main`：正式可用版本，仅合并经过验收的变更。
-- `dev`：集成分支，功能完成后先进入 `dev`。
-- `backend-milestones`：后端功能分支。
-- `frontend-milestones`：前端功能分支。
-- `data-config`：配置与持仓数据分支。
+## 2. 功能分支命名
+- 后端：`be-<主题>`，例如 `be-user-profile`。
+- 前端：`fe-<主题>`，例如 `fe-holdings-ux`。
 
-## 日常流程
+## 3. 开发流程
+1. 从对应里程碑分支同步基线：`git fetch --all`。
+2. 创建功能分支并开发。
+3. 本地自测（后端 compile+接口烟测，前端 build）。
+4. 中文提交信息，提交到功能分支。
+5. 功能分支先合回里程碑分支。
+6. 总控按顺序合并到 `dev`：
+   - `backend-milestones -> dev`
+   - `frontend-milestones -> dev`
+7. 总控执行 Gate-A/B/C 验收，通过后 `dev -> main`。
 
-1. 从 `dev` 拉取最新代码并创建/更新功能分支。
-2. 在本职路径开发并自测。
-3. 提交中文 commit message。
-4. 合并回 `dev`，处理冲突后再做集成自测。
-5. 阶段发布时由 `dev` 合并到 `main`。
+## 4. 合并门槛（必须同时满足）
+- Gate-A：可复现（按 `docs/部署与运行.md` 5 分钟跑通）。
+- Gate-B：接口契约未破坏（见 `docs/接口契约.md`）。
+- Gate-C：降级策略有效（源失败不致命）。
 
-## 提交边界
+## 5. 提交边界
+- 后端功能分支仅提交 `backend/**` 与必要后端文档。
+- 前端功能分支仅提交 `frontend/**` 与必要前端文档。
+- 总控分支允许提交跨端文档、集成脚本与合并修复。
+- 严禁提交 `__pycache__`、数据库文件、依赖目录。
 
-- 前端分支只提交 `frontend/` 与前端相关文档。
-- 后端分支只提交 `backend/` 与后端相关文档。
-- 数据分支只提交 `config/` 与必要的最小兼容代码。
-- 禁止夹带其他分支未完成代码。
+## 6. 冲突处理
+- 先 rebase/merge 最新里程碑基线再解决冲突。
+- 冲突解决后必须重新执行本地验收。
+- 不使用交互式重写历史处理共享分支。
 
-## 合并顺序（推荐）
-
-1. `backend-milestones -> dev`
-2. `frontend-milestones -> dev`
-3. `data-config -> dev`
-4. `dev -> main`
-
-## 合并前清单
-
-- `git status --short` 干净。
-- 前端构建通过：`npm run build`。
-- 后端接口可用：
-- `/api/health`
-- `/api/config`
-- `/api/estimate`
-- `/api/risk/overview`
-
-## 中文提交示例
-
-- `功能: 持仓表支持列排序与编辑`
-- `修复: 估值接口异常提示文案`
-- `重构: 后端路由按领域拆分`
-- `文档: 补充开发规范与工作流`
+## 7. 中文提交示例
+- `功能: 新增用户资料与基金联想接口`
+- `功能: 持仓主表日期化与排序三态优化`
+- `修复: 估值接口异常回退逻辑`
+- `文档: 更新ROADMAP与接口契约`
