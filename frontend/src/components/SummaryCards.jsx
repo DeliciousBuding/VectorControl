@@ -1,6 +1,20 @@
 import { classBySign, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
 
-export function SummaryCards({ rows = [] }) {
+export function SummaryCards({ rows = [], loading = false }) {
+  if (loading && rows.length === 0) {
+    return (
+      <section className="summary-grid">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <article key={`skeleton-${index}`} className="panel summary-card summary-skeleton">
+            <div className="skeleton-line skeleton-title" />
+            <div className="skeleton-line skeleton-main" />
+            <div className="skeleton-line skeleton-sub" />
+          </article>
+        ))}
+      </section>
+    )
+  }
+
   const totalMarket = rows.reduce((sum, item) => sum + Number(item.market_value_cny || 0), 0)
   const totalCost = rows.reduce((sum, item) => sum + Number(item.cost_basis_cny || 0), 0)
   const totalHolding = rows.reduce((sum, item) => sum + Number(item.holding_profit_cny || 0), 0)

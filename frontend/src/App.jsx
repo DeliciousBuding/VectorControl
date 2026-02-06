@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './hooks/useAuth.js'
 import { usePortfolio } from './hooks/usePortfolio.js'
 import { fetchActions, fetchDailyReport, fetchFundSuggest } from './api.js'
@@ -13,6 +13,7 @@ import { FundDetailPanel } from './components/FundDetailPanel.jsx'
 import { RiskCenter } from './components/RiskCenter.jsx'
 import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
+import { listMetrics, recordMetric } from './utils/metrics.js'
 
 function App() {
   const [sortState, setSortState] = useState({ key: 'market_value_cny', order: 'desc' })
@@ -25,7 +26,10 @@ function App() {
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
   const [reportSummary, setReportSummary] = useState('')
+  const [assetReadyMs, setAssetReadyMs] = useState(0)
+  const [assetTimedOut, setAssetTimedOut] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const firstLoadStartRef = useRef(0)
 
   const { user, authLoading, authReady, login, logout } = useAuth()
   const {
@@ -85,6 +89,10 @@ function App() {
   const handleToggleAutoRefresh = () => {
     setAutoRefreshEnabled(!settings.display.auto_refresh_enabled)
   }
+
+  useEffect(() => {
+    recordMetric('应用打开')
+  }, [])
 
   useEffect(() => {
     const keyword = searchQuery.trim()
@@ -169,6 +177,37 @@ function App() {
     return () => {
       mounted = false
     }
+  }, [activeTab, user])
+
+  useEffect(() => {
+    if (!user) {
+      setAssetReadyMs(0)
+      setAssetTimedOut(false)
+      return
+    }
+
+    firstLoadStartRef.current = performance.now()
+    recordMetric('首屏加载开始')
+    const timeout = window.setTimeout(() => {
+      if (rows.length === 0) {
+        setAssetTimedOut(true)
+        recordMetric('首屏加载超时', { timeout_ms: 5000 })
+      }
+    }, 5000)
+    return () => window.clearTimeout(timeout)
+  }, [user])
+
+  useEffect(() => {
+    if (!user || rows.length === 0 || assetReadyMs > 0) return
+    const elapsed = Math.round(performance.now() - firstLoadStartRef.current)
+    setAssetReadyMs(elapsed)
+    setAssetTimedOut(false)
+    recordMetric('资产卡更新完成', { elapsed_ms: elapsed })
+  }, [assetReadyMs, rows.length, user])
+
+  useEffect(() => {
+    if (!user) return
+    recordMetric('底部Tab切换', { tab: activeTab })
   }, [activeTab, user])
 
   const messageItems = useMemo(() => {
@@ -263,7 +302,32 @@ function App() {
 
       {activeTab === 'home' && (
         <>
-          <SummaryCards rows={rows} />
+          <SummaryCards rows={rows} loading={loading} />
+          <section className="panel home-main perf-panel">
+            <div className="section-head">
+              <h2>首屏性能</h2>
+              <span>用于 Gate-B 验收</span>
+            </div>
+            <div className="perf-grid">
+              <article className="todo-card">
+                <h3>资产卡首刷耗时</h3>
+                <p>{assetReadyMs > 0 ? `${assetReadyMs} ms` : '尚未完成'}</p>
+              </article>
+              <article className="todo-card">
+                <h3>5秒超时状态</h3>
+                <p>{assetTimedOut ? '已触发降级提示' : '未触发'}</p>
+              </article>
+              <article className="todo-card">
+                <h3>最近埋点条数</h3>
+                <p>{listMetrics().length} 条</p>
+              </article>
+            </div>
+            {assetTimedOut && (
+              <div className="chart-empty">
+                首屏数据超过 5 秒未完成，请检查后端连接或外部数据源状态。
+              </div>
+            )}
+          </section>
           <section className="panel home-main">
             <div className="section-head">
               <h2>今日待办</h2>

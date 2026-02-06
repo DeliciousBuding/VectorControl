@@ -322,6 +322,42 @@ button:disabled {
   font-size: 16px;
 }
 
+.summary-skeleton {
+  display: grid;
+  gap: 10px;
+}
+
+.skeleton-line {
+  border-radius: 8px;
+  background: linear-gradient(90deg, #edf2fb, #f7f9fe, #edf2fb);
+  background-size: 200% 100%;
+  animation: skeleton 1.5s linear infinite;
+}
+
+.skeleton-title {
+  width: 42%;
+  height: 14px;
+}
+
+.skeleton-main {
+  width: 68%;
+  height: 28px;
+}
+
+.skeleton-sub {
+  width: 36%;
+  height: 14px;
+}
+
+@keyframes skeleton {
+  0% {
+    background-position: 180% 0;
+  }
+  100% {
+    background-position: -20% 0;
+  }
+}
+
 .holdings-main {
   margin-top: 16px;
   padding: 16px;
@@ -330,6 +366,16 @@ button:disabled {
 .home-main {
   margin-top: 16px;
   padding: 16px;
+}
+
+.perf-panel {
+  margin-top: 14px;
+}
+
+.perf-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .todo-grid {
@@ -934,6 +980,10 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .perf-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -957,6 +1007,7 @@ button:disabled {
   }
 
   .todo-grid,
+  .perf-grid,
   .trade-grid,
   .summary-grid,
   .risk-grid,
