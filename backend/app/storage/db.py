@@ -39,6 +39,16 @@ def _table_columns(conn: sqlite3.Connection, name: str) -> set[str]:
     return {str(row['name']) for row in rows}
 
 
+def _ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
+    existing = _table_columns(conn, table)
+    if not existing:
+        return
+    for column, ddl in columns.items():
+        if column in existing:
+            continue
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {ddl}")
+
+
 def _to_float(value: Any, default: float = 0.0) -> float:
     try:
         return float(value)
@@ -61,6 +71,14 @@ def _guess_market_group(name: str, tags: list[str]) -> str:
     if "纳斯达克" in name or "QDII" in name.upper():
         return "us_overseas"
     return "cn_hk"
+
+
+def _normalize_catalog_text(value: Any) -> str:
+    return str(value or "").strip()
+
+
+def _derive_catalog_abbr(name: str) -> str:
+    return "".join(ch for ch in name.lower() if ch.isascii() and ch.isalnum())[:32]
 
 
 def _migrate_holdings(conn: sqlite3.Connection) -> None:
@@ -352,10 +370,76 @@ def init_db() -> None:
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_profiles (
+                user_id TEXT PRIMARY KEY,
+                nickname TEXT NOT NULL DEFAULT '',
+                avatar_url TEXT NOT NULL DEFAULT '',
+                bio TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS fund_catalog (
+                fund_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                pinyin TEXT NOT NULL DEFAULT '',
+                abbr TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL DEFAULT 'active',
+                notify_email_placeholder TEXT NOT NULL DEFAULT '',
+                notify_feishu_placeholder TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS fund_profit_confirm (
+                user_id TEXT NOT NULL,
+                fund_id TEXT NOT NULL,
+                trade_date TEXT NOT NULL,
+                profit_cny REAL NOT NULL,
+                confirmed_at TEXT NOT NULL,
+                PRIMARY KEY (user_id, fund_id, trade_date)
+            )
+            """
+        )
 
         _migrate_holdings(conn)
         _migrate_actions_log(conn)
         _migrate_estimate_snapshot(conn)
+        _ensure_columns(
+            conn,
+            "user_profiles",
+            {
+                "nickname": "TEXT NOT NULL DEFAULT ''",
+                "avatar_url": "TEXT NOT NULL DEFAULT ''",
+                "bio": "TEXT NOT NULL DEFAULT ''",
+                "updated_at": "TEXT NOT NULL DEFAULT ''",
+            },
+        )
+        _ensure_columns(
+            conn,
+            "fund_catalog",
+            {
+                "pinyin": "TEXT NOT NULL DEFAULT ''",
+                "abbr": "TEXT NOT NULL DEFAULT ''",
+                "status": "TEXT NOT NULL DEFAULT 'active'",
+                "notify_email_placeholder": "TEXT NOT NULL DEFAULT ''",
+                "notify_feishu_placeholder": "TEXT NOT NULL DEFAULT ''",
+                "updated_at": "TEXT NOT NULL DEFAULT ''",
+            },
+        )
+        _ensure_columns(
+            conn,
+            "fund_profit_confirm",
+            {
+                "confirmed_at": "TEXT NOT NULL DEFAULT ''",
+            },
+        )
         conn.commit()
 
 
@@ -783,3 +867,270 @@ def upsert_user_settings(user_id: str, incoming: dict[str, Any]) -> dict[str, An
         )
         conn.commit()
     return settings
+
+
+def get_user_profile(user_id: str) -> dict[str, Any]:
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT nickname, avatar_url, bio, updated_at
+            FROM user_profiles
+            WHERE user_id = ?
+            """,
+            (user_id,),
+        ).fetchone()
+    if not row:
+        return {
+            "nickname": "",
+            "avatar_url": "",
+            "bio": "",
+            "updated_at": "",
+        }
+    return {
+        "nickname": str(row["nickname"] or ""),
+        "avatar_url": str(row["avatar_url"] or ""),
+        "bio": str(row["bio"] or ""),
+        "updated_at": str(row["updated_at"] or ""),
+    }
+
+
+def upsert_user_profile(user_id: str, incoming: dict[str, Any]) -> dict[str, Any]:
+    current = get_user_profile(user_id)
+    nickname = _normalize_catalog_text(incoming.get("nickname", current["nickname"]))
+    avatar_url = _normalize_catalog_text(incoming.get("avatar_url", current["avatar_url"]))
+    bio = _normalize_catalog_text(incoming.get("bio", current["bio"]))
+    updated_at = _now_iso()
+
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_profiles (user_id, nickname, avatar_url, bio, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                nickname = excluded.nickname,
+                avatar_url = excluded.avatar_url,
+                bio = excluded.bio,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, nickname, avatar_url, bio, updated_at),
+        )
+        conn.commit()
+
+    return {
+        "nickname": nickname,
+        "avatar_url": avatar_url,
+        "bio": bio,
+        "updated_at": updated_at,
+    }
+
+
+def _normalize_catalog_item(item: dict[str, Any]) -> dict[str, str] | None:
+    fund_id = _normalize_catalog_text(item.get("fund_id"))
+    name = _normalize_catalog_text(item.get("name"))
+    if not fund_id or not name:
+        return None
+
+    pinyin = _normalize_catalog_text(item.get("pinyin")).lower()
+    abbr = _normalize_catalog_text(item.get("abbr")).lower() or _derive_catalog_abbr(name)
+    status = _normalize_catalog_text(item.get("status")).lower() or "active"
+    notify_email_placeholder = _normalize_catalog_text(item.get("notify_email_placeholder"))
+    notify_feishu_placeholder = _normalize_catalog_text(item.get("notify_feishu_placeholder"))
+    return {
+        "fund_id": fund_id,
+        "name": name,
+        "pinyin": pinyin,
+        "abbr": abbr,
+        "status": status,
+        "notify_email_placeholder": notify_email_placeholder,
+        "notify_feishu_placeholder": notify_feishu_placeholder,
+    }
+
+
+def upsert_fund_catalog(items: list[dict[str, Any]]) -> int:
+    rows: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        normalized = _normalize_catalog_item(item)
+        if not normalized:
+            continue
+        fund_id = normalized["fund_id"]
+        if fund_id in seen:
+            continue
+        seen.add(fund_id)
+        rows.append(normalized)
+
+    if not rows:
+        return 0
+
+    updated_at = _now_iso()
+    with connect() as conn:
+        conn.executemany(
+            """
+            INSERT INTO fund_catalog (
+                fund_id, name, pinyin, abbr, status,
+                notify_email_placeholder, notify_feishu_placeholder, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(fund_id) DO UPDATE SET
+                name = excluded.name,
+                pinyin = excluded.pinyin,
+                abbr = excluded.abbr,
+                status = excluded.status,
+                notify_email_placeholder = excluded.notify_email_placeholder,
+                notify_feishu_placeholder = excluded.notify_feishu_placeholder,
+                updated_at = excluded.updated_at
+            """,
+            [
+                (
+                    row["fund_id"],
+                    row["name"],
+                    row["pinyin"],
+                    row["abbr"],
+                    row["status"],
+                    row["notify_email_placeholder"],
+                    row["notify_feishu_placeholder"],
+                    updated_at,
+                )
+                for row in rows
+            ],
+        )
+        conn.commit()
+    return len(rows)
+
+
+def sync_fund_catalog_from_config(config: dict[str, Any]) -> int:
+    if not isinstance(config, dict):
+        return 0
+
+    catalog_rows: list[dict[str, Any]] = []
+    funds = config.get("funds", [])
+    if isinstance(funds, list):
+        for item in funds:
+            if not isinstance(item, dict):
+                continue
+            catalog_rows.append(
+                {
+                    "fund_id": item.get("fund_id"),
+                    "name": item.get("name"),
+                    "pinyin": item.get("pinyin", ""),
+                    "abbr": item.get("abbr", ""),
+                    "status": item.get("status", "active"),
+                    "notify_email_placeholder": item.get("notify_email_placeholder", ""),
+                    "notify_feishu_placeholder": item.get("notify_feishu_placeholder", ""),
+                }
+            )
+
+    portfolio = config.get("portfolio", {})
+    holdings = portfolio.get("holdings", []) if isinstance(portfolio, dict) else []
+    if isinstance(holdings, list):
+        for item in holdings:
+            if not isinstance(item, dict):
+                continue
+            catalog_rows.append(
+                {
+                    "fund_id": item.get("fund_id"),
+                    "name": item.get("name"),
+                    "pinyin": item.get("pinyin", ""),
+                    "abbr": item.get("abbr", ""),
+                    "status": item.get("status", "active"),
+                    "notify_email_placeholder": item.get("notify_email_placeholder", ""),
+                    "notify_feishu_placeholder": item.get("notify_feishu_placeholder", ""),
+                }
+            )
+
+    return upsert_fund_catalog(catalog_rows)
+
+
+def list_fund_suggestions(keyword: str, limit: int = 10) -> list[dict[str, Any]]:
+    clean_keyword = _normalize_catalog_text(keyword)
+    safe_limit = max(1, min(int(limit), 50))
+
+    with connect() as conn:
+        if clean_keyword:
+            prefix = f"{clean_keyword}%"
+            fuzzy = f"%{clean_keyword}%"
+            rows = conn.execute(
+                """
+                SELECT fund_id, name, pinyin, abbr, status,
+                       notify_email_placeholder, notify_feishu_placeholder
+                FROM fund_catalog
+                WHERE fund_id LIKE ?
+                   OR name LIKE ?
+                   OR pinyin LIKE ?
+                   OR abbr LIKE ?
+                ORDER BY
+                    CASE
+                        WHEN fund_id LIKE ? THEN 0
+                        WHEN name LIKE ? THEN 1
+                        WHEN pinyin LIKE ? THEN 2
+                        ELSE 3
+                    END,
+                    fund_id ASC
+                LIMIT ?
+                """,
+                (prefix, fuzzy, fuzzy.lower(), fuzzy.lower(), prefix, fuzzy, fuzzy.lower(), safe_limit),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT fund_id, name, pinyin, abbr, status,
+                       notify_email_placeholder, notify_feishu_placeholder
+                FROM fund_catalog
+                ORDER BY fund_id ASC
+                LIMIT ?
+                """,
+                (safe_limit,),
+            ).fetchall()
+
+    return [
+        {
+            "fund_id": str(row["fund_id"]),
+            "name": str(row["name"]),
+            "pinyin": str(row["pinyin"] or ""),
+            "abbr": str(row["abbr"] or ""),
+            "status": str(row["status"] or "active"),
+            "notify_email_placeholder": str(row["notify_email_placeholder"] or ""),
+            "notify_feishu_placeholder": str(row["notify_feishu_placeholder"] or ""),
+        }
+        for row in rows
+    ]
+
+
+def get_confirmed_fund_profit_map(user_id: str, trade_date: str) -> dict[str, float]:
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT fund_id, profit_cny
+            FROM fund_profit_confirm
+            WHERE user_id = ? AND trade_date = ?
+            """,
+            (user_id, trade_date),
+        ).fetchall()
+
+    return {
+        str(row["fund_id"]): _to_float(row["profit_cny"])
+        for row in rows
+        if _normalize_catalog_text(row["fund_id"])
+    }
+
+
+def get_latest_estimate_snapshot_on_or_before(user_id: str, asof_date: str) -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT payload_json FROM estimate_snapshot
+            WHERE user_id = ? AND substr(asof, 1, 10) <= ?
+            ORDER BY asof DESC, id DESC
+            LIMIT 1
+            """,
+            (user_id, asof_date),
+        ).fetchone()
+    if not row:
+        return None
+
+    try:
+        payload = json.loads(str(row["payload_json"]))
+    except Exception:
+        return None
+    return payload if isinstance(payload, dict) else None

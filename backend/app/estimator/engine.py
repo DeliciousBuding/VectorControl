@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 
 from app.core.config_loader import load_all
@@ -33,7 +33,6 @@ def _portfolio_holdings(portfolio: dict[str, Any] | None) -> list[dict[str, Any]
 
 
 def _market_value(item: dict[str, Any]) -> float:
-    # 优先读取显式市值字段，其次回退到成本字段。
     for key in ("market_value_cny", "market_value", "cost_basis_cny", "cost_basis", "cost"):
         value = _to_float(item.get(key))
         if value is not None and value > 0:
@@ -66,6 +65,51 @@ def _market_group(name: str, tags: list[str]) -> str:
     if "qdii" in lower_name or "纳斯达克" in name:
         return "us_overseas"
     return "cn_hk"
+
+
+def _parse_date(text: str) -> date | None:
+    raw = str(text or "").strip()
+    if not raw:
+        return None
+    try:
+        return datetime.fromisoformat(raw).date()
+    except ValueError:
+        try:
+            return datetime.strptime(raw, "%Y-%m-%d").date()
+        except ValueError:
+            return None
+
+
+def _holding_days(start_date: str, today: date) -> int:
+    parsed = _parse_date(start_date)
+    if parsed is None:
+        return 0
+    days = (today - parsed).days + 1
+    return max(days, 0)
+
+
+def _snapshot_day_profit_map(snapshot: dict[str, Any] | None) -> dict[str, float]:
+    if not isinstance(snapshot, dict):
+        return {}
+    funds = snapshot.get("funds", [])
+    if not isinstance(funds, list):
+        return {}
+
+    result: dict[str, float] = {}
+    for row in funds:
+        if not isinstance(row, dict):
+            continue
+        fund_id = str(row.get("fund_id", "")).strip()
+        if not fund_id:
+            continue
+
+        day_profit = _to_float(row.get("day_profit_cny"))
+        if day_profit is None:
+            market_value = _to_float(row.get("market_value_cny")) or 0.0
+            estimate_pct = _to_float(row.get("estimate_pct")) or 0.0
+            day_profit = market_value * estimate_pct / 100.0
+        result[fund_id] = round(day_profit, 2)
+    return result
 
 
 def _bucket_summary(bucket: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -112,7 +156,7 @@ def _bucket_summary(bucket: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     source_counter = Counter(str(row.get("source", "unknown")) for row in valid)
     top_source = source_counter.most_common(1)[0][0] if source_counter else "unknown"
-    note = f"{len(valid)}/{len(rows)} 只基金有效，主来源={top_source}"
+    note = f"{len(valid)}/{len(rows)} 只有效，主要来源 {top_source}"
 
     return {
         "bucket": bucket,
@@ -125,24 +169,39 @@ def _bucket_summary(bucket: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
 def build_estimate(
     provider: QuoteProvider | None = None,
     portfolio: dict[str, Any] | None = None,
+    previous_snapshot: dict[str, Any] | None = None,
+    confirmed_yesterday_profit: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     provider = provider or EastMoneyQuoteProvider()
     asof = datetime.now(timezone.utc).isoformat()
+    today_local = datetime.now().astimezone().date()
 
     holdings = _portfolio_holdings(portfolio)
     per_fund: list[dict[str, Any]] = []
     by_bucket: dict[str, list[dict[str, Any]]] = {bucket: [] for bucket in BUCKETS}
 
+    eligible_holdings: list[dict[str, Any]] = []
     for item in holdings:
         bucket = str(item.get("bucket", "")).strip()
-        if bucket not in by_bucket:
-            continue
+        if bucket in by_bucket:
+            eligible_holdings.append(item)
 
+    total_market_value = sum(_market_value(item) for item in eligible_holdings)
+    previous_day_profit_map = _snapshot_day_profit_map(previous_snapshot)
+    confirmed_map = confirmed_yesterday_profit or {}
+
+    for item in eligible_holdings:
+        bucket = str(item.get("bucket", "")).strip()
         fund_id = str(item.get("fund_id", "")).strip()
         name = str(item.get("name", "")).strip()
+        start_date = str(item.get("start_date", "")).strip()
+
         market_value = _market_value(item)
         cost_basis = _cost_basis(item)
         holding_profit = round(market_value - cost_basis, 2)
+        holding_profit_rate = round((holding_profit / cost_basis), 4) if cost_basis > 0 else 0.0
+        position_weight_pct = round((market_value / total_market_value) * 100, 4) if total_market_value > 0 else 0.0
+        holding_days = _holding_days(start_date, today_local)
         tags = _normalize_tags(item)
         market_group = _market_group(name, tags)
 
@@ -176,6 +235,15 @@ def build_estimate(
         if not fund_id:
             reason = "缺少基金代码"
 
+        day_profit_cny = round(market_value * ((_to_float(estimate_pct) or 0.0) / 100.0), 2)
+        confirmed_profit = _to_float(confirmed_map.get(fund_id)) if fund_id else None
+        if confirmed_profit is not None:
+            yesterday_profit_cny = round(confirmed_profit, 2)
+        elif fund_id in previous_day_profit_map:
+            yesterday_profit_cny = round(previous_day_profit_map[fund_id], 2)
+        else:
+            yesterday_profit_cny = day_profit_cny
+
         fund_row = {
             "fund_id": fund_id,
             "name": name,
@@ -183,8 +251,13 @@ def build_estimate(
             "market_value_cny": round(market_value, 2),
             "cost_basis_cny": round(cost_basis, 2),
             "shares": round(_to_float(item.get("shares")) or 0.0, 4),
-            "start_date": str(item.get("start_date", "")).strip(),
+            "start_date": start_date,
             "holding_profit_cny": holding_profit,
+            "holding_profit_rate": holding_profit_rate,
+            "day_profit_cny": day_profit_cny,
+            "yesterday_profit_cny": yesterday_profit_cny,
+            "holding_days": holding_days,
+            "position_weight_pct": position_weight_pct,
             "estimate_pct": estimate_pct,
             "status": status,
             "reason": reason,
