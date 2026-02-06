@@ -25,6 +25,7 @@ function lastValue(data, key) {
 
 export function FundDetailPanel({ fund, rows, dateLabel }) {
   const [range, setRange] = useState('1m')
+  const [showExtendedLines, setShowExtendedLines] = useState(false)
   const rangeOptions = useMemo(() => RANGE_OPTIONS.filter((item) => item.key !== 'day'), [])
 
   const daySeries = useMemo(() => (fund ? buildFundSeries(fund, 'day') : []), [fund])
@@ -48,13 +49,34 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
   const portfolioLast = Number(portfolioSeries[portfolioSeries.length - 1]?.value || 0)
   const portfolioMove = portfolioLast - portfolioFirst
 
+  const trendLines = [
+    { key: 'fund', color: pickColor(lastValue(trendSeries, 'fund'), '#dc2626', '#0f766e'), width: 2.2 },
+    { key: 'costLine', color: '#64748b', width: 1.2 }
+  ]
+  if (showExtendedLines) {
+    trendLines.splice(1, 0, {
+      key: 'benchmark',
+      color: pickColor(lastValue(trendSeries, 'benchmark'), '#ef4444', '#14b8a6'),
+      width: 2
+    })
+    trendLines.splice(2, 0, {
+      key: 'userProfit',
+      color: pickColor(lastValue(trendSeries, 'userProfit'), '#b91c1c', '#0d9488'),
+      width: 2
+    })
+  }
+
   return (
     <section className="panel detail-panel">
       <div className="detail-head">
         <div>
           <h3>{fund.name}</h3>
-          <p>{fund.fund_id} · 数据日期：{dateLabel} · 确认状态：{confirmText}</p>
-          <p>基金时点：{fund.as_of || '--'} · 拉取时间：{fund.updated_at || '--'}</p>
+          <p>
+            {fund.fund_id} | 数据日期：{dateLabel} | 确认状态：{confirmText}
+          </p>
+          <p>
+            基金时点：{fund.as_of || '--'} | 拉取时间：{fund.updated_at || '--'}
+          </p>
         </div>
         <div className="range-tabs">
           {rangeOptions.map((item) => (
@@ -83,7 +105,7 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
         <Metric
           label="持有天数"
           main={fund.holding_days === '--' ? '--' : `${fund.holding_days}天`}
-          sub={fund.start_date ? `起始日期：${String(fund.start_date).slice(0, 10)}` : '起始日期：--'}
+          sub={fund.start_date ? `起始日期：${String(fund.start_date).slice(0, 10)}` : '起始日期：-'}
         />
       </div>
 
@@ -101,18 +123,16 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
       </div>
 
       <div className="chart-panel">
-        <h4>业绩走势（本基金 / {benchmarkName} / 我的收益 / 成本线）</h4>
-        <MultiLineChart
-          data={trendSeries}
-          lines={[
-            { key: 'fund', color: pickColor(lastValue(trendSeries, 'fund'), '#dc2626', '#0f766e'), width: 2.2 },
-            { key: 'benchmark', color: pickColor(lastValue(trendSeries, 'benchmark'), '#ef4444', '#14b8a6'), width: 2 },
-            { key: 'userProfit', color: pickColor(lastValue(trendSeries, 'userProfit'), '#b91c1c', '#0d9488'), width: 2 },
-            { key: 'costLine', color: '#64748b', width: 1.2 }
-          ]}
-          dashedKeys={['costLine']}
-          yLabel="收益率曲线"
-        />
+        <div className="chart-head">
+          <h4>业绩走势（本基金 / {benchmarkName} / 我的收益 / 成本线）</h4>
+          <button type="button" className={showExtendedLines ? 'primary' : 'ghost'} onClick={() => setShowExtendedLines((prev) => !prev)}>
+            {showExtendedLines ? '隐藏扩展线组' : '显示扩展线组'}
+          </button>
+        </div>
+        <p className="chart-hint">
+          {showExtendedLines ? '已启用扩展：基金线 + 成本线 + 对标指数 + 我的收益' : '默认线组：基金线 + 成本虚线（P0 最小线组）'}
+        </p>
+        <MultiLineChart data={trendSeries} lines={trendLines} dashedKeys={['costLine']} yLabel="收益率曲线" />
       </div>
 
       <div className="chart-panel">
