@@ -1,13 +1,22 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
+import yaml
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field
 from starlette.responses import JSONResponse
 
-from app.api.deps import get_holdings_user_id
-from app.storage.db import archive_holding, create_or_replace_holding, list_holdings, update_holding_fields
+from app.api.deps import get_config, get_holdings_user_id
+from app.storage.db import (
+    archive_holding,
+    create_or_replace_holding,
+    export_holdings_as_portfolio,
+    import_holdings_from_portfolio,
+    list_holdings,
+    update_holding_fields,
+)
 
 router = APIRouter(prefix="/api/holdings", tags=["持仓"])
 
@@ -36,6 +45,10 @@ class HoldingUpdateIn(BaseModel):
     start_date: str | None = None
 
 
+class ImportYamlIn(BaseModel):
+    mode: str = Field(default="if_empty", description="if_empty/append/replace")
+
+
 @router.get("")
 async def get_holdings(
     request: Request,
@@ -47,6 +60,41 @@ async def get_holdings(
         "holdings": holdings,
         "count": len(holdings),
         "include_archived": include_archived,
+    }
+
+
+@router.post("/import_yaml")
+async def import_yaml(request: Request, payload: ImportYamlIn) -> dict[str, Any]:
+    user_id = get_holdings_user_id(request)
+    config = get_config(request)
+    portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+    try:
+        result = import_holdings_from_portfolio(user_id=user_id, portfolio=portfolio, mode=payload.mode)
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=400)
+
+    if int(result.get("configured_count", 0)) <= 0:
+        return JSONResponse({"detail": "当前配置中没有可导入的持仓"}, status_code=400)
+
+    return {
+        "result": result,
+        "imported_at": datetime.now().astimezone().isoformat(),
+    }
+
+
+@router.get("/export_yaml")
+async def export_yaml(
+    request: Request,
+    include_archived: bool = Query(default=False, description="导出时是否包含已归档持仓"),
+) -> dict[str, Any]:
+    user_id = get_holdings_user_id(request)
+    portfolio = export_holdings_as_portfolio(user_id=user_id, include_archived=include_archived)
+    yaml_text = yaml.safe_dump(portfolio, allow_unicode=True, sort_keys=False)
+    return {
+        "portfolio": portfolio,
+        "yaml": yaml_text,
+        "include_archived": include_archived,
+        "exported_at": datetime.now().astimezone().isoformat(),
     }
 
 
@@ -77,4 +125,3 @@ async def archive(request: Request, fund_id: str) -> dict[str, Any]:
     if not archived:
         return JSONResponse({"detail": "未找到可归档的持仓"}, status_code=404)
     return {"holding": archived}
-

@@ -660,6 +660,97 @@ def seed_holdings(portfolio: dict[str, Any]) -> int:
     return seed_user_holdings_if_empty("legacy", portfolio)
 
 
+def import_holdings_from_portfolio(
+    user_id: str,
+    portfolio: dict[str, Any],
+    mode: str = "if_empty",
+) -> dict[str, Any]:
+    normalized_mode = str(mode or "if_empty").strip().lower()
+    if normalized_mode not in {"if_empty", "append", "replace"}:
+        raise ValueError("mode 仅支持 if_empty/append/replace")
+
+    holdings = portfolio.get("holdings", []) if isinstance(portfolio, dict) else []
+    if not isinstance(holdings, list):
+        holdings = []
+
+    configured_count = len([item for item in holdings if isinstance(item, dict)])
+    if configured_count == 0:
+        return {
+            "mode": normalized_mode,
+            "configured_count": 0,
+            "imported_count": 0,
+            "skipped_count": 0,
+            "failed_count": 0,
+            "total_count": len(list_holdings(user_id, include_archived=True)),
+        }
+
+    with connect() as conn:
+        existing_row = conn.execute(
+            "SELECT COUNT(1) AS cnt FROM holdings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+        existing_count = int(existing_row["cnt"]) if existing_row else 0
+
+        if normalized_mode == "if_empty" and existing_count > 0:
+            return {
+                "mode": normalized_mode,
+                "configured_count": configured_count,
+                "imported_count": 0,
+                "skipped_count": configured_count,
+                "failed_count": 0,
+                "total_count": existing_count,
+            }
+
+        if normalized_mode == "replace":
+            conn.execute("DELETE FROM holdings WHERE user_id = ?", (user_id,))
+            conn.commit()
+
+    imported_count = 0
+    failed_count = 0
+    for item in holdings:
+        if not isinstance(item, dict):
+            failed_count += 1
+            continue
+        try:
+            create_or_replace_holding(user_id, item)
+            imported_count += 1
+        except ValueError:
+            failed_count += 1
+
+    total_count = len(list_holdings(user_id, include_archived=True))
+    skipped_count = max(configured_count - imported_count - failed_count, 0)
+    return {
+        "mode": normalized_mode,
+        "configured_count": configured_count,
+        "imported_count": imported_count,
+        "skipped_count": skipped_count,
+        "failed_count": failed_count,
+        "total_count": total_count,
+    }
+
+
+def export_holdings_as_portfolio(user_id: str, include_archived: bool = False) -> dict[str, Any]:
+    rows = list_holdings(user_id=user_id, include_archived=include_archived)
+    holdings: list[dict[str, Any]] = []
+    for row in rows:
+        item: dict[str, Any] = {
+            "fund_id": row.get("fund_id", ""),
+            "name": row.get("name", ""),
+            "bucket": row.get("bucket", ""),
+            "market_group": row.get("market_group", ""),
+            "market_value_cny": round(_to_float(row.get("market_value_cny")), 2),
+            "cost_basis_cny": round(_to_float(row.get("cost_basis_cny")), 2),
+            "shares": round(_to_float(row.get("shares")), 4),
+            "start_date": str(row.get("start_date", "")),
+            "tags": row.get("tags", []),
+        }
+        if include_archived:
+            item["archived"] = bool(row.get("archived"))
+            item["archived_at"] = str(row.get("archived_at", ""))
+        holdings.append(item)
+    return {"holdings": holdings}
+
+
 def _holding_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     tags = []
     try:

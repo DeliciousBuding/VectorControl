@@ -4,14 +4,13 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
-from app.api.deps import get_config, get_holdings_user_id, get_user_id, get_username, is_admin
+from app.api.deps import get_holdings_user_id, get_user_id, get_username, is_admin
 from app.core.rate_limit import LimitRule, auth_rate_limiter
 from app.storage.db import (
     create_session,
     create_user,
     delete_session,
     list_holdings,
-    seed_user_holdings_if_empty,
     verify_user_credentials,
 )
 
@@ -49,9 +48,6 @@ async def register(payload: AuthIn, request: Request) -> dict:
     if not allowed:
         return _too_many_response(retry_after)
 
-    config = get_config(request)
-    portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
-
     try:
         user = create_user(payload.username, payload.password)
     except ValueError as exc:
@@ -59,7 +55,6 @@ async def register(payload: AuthIn, request: Request) -> dict:
         return JSONResponse({"detail": str(exc)}, status_code=400)
 
     auth_rate_limiter.record_success(register_key)
-    seed_user_holdings_if_empty(user["id"], portfolio)
     token = create_session(user["id"])
     return {"token": token, "user": user}
 
@@ -73,9 +68,6 @@ async def login(payload: AuthIn, request: Request) -> dict:
     if not allowed:
         return _too_many_response(retry_after)
 
-    config = get_config(request)
-    portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
-
     user = verify_user_credentials(payload.username, payload.password)
     if not user:
         allowed, retry_after = auth_rate_limiter.record_failure(login_key, LOGIN_RULE)
@@ -84,7 +76,6 @@ async def login(payload: AuthIn, request: Request) -> dict:
         return JSONResponse({"detail": "用户名或密码错误"}, status_code=401)
 
     auth_rate_limiter.record_success(login_key)
-    seed_user_holdings_if_empty(user["id"], portfolio)
     token = create_session(user["id"])
     return {"token": token, "user": user}
 
