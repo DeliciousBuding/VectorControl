@@ -120,6 +120,11 @@ export function updateHolding(fundId, payload) {
   })
 }
 
+export function fetchDailyReport(date = '') {
+  const query = date ? `?date=${encodeURIComponent(date)}` : ''
+  return apiFetch(`/api/report/daily${query}`)
+}
+
 export function fetchFundSuggest(keyword, limit = 8) {
   const query = new URLSearchParams({
     keyword: String(keyword || ''),

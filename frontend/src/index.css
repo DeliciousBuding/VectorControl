@@ -403,6 +403,109 @@ button:disabled {
   font-size: 14px;
 }
 
+.trade-head {
+  margin-top: 18px;
+}
+
+.record-list {
+  display: grid;
+  gap: 8px;
+}
+
+.record-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.record-item h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.record-item p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.record-side {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+}
+
+.record-side strong {
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.record-done,
+.record-pending {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.record-done {
+  color: #0f766e;
+  background: #e7fff8;
+}
+
+.record-pending {
+  color: #b45309;
+  background: #fff7ed;
+}
+
+.message-list {
+  display: grid;
+  gap: 10px;
+}
+
+.message-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.message-item h4 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.message-item p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.message-warning {
+  border-color: #f6cf9a;
+  background: #fffaf1;
+}
+
+.message-info {
+  border-color: #c0d7ff;
+  background: #f5f9ff;
+}
+
+.message-success {
+  border-color: #b9ebd8;
+  background: #f3fff9;
+}
+
 .section-head {
   display: flex;
   align-items: baseline;

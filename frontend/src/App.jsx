@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from './hooks/useAuth.js'
 import { usePortfolio } from './hooks/usePortfolio.js'
-import { fetchFundSuggest } from './api.js'
+import { fetchActions, fetchDailyReport, fetchFundSuggest } from './api.js'
 import { buildFundSeries, splitMarketGroups } from './utils/chart.js'
 import { cycleSortState } from './utils/holdings.js'
 import { classBySign, formatDate, formatPercent } from './utils/format.js'
@@ -21,6 +21,10 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
+  const [actionLogs, setActionLogs] = useState([])
+  const [actionLoading, setActionLoading] = useState(false)
+  const [actionError, setActionError] = useState('')
+  const [reportSummary, setReportSummary] = useState('')
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   const { user, authLoading, authReady, login, logout } = useAuth()
@@ -113,6 +117,103 @@ function App() {
     setActiveTab('holdings')
     setSuggestions([])
   }
+
+  useEffect(() => {
+    if (!user) {
+      setActionLogs([])
+      setActionError('')
+      setReportSummary('')
+      return
+    }
+    if (activeTab !== 'trade' && activeTab !== 'profile') return
+
+    let mounted = true
+    const loadTradeAndReport = async () => {
+      setActionLoading(true)
+      setActionError('')
+      try {
+        const records = []
+        for (let offset = 0; offset < 7; offset += 1) {
+          const date = new Date()
+          date.setDate(date.getDate() - offset)
+          const day = date.toISOString().slice(0, 10)
+          const payload = await fetchActions(day)
+          const actions = Array.isArray(payload?.actions) ? payload.actions : []
+          actions.forEach((item) => {
+            records.push({
+              ...item,
+              date: payload?.date || day
+            })
+          })
+        }
+        records.sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')))
+        if (mounted) setActionLogs(records)
+      } catch (error) {
+        if (mounted) {
+          setActionLogs([])
+          setActionError(error?.message || '交易记录加载失败')
+        }
+      } finally {
+        if (mounted) setActionLoading(false)
+      }
+
+      try {
+        const report = await fetchDailyReport()
+        if (mounted) setReportSummary(String(report?.summary || ''))
+      } catch {
+        if (mounted) setReportSummary('')
+      }
+    }
+
+    void loadTradeAndReport()
+    return () => {
+      mounted = false
+    }
+  }, [activeTab, user])
+
+  const messageItems = useMemo(() => {
+    const items = []
+    const failedFunds = rows.filter((item) => item.status !== 'ok').length
+    if (failedFunds > 0) {
+      items.push({
+        type: 'warning',
+        title: '估值提醒',
+        content: `当前有 ${failedFunds} 只基金估值异常，建议优先核对持仓页。`,
+        actionLabel: '查看持仓',
+        actionTab: 'holdings'
+      })
+    }
+    const undoneActions = actionLogs.filter((item) => !item.done).length
+    if (undoneActions > 0) {
+      items.push({
+        type: 'info',
+        title: '交易待确认',
+        content: `最近 7 天有 ${undoneActions} 条未执行记录，可在交易页确认。`,
+        actionLabel: '查看交易',
+        actionTab: 'trade'
+      })
+    }
+    if (reportSummary) {
+      const firstLine = reportSummary.split('\n')[0] || '今日复盘已生成'
+      items.push({
+        type: 'success',
+        title: '复盘摘要',
+        content: firstLine,
+        actionLabel: '打开持仓',
+        actionTab: 'holdings'
+      })
+    }
+    if (items.length === 0) {
+      items.push({
+        type: 'success',
+        title: '系统状态正常',
+        content: '当前无待处理提醒，可按计划执行当日动作。',
+        actionLabel: '返回首页',
+        actionTab: 'home'
+      })
+    }
+    return items
+  }, [actionLogs, reportSummary, rows])
 
   const onAuthSubmit = async (payload) => {
     try {
@@ -227,7 +328,34 @@ function App() {
             <button type="button" className="ghost">赎回</button>
             <button type="button" className="ghost">转换</button>
           </div>
-          <p className="trade-tip">交易详细流程与流水页将按 ROADMAP 持续完善。</p>
+          <p className="trade-tip">交易详细流程按 ROADMAP 持续完善，当前先提供记录视图与待办闭环。</p>
+
+          <div className="section-head trade-head">
+            <h3>交易记录（近7天）</h3>
+            <span>{actionLoading ? '加载中...' : `共 ${actionLogs.length} 条`}</span>
+          </div>
+          {actionError && <div className="chart-empty">{actionError}</div>}
+          {!actionError && actionLogs.length === 0 && !actionLoading && (
+            <div className="chart-empty">近 7 天暂无交易记录</div>
+          )}
+          {actionLogs.length > 0 && (
+            <div className="record-list">
+              {actionLogs.map((item) => (
+                <article key={`${item.date}-${item.action_key}-${item.ts}`} className="record-item">
+                  <div>
+                    <h4>{item.action_key}</h4>
+                    <p>{item.date} {item.ts || '--'}</p>
+                  </div>
+                  <div className="record-side">
+                    <strong>{Number(item.amount || 0).toFixed(2)}</strong>
+                    <span className={item.done ? 'record-done' : 'record-pending'}>
+                      {item.done ? '已执行' : '未执行'}
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
@@ -292,6 +420,24 @@ function App() {
               <p>飞书和邮件配置入口已预留</p>
               <button type="button" className="primary" onClick={() => setSettingsOpen(true)}>打开设置</button>
             </article>
+          </div>
+
+          <div className="section-head trade-head">
+            <h3>消息中心</h3>
+            <span>交易 / 提醒 / 系统</span>
+          </div>
+          <div className="message-list">
+            {messageItems.map((item) => (
+              <article key={`${item.title}-${item.actionTab}`} className={`message-item message-${item.type}`}>
+                <div>
+                  <h4>{item.title}</h4>
+                  <p>{item.content}</p>
+                </div>
+                <button type="button" className="ghost" onClick={() => setActiveTab(item.actionTab)}>
+                  {item.actionLabel}
+                </button>
+              </article>
+            ))}
           </div>
         </section>
       )}
