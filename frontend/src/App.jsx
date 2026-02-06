@@ -285,9 +285,9 @@ function App() {
     <div className="page">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-icon">FW</div>
+          <div className="brand-icon">VC</div>
           <div>
-            <div className="title">Fund Watchtower</div>
+            <div className="title">VectorControl</div>
             <div className="subtitle">单页盯盘看板 · 手动刷新</div>
           </div>
         </div>

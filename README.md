@@ -1,6 +1,6 @@
-# fund-watchtower
+# VectorControl
 
-`fund-watchtower` 是一个面向个人基金盯盘场景的全栈项目，提供：
+`VectorControl` 是一个面向个人基金盯盘场景的全栈项目，提供：
 
 - 手动刷新估值看板
 - 四船分桶策略建议
@@ -110,7 +110,7 @@ chcp 65001
 ## 项目结构
 
 ```text
-fund-watchtower/
+VectorControl/
   backend/
   config/
   docker/

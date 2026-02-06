@@ -1,4 +1,4 @@
-# Fund Watchtower 前端
+# VectorControl 前端
 
 当前前端已完成 F5：在单页看板中接入 `/api/report/daily`，并保留手动刷新与执行记录能力。
 
@@ -20,7 +20,7 @@ npm run build
 
 ## 接口对接约定
 - 仅使用相对路径，例如：`/api/estimate`、`/api/advice`、`/api/actions`、`/api/report/daily`。
-- token 保存在 `localStorage`，键名：`fund_watchtower_token`。
+- token 保存在 `localStorage`，键名：`vectorcontrol_token`。
 - 支持查询参数兜底：`?token=YOUR_TOKEN`。
 - 若存在 token，请求自动附带 `Authorization: Bearer <token>`。
 - 仅手动刷新；接口异常在状态栏展示。

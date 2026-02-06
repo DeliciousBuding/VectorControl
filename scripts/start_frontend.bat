@@ -20,12 +20,12 @@ if errorlevel 1 (
 
 echo [2/4] 定位前端目录...
 set FRONTEND_DIR=
-if exist fund-watchtower\frontend\package.json set FRONTEND_DIR=fund-watchtower\frontend
+if exist VectorControl\frontend\package.json set FRONTEND_DIR=VectorControl\frontend
 if exist frontend\package.json set FRONTEND_DIR=frontend
 
 if "%FRONTEND_DIR%"=="" (
   echo 未找到前端 package.json。
-  echo 预期路径：fund-watchtower\frontend\package.json 或 frontend\package.json
+  echo 预期路径：VectorControl\frontend\package.json 或 frontend\package.json
   pause
   exit /b 1
 )

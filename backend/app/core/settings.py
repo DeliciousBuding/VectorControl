@@ -10,7 +10,7 @@ try:
 except Exception:  # pragma: no cover - dotenv optional at import time
     load_dotenv = None
 
-LOGGER = logging.getLogger("fund-watchtower")
+LOGGER = logging.getLogger("vectorcontrol")
 
 ROOT_DIR = Path(__file__).resolve().parents[3]
 ENV_PATH = ROOT_DIR / ".env"

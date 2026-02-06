@@ -23,9 +23,9 @@ from app.storage.db import (
 API_TOKEN = ensure_api_token()
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
-LOGGER = logging.getLogger("fund-watchtower")
+LOGGER = logging.getLogger("vectorcontrol")
 
-app = FastAPI(title="fund-watchtower-backend", version="0.0.1")
+app = FastAPI(title="vectorcontrol-backend", version="0.0.1")
 
 
 def _today_str() -> str:
@@ -71,7 +71,7 @@ def on_startup() -> None:
 
 @app.get("/api/health")
 async def health() -> dict:
-    return {"ok": True, "service": "fund-watchtower-backend"}
+    return {"ok": True, "service": "vectorcontrol-backend"}
 
 
 @app.get("/api/config")

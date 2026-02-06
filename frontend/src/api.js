@@ -1,4 +1,4 @@
-﻿const TOKEN_STORAGE_KEY = 'fund_watchtower_token'
+const TOKEN_STORAGE_KEY = 'vectorcontrol_token'
 
 export function getStoredToken() {
   try {
