@@ -12,6 +12,7 @@ from app.core.config_loader import load_all, summarize_config
 from app.core.settings import ensure_api_token
 from app.estimator.engine import build_estimate
 from app.policy.advice import build_advice
+from app.risk.engine import build_risk_overview
 from app.storage.db import (
     create_session,
     create_user,
@@ -21,6 +22,7 @@ from app.storage.db import (
     get_user_settings,
     init_db,
     insert_action,
+    list_estimate_snapshots,
     list_actions,
     list_holdings,
     save_estimate_snapshot,
@@ -234,6 +236,28 @@ async def get_estimate(request: Request) -> dict:
     payload = build_estimate(portfolio=portfolio)
     save_estimate_snapshot(snapshot_user_id, payload["asof"], payload)
     return payload
+
+
+@app.get("/api/risk/overview")
+async def get_risk_overview(request: Request) -> dict:
+    user_id = _get_user_id(request)
+    config = getattr(app.state, "config", {})
+
+    if _is_admin(request):
+        portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+        snapshot_user_id = "admin"
+    else:
+        holdings = list_holdings(user_id)
+        portfolio = {"holdings": holdings}
+        snapshot_user_id = user_id
+
+    latest_estimate = build_estimate(portfolio=portfolio)
+    funds = latest_estimate.get("funds", []) if isinstance(latest_estimate, dict) else []
+    snapshots = list_estimate_snapshots(snapshot_user_id, limit=240)
+    risk = build_risk_overview(funds=funds, snapshots=snapshots)
+    risk["asof"] = latest_estimate.get("asof")
+    risk["holdings_count"] = len(funds)
+    return risk
 
 
 @app.get("/api/advice")

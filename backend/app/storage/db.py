@@ -624,6 +624,29 @@ def get_latest_estimate_snapshot(user_id: str) -> dict[str, Any] | None:
         return None
 
 
+def list_estimate_snapshots(user_id: str, limit: int = 120) -> list[dict[str, Any]]:
+    safe_limit = max(1, min(int(limit), 1000))
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT asof, payload_json FROM estimate_snapshot
+            WHERE user_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (user_id, safe_limit),
+        ).fetchall()
+
+    snapshots: list[dict[str, Any]] = []
+    for row in reversed(rows):
+        try:
+            payload = json.loads(str(row["payload_json"]))
+        except Exception:
+            continue
+        snapshots.append({"asof": row["asof"], "payload": payload})
+    return snapshots
+
+
 def insert_action(user_id: str, date: str, action_key: str, amount: float, done: bool) -> str:
     ts = _now_iso()
     with connect() as conn:

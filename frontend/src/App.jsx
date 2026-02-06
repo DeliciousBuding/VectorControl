@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   fetchEstimate,
+  fetchRiskOverview,
   fetchMe,
   fetchSettings,
   loginUser,
@@ -109,6 +110,15 @@ const 收益格式化 = (value) => {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '--'
   const num = Number(value)
   return `${num > 0 ? '+' : ''}${金额格式化(num)}`
+}
+
+const 风险级别文案 = (value, levels) => {
+  const num = Number(value)
+  if (!Number.isFinite(num)) return '未知'
+  for (const level of levels) {
+    if (num >= level.min && num < level.max) return level.label
+  }
+  return levels[levels.length - 1]?.label || '未知'
 }
 
 const 数据源名称映射 = {
@@ -324,6 +334,7 @@ function App() {
   const searchInputRef = useRef(null)
   const [search, setSearch] = useState('')
   const [rows, setRows] = useState([])
+  const [riskOverview, setRiskOverview] = useState(null)
   const [selectedFundId, setSelectedFundId] = useState('')
 
   const [settings, setSettings] = useState(默认设置)
@@ -414,6 +425,7 @@ function App() {
     setStoredToken('')
     setUser(null)
     setRows([])
+    setRiskOverview(null)
     setSelectedFundId('')
     setSettings(默认设置)
     setSettingsDraft(默认设置)
@@ -476,8 +488,21 @@ function App() {
       }
 
       const failed = normalized.filter((row) => row.status !== 'ok').length
+      let riskError = ''
+      try {
+        const risk = await fetchRiskOverview()
+        setRiskOverview(risk)
+      } catch (error) {
+        riskError = error?.message || '风险概览拉取失败'
+      }
+
       if (failed > 0) {
-        setStatus({ type: 'warning', message: `${自动触发 ? '自动刷新完成' : '刷新成功'}，但有 ${failed} 只基金估值异常` })
+        setStatus({
+          type: 'warning',
+          message: `${自动触发 ? '自动刷新完成' : '刷新成功'}，但有 ${failed} 只基金估值异常${riskError ? `；${riskError}` : ''}`
+        })
+      } else if (riskError) {
+        setStatus({ type: 'warning', message: `${自动触发 ? '自动刷新完成' : '刷新成功'}，但${riskError}` })
       } else if (!静默) {
         setStatus({ type: 'success', message: 自动触发 ? '自动刷新完成' : '刷新成功' })
       }
@@ -627,6 +652,32 @@ function App() {
       us: calc(美股持仓)
     }
   }, [国内持仓, 美股持仓])
+
+  const 风险浓度 = useMemo(() => {
+    const c = riskOverview?.concentration
+    if (!c) return null
+    return {
+      top1: Number(c.top1_weight_pct ?? 0),
+      top3: Number(c.top3_weight_pct ?? 0),
+      hhi: Number(c.hhi ?? 0),
+      topPositions: Array.isArray(c.top_positions) ? c.top_positions : []
+    }
+  }, [riskOverview])
+
+  const 压力测试结果 = useMemo(
+    () => (Array.isArray(riskOverview?.stress_test?.scenarios) ? riskOverview.stress_test.scenarios : []),
+    [riskOverview]
+  )
+
+  const 相关性概览 = useMemo(() => {
+    const corr = riskOverview?.correlation
+    return {
+      status: corr?.status || 'insufficient_data',
+      note: corr?.note || '暂无相关性数据',
+      points: Number(corr?.points ?? 0),
+      topPairs: Array.isArray(corr?.top_pairs) ? corr.top_pairs : []
+    }
+  }, [riskOverview])
 
   const 总体涨跌幅 = useMemo(() => {
     const valid = filteredRows.filter((row) => row.estimate_pct !== null)
@@ -1208,6 +1259,79 @@ function App() {
           <div className={分组汇总.us.totalDay > 0 ? '红色' : 分组汇总.us.totalDay < 0 ? '绿色' : ''}>
             今日：{收益格式化(分组汇总.us.totalDay)} · {分组汇总.us.count} 只
           </div>
+        </article>
+      </section>
+
+      <section className="风险区">
+        <article className="风险卡">
+          <div className="风险头">
+            <h3>风险中枢</h3>
+            <span>{riskOverview ? `版本：${riskOverview.version || 'risk-v0'}` : '未加载'}</span>
+          </div>
+          {!riskOverview && <div className="图占位">登录后刷新可查看风险分析。</div>}
+          {riskOverview && (
+            <div className="风险网格">
+              <div className="风险项">
+                <h4>集中度风险</h4>
+                <div>Top1 权重：{风险浓度 ? `${风险浓度.top1.toFixed(2)}%` : '--'}</div>
+                <div>Top3 权重：{风险浓度 ? `${风险浓度.top3.toFixed(2)}%` : '--'}</div>
+                <div>HHI：{风险浓度 ? 风险浓度.hhi.toFixed(4) : '--'}</div>
+                <div>
+                  等级：
+                  {风险浓度
+                    ? 风险级别文案(风险浓度.hhi, [
+                        { min: 0, max: 0.18, label: '低集中' },
+                        { min: 0.18, max: 0.25, label: '中集中' },
+                        { min: 0.25, max: 2, label: '高集中' }
+                      ])
+                    : '--'}
+                </div>
+              </div>
+              <div className="风险项">
+                <h4>相关性快照</h4>
+                <div>状态：{相关性概览.status === 'ok' ? '可用' : '数据不足'}</div>
+                <div>样本点：{相关性概览.points}</div>
+                <div className="风险说明">{相关性概览.note}</div>
+                {相关性概览.topPairs.length > 0 && (
+                  <div className="相关性列表">
+                    {相关性概览.topPairs.slice(0, 3).map((pair) => (
+                      <div key={`${pair.fund_a?.fund_id}-${pair.fund_b?.fund_id}`}>
+                        {pair.fund_a?.name} ↔ {pair.fund_b?.name}：{Number(pair.corr).toFixed(3)}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="风险项">
+                <h4>压力测试（情景）</h4>
+                {压力测试结果.length === 0 && <div>暂无压力测试结果</div>}
+                {压力测试结果.length > 0 && (
+                  <div className="压力列表">
+                    {压力测试结果.map((item) => (
+                      <div key={item.scenario}>
+                        <span>{item.scenario}</span>
+                        <span className={Number(item.projected_drawdown_pct) < 0 ? '绿色' : ''}>
+                          {Number(item.projected_drawdown_pct).toFixed(2)}%
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="风险项">
+                <h4>重叠/集中预警</h4>
+                {Array.isArray(riskOverview.overlap_warnings) && riskOverview.overlap_warnings.length > 0 ? (
+                  <ul className="预警列表">
+                    {riskOverview.overlap_warnings.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div>暂无结构性预警。</div>
+                )}
+              </div>
+            </div>
+          )}
         </article>
       </section>
 

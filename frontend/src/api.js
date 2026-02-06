@@ -102,3 +102,7 @@ export function saveSettings(payload) {
 export function fetchEstimate() {
   return apiFetch('/api/estimate')
 }
+
+export function fetchRiskOverview() {
+  return apiFetch('/api/risk/overview')
+}
