@@ -21,8 +21,12 @@ export function normalizeFundRows(funds) {
     const estimatePct = item.estimate_pct === null || item.estimate_pct === undefined
       ? null
       : Number(item.estimate_pct)
-    const dayProfit = estimatePct === null ? null : (marketValue * estimatePct) / 100
-    const yesterdayProfit = dayProfit === null ? null : dayProfit * 0.78
+    const dayProfit = Number.isFinite(Number(item.day_profit_cny))
+      ? Number(item.day_profit_cny)
+      : (estimatePct === null ? null : (marketValue * estimatePct) / 100)
+    const yesterdayProfit = Number.isFinite(Number(item.yesterday_profit_cny))
+      ? Number(item.yesterday_profit_cny)
+      : dayProfit
     const holdingDays = calcDays(item.start_date)
     return {
       fund_id: item.fund_id || '--',
@@ -41,6 +45,9 @@ export function normalizeFundRows(funds) {
       source: item.source || '--',
       status: item.status || 'failed',
       reason: item.reason || '',
+      as_of: item.as_of || item.asof || '',
+      updated_at: item.updated_at || '',
+      confirm_state: item.confirm_state || (item.status === 'ok' ? 'estimated' : 'partial'),
       yesterday_profit_source: item.yesterday_profit_source || 'estimated_today',
       market_group: item.market_group || 'cn_hk',
       holding_days: holdingDays,

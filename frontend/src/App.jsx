@@ -39,6 +39,8 @@ function App() {
     loading,
     lastRefresh,
     asof,
+    updatedAt,
+    confirmState,
     settings,
     refresh,
     setAutoRefreshEnabled,
@@ -286,6 +288,8 @@ function App() {
         refreshing={loading}
         lastRefresh={lastRefresh}
         asof={asof}
+        updatedAt={updatedAt}
+        confirmState={confirmState}
         searchQuery={searchQuery}
         suggestions={suggestions}
         searchLoading={searchLoading}

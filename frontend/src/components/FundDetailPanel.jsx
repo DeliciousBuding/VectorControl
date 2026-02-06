@@ -41,6 +41,7 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
   }
 
   const benchmarkName = fund.market_group === 'us_overseas' ? '纳指100' : '沪深300'
+  const confirmText = fund.confirm_state === 'confirmed' ? '已更新' : fund.confirm_state === 'partial' ? '数据不完整' : '估算中'
   const totalMarket = rows.reduce((sum, item) => sum + Number(item.market_value_cny || 0), 0)
   const holdingWeight = totalMarket > 0 ? (fund.market_value_cny / totalMarket) * 100 : 0
   const portfolioFirst = Number(portfolioSeries[0]?.value || 0)
@@ -52,7 +53,8 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
       <div className="detail-head">
         <div>
           <h3>{fund.name}</h3>
-          <p>{fund.fund_id} · 数据日期：{dateLabel}</p>
+          <p>{fund.fund_id} · 数据日期：{dateLabel} · 确认状态：{confirmText}</p>
+          <p>基金时点：{fund.as_of || '--'} · 拉取时间：{fund.updated_at || '--'}</p>
         </div>
         <div className="range-tabs">
           {rangeOptions.map((item) => (

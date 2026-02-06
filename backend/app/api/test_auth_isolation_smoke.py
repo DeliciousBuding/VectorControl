@@ -116,11 +116,17 @@ class AuthIsolationSmokeTest(unittest.TestCase):
             self.assertIn("ok", coverage)
             self.assertIn("failed", coverage)
             self.assertEqual(int(coverage["total"]), int(coverage["ok"]) + int(coverage["failed"]))
+            self.assertIn("as_of", body)
+            self.assertIn("updated_at", body)
+            self.assertIn("confirm_state", body)
 
             funds = body.get("funds", [])
             self.assertTrue(isinstance(funds, list))
             for row in funds:
                 self.assertIn("yesterday_profit_source", row)
+                self.assertIn("as_of", row)
+                self.assertIn("updated_at", row)
+                self.assertIn("confirm_state", row)
 
 
 if __name__ == "__main__":

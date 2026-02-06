@@ -47,6 +47,8 @@ export function usePortfolio({ user, sorter }) {
   const [loading, setLoading] = useState(false)
   const [lastRefresh, setLastRefresh] = useState('--')
   const [asof, setAsof] = useState('--')
+  const [updatedAt, setUpdatedAt] = useState('--')
+  const [confirmState, setConfirmState] = useState('estimated')
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [settingsReady, setSettingsReady] = useState(false)
   const loadingRef = useRef(false)
@@ -69,7 +71,9 @@ export function usePortfolio({ user, sorter }) {
 
       const normalized = normalizeFundRows(payload.funds)
       setRows(normalized)
-      setAsof(payload?.asof || '--')
+      setAsof(payload?.as_of || payload?.asof || '--')
+      setUpdatedAt(payload?.updated_at || '--')
+      setConfirmState(payload?.confirm_state || 'estimated')
       setLastRefresh(formatDateTime())
 
       const failedCount = normalized.filter((item) => item.status !== 'ok').length
@@ -116,6 +120,8 @@ export function usePortfolio({ user, sorter }) {
       setRiskOverview(null)
       setLastRefresh('--')
       setAsof('--')
+      setUpdatedAt('--')
+      setConfirmState('estimated')
       setSettingsReady(false)
       setSettings(DEFAULT_SETTINGS)
       setStatus({ type: 'info', message: '请先登录' })
@@ -198,6 +204,8 @@ export function usePortfolio({ user, sorter }) {
     loading,
     lastRefresh,
     asof,
+    updatedAt,
+    confirmState,
     settings,
     refresh,
     setAutoRefreshEnabled,

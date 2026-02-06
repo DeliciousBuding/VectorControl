@@ -6,6 +6,8 @@ export function TopToolbar({
   refreshing,
   lastRefresh,
   asof,
+  updatedAt,
+  confirmState,
   searchQuery,
   suggestions,
   searchLoading,
@@ -17,6 +19,11 @@ export function TopToolbar({
   onOpenSettings,
   onLogout
 }) {
+  const confirmText = confirmState === 'confirmed'
+    ? '已更新'
+    : confirmState === 'partial'
+      ? '数据不完整'
+      : '估算中'
   return (
     <header className="panel top-toolbar">
       <div className="brand-block">
@@ -70,6 +77,8 @@ export function TopToolbar({
           <StatusPill status={status} />
           <span>上次刷新：{lastRefresh}</span>
           <span>数据时点：{asof}</span>
+          <span>拉取时间：{updatedAt}</span>
+          <span>确认状态：{confirmText}</span>
         </div>
       </div>
     </header>

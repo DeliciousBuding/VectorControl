@@ -164,7 +164,9 @@ def build_estimate(
     confirmed_yesterday_profit: dict[str, float] | None = None,
 ) -> dict[str, Any]:
     provider = provider or EastMoneyQuoteProvider()
-    asof = datetime.now(timezone.utc).isoformat()
+    now_utc = datetime.now(timezone.utc)
+    asof = now_utc.isoformat()
+    updated_at = asof
     today_local = datetime.now().astimezone().date()
 
     holdings = _portfolio_holdings(portfolio)
@@ -244,6 +246,13 @@ def build_estimate(
         else:
             yesterday_profit_cny = day_profit_cny
 
+        if status != "ok":
+            confirm_state = "partial"
+        elif yesterday_profit_source == "confirmed":
+            confirm_state = "confirmed"
+        else:
+            confirm_state = "estimated"
+
         fund_row = {
             "fund_id": fund_id,
             "name": name,
@@ -264,7 +273,10 @@ def build_estimate(
             "reason": reason,
             "source": source,
             "asof": quote_asof,
+            "as_of": quote_asof,
             "quote_asof": quote_asof,
+            "updated_at": updated_at,
+            "confirm_state": confirm_state,
             "tags": tags,
             "market_group": market_group,
         }
@@ -275,9 +287,20 @@ def build_estimate(
     total_count = len(per_fund)
     ok_count = sum(1 for row in per_fund if row.get("status") == "ok")
     failed_count = total_count - ok_count
+    has_partial = any(str(row.get("confirm_state")) == "partial" for row in per_fund)
+    has_estimated = any(str(row.get("confirm_state")) == "estimated" for row in per_fund)
+    if has_partial:
+        top_confirm_state = "partial"
+    elif has_estimated:
+        top_confirm_state = "estimated"
+    else:
+        top_confirm_state = "confirmed"
 
     return {
         "asof": asof,
+        "as_of": asof,
+        "updated_at": updated_at,
+        "confirm_state": top_confirm_state,
         "buckets": buckets,
         "funds": per_fund,
         "coverage": {
