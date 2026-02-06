@@ -1,13 +1,46 @@
-﻿funds:
-  - fund_id: morgan_nasdaq_a
-    name: 摩根纳指A
+funds:
+  - fund_id: "016453"
+    name: 南方纳斯达克100指数(QDII)C
     bucket: tech
-  - fund_id: morgan_nasdaq_c
-    name: 摩根纳指C
+    type: qdii_index
+    tags: ["nasdaq", "qdii"]
+  - fund_id: "019173"
+    name: 摩根纳斯达克100指数(QDII)C
     bucket: tech
-  - fund_id: nanfang_nasdaq
-    name: 南方纳指
+    type: qdii_index
+    tags: ["nasdaq", "qdii"]
+  - fund_id: "019172"
+    name: 摩根纳斯达克100指数(QDII)A
     bucket: tech
-  - fund_id: caitong_consumer
-    name: 财通品质消费
+    type: qdii_index
+    tags: ["nasdaq", "qdii"]
+  - fund_id: "016533"
+    name: 嘉实纳斯达克100ETF联接(QDII)C
+    bucket: tech
+    type: qdii_index
+    tags: ["nasdaq", "qdii", "etf_linked"]
+  - fund_id: "018043"
+    name: 天弘纳斯达克100指数(QDII)A
+    bucket: tech
+    type: qdii_index
+    tags: ["nasdaq", "qdii"]
+  - fund_id: "018388"
+    name: 华泰柏瑞中证港股通红利ETF联接C
+    bucket: dividend
+    type: index
+    tags: ["dividend", "hk"]
+  - fund_id: "018439"
+    name: 财通资管品质消费混合C
     bucket: consumer
+    type: active
+    tags: ["consumer"]
+  - fund_id: "013491"
+    name: 同泰金融精选股票C
+    bucket: consumer
+    type: active
+    tags: ["satellite"]
+  - fund_id: "024203"
+    name: 永赢制造升级智选混合C
+    bucket: manufacturing
+    type: active
+    tags: ["manufacturing"]

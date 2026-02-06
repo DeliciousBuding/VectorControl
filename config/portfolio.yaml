@@ -1,25 +1,64 @@
-﻿holdings:
-  - fund_id: morgan_nasdaq_a
-    name: 摩根纳指A
+holdings:
+  - fund_id: "016453"
+    name: 南方纳斯达克100指数(QDII)C
     bucket: tech
-    shares: 0
-    cost: 0
-    start_date: "2024-01-01"
-  - fund_id: morgan_nasdaq_c
-    name: 摩根纳指C
-    bucket: tech
-    shares: 0
-    cost: 0
-    start_date: "2024-01-01"
-  - fund_id: nanfang_nasdaq
-    name: 南方纳指
-    bucket: tech
-    shares: 0
-    cost: 0
-    start_date: "2024-01-01"
-  - fund_id: caitong_consumer
-    name: 财通品质消费
+    market_value_cny: 90.00
+    cost_basis_cny: 90.00
+    start_date: "2026-02-06"
+    tags: ["nasdaq", "qdii"]
+  - fund_id: "024203"
+    name: 永赢制造升级智选混合C
+    bucket: manufacturing
+    market_value_cny: 317.03
+    cost_basis_cny: 335.78
+    start_date: "2026-02-06"
+    tags: ["manufacturing", "active"]
+  - fund_id: "013491"
+    name: 同泰金融精选股票C
     bucket: consumer
-    shares: 0
-    cost: 0
-    start_date: "2024-01-01"
+    market_value_cny: 50.00
+    cost_basis_cny: 50.00
+    start_date: "2026-02-06"
+    tags: ["active", "satellite"]
+  - fund_id: "019173"
+    name: 摩根纳斯达克100指数(QDII)C
+    bucket: tech
+    market_value_cny: 194.46
+    cost_basis_cny: 200.00
+    start_date: "2026-02-06"
+    tags: ["nasdaq", "qdii"]
+  - fund_id: "019172"
+    name: 摩根纳斯达克100指数(QDII)A
+    bucket: tech
+    market_value_cny: 213.55
+    cost_basis_cny: 220.00
+    start_date: "2026-02-06"
+    tags: ["nasdaq", "qdii"]
+  - fund_id: "018439"
+    name: 财通资管品质消费混合C
+    bucket: consumer
+    market_value_cny: 2337.84
+    cost_basis_cny: 2340.00
+    start_date: "2026-02-06"
+    tags: ["consumer", "active"]
+  - fund_id: "016533"
+    name: 嘉实纳斯达克100ETF联接(QDII)C
+    bucket: tech
+    market_value_cny: 204.86
+    cost_basis_cny: 210.00
+    start_date: "2026-02-06"
+    tags: ["nasdaq", "qdii", "etf_linked"]
+  - fund_id: "018388"
+    name: 华泰柏瑞中证港股通红利ETF联接C
+    bucket: dividend
+    market_value_cny: 123.54
+    cost_basis_cny: 119.63
+    start_date: "2026-02-06"
+    tags: ["dividend", "hk"]
+  - fund_id: "018043"
+    name: 天弘纳斯达克100指数(QDII)A
+    bucket: tech
+    market_value_cny: 264.07
+    cost_basis_cny: 273.32
+    start_date: "2026-02-06"
+    tags: ["nasdaq", "qdii"]
