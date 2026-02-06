@@ -6,6 +6,8 @@ export function TopToolbar({
   refreshing,
   lastRefresh,
   asof,
+  searchQuery,
+  onSearchChange,
   autoRefreshEnabled,
   onRefresh,
   onToggleAutoRefresh,
@@ -23,6 +25,17 @@ export function TopToolbar({
       </div>
 
       <div className="toolbar-actions">
+        <div className="toolbar-row">
+          <label className="toolbar-search">
+            <span>全局搜索</span>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(event) => onSearchChange(event.target.value)}
+              placeholder="输入基金代码/名称/拼音"
+            />
+          </label>
+        </div>
         <div className="toolbar-row">
           <span>当前用户：{user?.username || '--'}</span>
           <button type="button" className="primary" onClick={onRefresh} disabled={refreshing}>

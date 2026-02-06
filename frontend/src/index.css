@@ -151,6 +151,27 @@ select {
   font-size: 16px;
 }
 
+.toolbar-search {
+  min-width: min(100%, 460px);
+  display: grid;
+  gap: 6px;
+}
+
+.toolbar-search span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.toolbar-search input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #fff;
+}
+
 button {
   border: none;
   border-radius: 10px;
@@ -212,6 +233,14 @@ button:disabled {
   background: #fef2f2;
 }
 
+.bottom-tabs {
+  margin-top: 14px;
+  padding: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
 .summary-grid {
   margin-top: 16px;
   display: grid;
@@ -246,6 +275,82 @@ button:disabled {
 .holdings-main {
   margin-top: 16px;
   padding: 16px;
+}
+
+.home-main {
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.todo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.todo-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 14px;
+  background: #f8fbff;
+  display: grid;
+  gap: 10px;
+}
+
+.todo-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.todo-card p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.watch-list {
+  display: grid;
+  gap: 10px;
+}
+
+.watch-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.watch-item h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.watch-item p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.watch-profit {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+.trade-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.trade-tip {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: 14px;
 }
 
 .section-head {
@@ -672,6 +777,10 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .todo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -686,10 +795,16 @@ button:disabled {
     justify-content: flex-start;
   }
 
+  .bottom-tabs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .brand-block h1 {
     font-size: 32px;
   }
 
+  .todo-grid,
+  .trade-grid,
   .summary-grid,
   .risk-grid,
   .metric-grid {
