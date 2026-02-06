@@ -49,26 +49,30 @@ export function normalizeFundRows(funds) {
 }
 
 export function sortRows(rows, sorter) {
-  const next = [...rows]
+  const next = rows.map((item, index) => ({ item, index }))
   const { key, order } = sorter || {}
-  if (!key || !order) return next
+  if (!key || !order) return next.map((entry) => entry.item)
   const direction = order === 'asc' ? 1 : -1
 
   next.sort((a, b) => {
-    const va = a[key]
-    const vb = b[key]
+    const va = a.item[key]
+    const vb = b.item[key]
     if (key === 'name') {
-      return String(va || '').localeCompare(String(vb || ''), 'zh-CN') * direction
+      const compare = String(va || '').localeCompare(String(vb || ''), 'zh-CN')
+      if (compare !== 0) return compare * direction
+      return a.index - b.index
     }
 
     const na = Number(va)
     const nb = Number(vb)
-    if (!Number.isFinite(na) && !Number.isFinite(nb)) return 0
+    if (!Number.isFinite(na) && !Number.isFinite(nb)) return a.index - b.index
     if (!Number.isFinite(na)) return 1
     if (!Number.isFinite(nb)) return -1
-    return (na - nb) * direction
+    const compare = (na - nb) * direction
+    if (compare !== 0) return compare
+    return a.index - b.index
   })
-  return next
+  return next.map((entry) => entry.item)
 }
 
 export function cycleSortState(current, nextKey) {

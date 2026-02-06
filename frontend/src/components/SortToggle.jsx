@@ -1,11 +1,11 @@
-export function SortToggle({ active, order, onToggle }) {
-  const upClass = active && order === 'asc' ? 'triangle active' : 'triangle'
-  const downClass = active && order === 'desc' ? 'triangle active' : 'triangle'
+export function SortToggle({ active, order }) {
+  const upClass = active && order === 'asc' ? 'triangle up active' : 'triangle up'
+  const downClass = active && order === 'desc' ? 'triangle down active' : 'triangle down'
 
   return (
-    <button type="button" className="sort-toggle" onClick={onToggle} aria-label="切换排序">
-      <span className={`${upClass} up`} />
-      <span className={`${downClass} down`} />
-    </button>
+    <span className="sort-toggle" aria-hidden="true">
+      <span className={upClass} />
+      <span className={downClass} />
+    </span>
   )
 }
