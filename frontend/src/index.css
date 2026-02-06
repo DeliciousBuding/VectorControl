@@ -345,6 +345,14 @@ button.refresh {
   line-height: 1.5;
 }
 
+.report-line {
+  margin: 0 0 8px;
+}
+
+.report-line:last-child {
+  margin-bottom: 0;
+}
+
 @media (max-width: 900px) {
   .topbar {
     grid-template-columns: 1fr;
