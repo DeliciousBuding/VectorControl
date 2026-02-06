@@ -47,7 +47,7 @@ export function MultiLineChart({
       <svg className="chart" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={yLabel}>
         {yLines.map((tick) => (
           <g key={tick.value}>
-            <line x1={padding.left} y1={tick.y} x2={width - padding.right} y2={tick.y} stroke="#e2e8f0" strokeWidth="1" />
+            <line x1={padding.left} y1={tick.y} x2={width - padding.right} y2={tick.y} stroke="var(--chart-grid)" strokeWidth="1" />
             <text x={padding.left - 8} y={tick.y + 4} textAnchor="end" className="chart-y-label">
               {tick.value.toFixed(2)}
             </text>

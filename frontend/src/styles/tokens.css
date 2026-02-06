@@ -13,6 +13,16 @@
   --color-error: #dc2626;
   --color-info: #0369a1;
 
+  /* 图表颜色 Token */
+  --chart-up: #dc2626;
+  --chart-down: #0f766e;
+  --chart-neutral: #64748b;
+  --chart-grid: #e2e8f0;
+  --chart-benchmark-up: #ef4444;
+  --chart-benchmark-down: #14b8a6;
+  --chart-user-up: #b91c1c;
+  --chart-user-down: #0d9488;
+
   /* 字号与行高 Token */
   --font-size-h1: 24px;
   --line-height-h1: 32px;

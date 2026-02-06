@@ -21,6 +21,11 @@ select {
   font-family: inherit;
 }
 
+.numeric-tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
 .page-shell {
   max-width: 1480px;
   margin: 0 auto;
@@ -307,6 +312,20 @@ button:disabled {
   display: block;
   margin-top: 4px;
   font-size: 16px;
+}
+
+.summary-card strong,
+.summary-card span,
+.dual-value .main,
+.dual-value .sub,
+.metric-main,
+.metric-sub,
+.watch-profit,
+.record-side strong,
+.chart-y-label,
+.chart-x-label {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
 .summary-skeleton {

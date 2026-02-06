@@ -18,12 +18,12 @@ export function SparklineMini({ points = [] }) {
     .map((item, index) => `${index === 0 ? 'M' : 'L'} ${xAt(index).toFixed(1)} ${yAt(item.value).toFixed(1)}`)
     .join(' ')
   const last = values[values.length - 1]
-  const color = last >= 0 ? '#dc2626' : '#0f766e'
+  const color = last >= 0 ? 'var(--chart-up)' : 'var(--chart-down)'
   const zeroY = yAt(0)
 
   return (
     <svg className="sparkline" viewBox={`0 0 ${width} ${height}`} role="img" aria-label="基金走势缩略图">
-      <line x1={0} x2={width} y1={zeroY} y2={zeroY} stroke="#94a3b8" strokeDasharray="3 2" strokeWidth="1" />
+      <line x1={0} x2={width} y1={zeroY} y2={zeroY} stroke="var(--chart-neutral)" strokeDasharray="3 2" strokeWidth="1" />
       <path d={path} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" />
     </svg>
   )

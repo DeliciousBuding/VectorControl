@@ -13,7 +13,7 @@ function Metric({ label, main, sub, mainClass = '', subClass = '' }) {
   )
 }
 
-function pickColor(value, up = '#dc2626', down = '#0f766e') {
+function pickColor(value, up = 'var(--chart-up)', down = 'var(--chart-down)') {
   return Number(value) >= 0 ? up : down
 }
 
@@ -50,18 +50,18 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
   const portfolioMove = portfolioLast - portfolioFirst
 
   const trendLines = [
-    { key: 'fund', color: pickColor(lastValue(trendSeries, 'fund'), '#dc2626', '#0f766e'), width: 2.2 },
-    { key: 'costLine', color: '#64748b', width: 1.2 }
+    { key: 'fund', color: pickColor(lastValue(trendSeries, 'fund')), width: 2.2 },
+    { key: 'costLine', color: 'var(--chart-neutral)', width: 1.2 }
   ]
   if (showExtendedLines) {
     trendLines.splice(1, 0, {
       key: 'benchmark',
-      color: pickColor(lastValue(trendSeries, 'benchmark'), '#ef4444', '#14b8a6'),
+      color: pickColor(lastValue(trendSeries, 'benchmark'), 'var(--chart-benchmark-up)', 'var(--chart-benchmark-down)'),
       width: 2
     })
     trendLines.splice(2, 0, {
       key: 'userProfit',
-      color: pickColor(lastValue(trendSeries, 'userProfit'), '#b91c1c', '#0d9488'),
+      color: pickColor(lastValue(trendSeries, 'userProfit'), 'var(--chart-user-up)', 'var(--chart-user-down)'),
       width: 2
     })
   }
@@ -114,8 +114,8 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
         <MultiLineChart
           data={daySeries}
           lines={[
-            { key: 'fund', color: pickColor(lastValue(daySeries, 'fund'), '#dc2626', '#0f766e'), width: 2.4 },
-            { key: 'zero', color: '#64748b', width: 1.2 }
+            { key: 'fund', color: pickColor(lastValue(daySeries, 'fund')), width: 2.4 },
+            { key: 'zero', color: 'var(--chart-neutral)', width: 1.2 }
           ]}
           dashedKeys={['zero']}
           yLabel="当日收益率曲线"
@@ -140,8 +140,8 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
         <MultiLineChart
           data={portfolioSeries}
           lines={[
-            { key: 'value', color: pickColor(portfolioMove, '#dc2626', '#0f766e'), width: 2.4 },
-            { key: 'cost', color: '#64748b', width: 1.2 }
+            { key: 'value', color: pickColor(portfolioMove), width: 2.4 },
+            { key: 'cost', color: 'var(--chart-neutral)', width: 1.2 }
           ]}
           dashedKeys={['cost']}
           yLabel="组合持仓曲线"
