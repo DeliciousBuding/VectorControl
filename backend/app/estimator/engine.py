@@ -33,7 +33,7 @@ def _portfolio_holdings(portfolio: dict[str, Any] | None) -> list[dict[str, Any]
 
 
 def _market_value(item: dict[str, Any]) -> float:
-    # Priority: explicit market value, then fallback to cost basis/cost.
+    # 优先读取显式市值字段，其次回退到成本字段。
     for key in ("market_value_cny", "market_value", "cost_basis_cny", "cost_basis", "cost"):
         value = _to_float(item.get(key))
         if value is not None and value > 0:
@@ -47,7 +47,7 @@ def _bucket_summary(bucket: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
             "bucket": bucket,
             "estimate_pct": 0.0,
             "confidence": "low",
-            "note": "no holdings configured",
+            "note": "未配置持仓",
         }
 
     valid = [row for row in rows if isinstance(row.get("estimate_pct"), float)]
@@ -56,7 +56,7 @@ def _bucket_summary(bucket: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
             "bucket": bucket,
             "estimate_pct": 0.0,
             "confidence": "low",
-            "note": "no quote data",
+            "note": "无可用估值数据",
         }
 
     use_market_weight = any(float(row.get("market_value_cny", 0.0)) > 0 for row in valid)
@@ -85,7 +85,7 @@ def _bucket_summary(bucket: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
 
     source_counter = Counter(str(row.get("source", "unknown")) for row in valid)
     top_source = source_counter.most_common(1)[0][0] if source_counter else "unknown"
-    note = f"{len(valid)}/{len(rows)} funds, source={top_source}"
+    note = f"{len(valid)}/{len(rows)} 只基金有效，主来源={top_source}"
 
     return {
         "bucket": bucket,
@@ -116,21 +116,34 @@ def build_estimate(
         market_value = _market_value(item)
 
         quote: dict[str, Any] | None = None
+        request_error = ""
         if fund_id:
             try:
                 quote = provider.get_fund_quote(fund_id)
-            except Exception:
+            except Exception as exc:
+                request_error = f"请求异常: {exc.__class__.__name__}"
                 quote = None
 
         estimate_pct = None
         source = "none"
         quote_asof = ""
+        status = "failed"
+        reason = request_error
         if isinstance(quote, dict):
             value = _to_float(quote.get("estimate_pct"))
             if value is not None:
                 estimate_pct = float(value)
+                status = "ok"
+                reason = ""
+            else:
+                reason = "估值字段缺失"
             source = str(quote.get("source", "unknown"))
             quote_asof = str(quote.get("asof", ""))
+        elif not reason:
+            reason = "未获取到估值"
+
+        if not fund_id:
+            reason = "缺少基金代码"
 
         fund_row = {
             "fund_id": fund_id,
@@ -138,7 +151,10 @@ def build_estimate(
             "bucket": bucket,
             "market_value_cny": round(market_value, 2),
             "estimate_pct": estimate_pct,
+            "status": status,
+            "reason": reason,
             "source": source,
+            "asof": quote_asof,
             "quote_asof": quote_asof,
         }
         per_fund.append(fund_row)

@@ -1,33 +1,33 @@
-﻿# Fund Watchtower Frontend
+# Fund Watchtower 前端
 
-F5 delivers `/api/report/daily` integration for the daily review preview while keeping the single-page layout.
+当前前端已完成 F5：在单页看板中接入 `/api/report/daily`，并保留手动刷新与执行记录能力。
 
-## Requirements
-- Node.js 18+ (includes npm).
+## 环境要求
+- Node.js 18+（包含 npm）。
 
-## Local Dev
+## 本地开发
 ```bash
 npm install
-npm run dev
+npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-## Build
+## 打包构建
 ```bash
 npm run build
 ```
 
-Vite outputs static assets to `dist/` for backend hosting.
+构建产物输出到 `dist/`，可用于后端静态托管。
 
-## API Integration Notes
-- Use relative paths only (e.g., `/api/estimate`, `/api/advice`, `/api/actions`, `/api/report/daily`).
-- Token is stored in `localStorage` key `fund_watchtower_token`.
-- Query fallback supported: `?token=YOUR_TOKEN`.
-- Requests include `Authorization: Bearer <token>` when available.
-- Manual refresh only. Errors surface in the status bar.
+## 接口对接约定
+- 仅使用相对路径，例如：`/api/estimate`、`/api/advice`、`/api/actions`、`/api/report/daily`。
+- token 保存在 `localStorage`，键名：`fund_watchtower_token`。
+- 支持查询参数兜底：`?token=YOUR_TOKEN`。
+- 若存在 token，请求自动附带 `Authorization: Bearer <token>`。
+- 仅手动刷新；接口异常在状态栏展示。
 
-## UI Sections
-- Top bar: title, token input, refresh button, last refresh time.
-- Four-ship board: data from `/api/estimate` buckets.
-- 今日指令: actions from `/api/advice`.
-- 执行记录: checkboxes loaded/saved via `/api/actions`.
-- 复盘预览: summary + sections from `/api/report/daily`.
+## 页面结构
+- 顶栏：标题、token 输入、刷新按钮、上次刷新时间。
+- 四船看板：渲染 `/api/estimate` 的 `buckets`。
+- 今日指令：渲染 `/api/advice` 的 `actions`。
+- 执行记录：通过 `/api/actions` 读写勾选状态。
+- 复盘预览：渲染 `/api/report/daily` 的 `summary` 与 `sections`。

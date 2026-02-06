@@ -7,4 +7,4 @@ from typing import Any
 class QuoteProvider(ABC):
     @abstractmethod
     def get_fund_quote(self, fund_id: str) -> dict[str, Any] | None:
-        """Return quote info for one fund. None means unavailable."""
+        """返回单只基金估值信息；返回 None 表示当前不可用。"""

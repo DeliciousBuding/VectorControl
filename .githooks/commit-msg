@@ -1,0 +1,17 @@
+#!/bin/sh
+
+MSG_FILE="$1"
+MSG="$(cat "$MSG_FILE")"
+
+if [ -z "$(printf '%s' "$MSG" | tr -d '[:space:]')" ]; then
+  echo "提交失败：提交信息不能为空。"
+  exit 1
+fi
+
+if ! printf '%s' "$MSG" | grep -Eq '[一-龥]'; then
+  echo "提交失败：提交信息必须包含中文。"
+  echo "示例：功能：新增估值回退逻辑"
+  exit 1
+fi
+
+exit 0
