@@ -141,3 +141,16 @@ def list_actions(date: str) -> list[dict[str, Any]]:
         }
         for row in rows
     ]
+
+
+def get_latest_estimate_snapshot() -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT payload_json FROM estimate_snapshot ORDER BY id DESC LIMIT 1"
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        return json.loads(row["payload_json"])
+    except Exception:
+        return None
