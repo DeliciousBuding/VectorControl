@@ -285,12 +285,59 @@ function App() {
     <div className="page">
       <header className="topbar">
         <div className="brand">
-          <div className="title">Fund Watchtower</div>
-          <div className="subtitle">单页盯盘看板 · 手动刷新</div>
+          <div className="brand-icon">FW</div>
+          <div>
+            <div className="title">Fund Watchtower</div>
+            <div className="subtitle">单页盯盘看板 · 手动刷新</div>
+          </div>
         </div>
-        <div className="control-panel">
+        <label className="searchbar">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+          <input type="text" placeholder="搜索基金代码 / 名称..." />
+        </label>
+        <div className="nav-actions">
+          <button className="icon-button" type="button" aria-label="通知">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2c0 .53-.21 1.04-.6 1.41L4 17h5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M9 17a3 3 0 006 0"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+          <div className="avatar" aria-hidden="true" />
+        </div>
+      </header>
+
+      <section className="control-panel">
+        <div className="control-header">
+          <div>
+            <div className="control-title">API Token</div>
+            <div className="control-subtitle">保存后用于访问后端接口</div>
+          </div>
+          <div className={`status ${status.type}`}>状态：{status.message}</div>
+        </div>
+        <div className="control-body">
           <label className="token-input">
-            <span>API Token</span>
             <input
               type="password"
               placeholder="粘贴或输入 Token"
@@ -307,9 +354,8 @@ function App() {
             </button>
             <span className="last-refresh">上次刷新：{lastRefresh}</span>
           </div>
-          <div className={`status ${status.type}`}>状态：{status.message}</div>
         </div>
-      </header>
+      </section>
 
       <main className="content">
         <section className="panel">
