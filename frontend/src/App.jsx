@@ -28,6 +28,7 @@ function App() {
   const [reportSummary, setReportSummary] = useState('')
   const [assetReadyMs, setAssetReadyMs] = useState(0)
   const [assetTimedOut, setAssetTimedOut] = useState(false)
+  const [skeletonLock, setSkeletonLock] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const firstLoadStartRef = useRef(0)
 
@@ -201,6 +202,18 @@ function App() {
   }, [user])
 
   useEffect(() => {
+    if (!user) {
+      setSkeletonLock(false)
+      return
+    }
+    setSkeletonLock(true)
+    const timer = window.setTimeout(() => {
+      setSkeletonLock(false)
+    }, 3000)
+    return () => window.clearTimeout(timer)
+  }, [user])
+
+  useEffect(() => {
     if (!user || rows.length === 0 || assetReadyMs > 0) return
     const elapsed = Math.round(performance.now() - firstLoadStartRef.current)
     setAssetReadyMs(elapsed)
@@ -328,6 +341,9 @@ function App() {
                 <p>{listMetrics().length} 条</p>
               </article>
             </div>
+            {!assetTimedOut && (loading || skeletonLock) && (
+              <div className="chart-empty">骨架加载中，正在准备首屏数据...</div>
+            )}
             {assetTimedOut && (
               <div className="chart-empty">
                 首屏数据超过 5 秒未完成，请检查后端连接或外部数据源状态。
