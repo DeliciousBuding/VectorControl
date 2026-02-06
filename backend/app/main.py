@@ -1,14 +1,23 @@
 ﻿from __future__ import annotations
 
 import logging
+from datetime import datetime
 from fastapi import FastAPI, Request
+from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
 from app.core.config_loader import load_all, summarize_config
 from app.core.settings import ensure_api_token
 from app.estimator.engine import build_estimate
 from app.policy.advice import build_advice
-from app.storage.db import init_db, list_holdings, save_estimate_snapshot, seed_holdings
+from app.storage.db import (
+    init_db,
+    insert_action,
+    list_actions,
+    list_holdings,
+    save_estimate_snapshot,
+    seed_holdings,
+)
 
 API_TOKEN = ensure_api_token()
 
@@ -16,6 +25,17 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 LOGGER = logging.getLogger("fund-watchtower")
 
 app = FastAPI(title="fund-watchtower-backend", version="0.0.1")
+
+
+def _today_str() -> str:
+    return datetime.now().astimezone().date().isoformat()
+
+
+class ActionIn(BaseModel):
+    date: str | None = None
+    action_key: str
+    amount: float
+    done: bool
 
 
 def _extract_token(request: Request) -> str | None:
@@ -73,3 +93,28 @@ async def get_advice() -> dict:
     holdings = list_holdings()
     policy = config.get("policy", {}) if isinstance(config, dict) else {}
     return build_advice(estimate, holdings, policy)
+
+
+@app.get("/api/actions")
+async def get_actions(date: str | None = None) -> dict:
+    date_str = date or _today_str()
+    actions = list_actions(date_str)
+    return {"date": date_str, "actions": actions}
+
+
+@app.post("/api/actions")
+async def post_actions(payload: ActionIn) -> dict:
+    date_str = payload.date or _today_str()
+    ts = insert_action(date_str, payload.action_key, payload.amount, payload.done)
+    return {
+        "date": date_str,
+        "actions": [
+            {
+                "action_key": payload.action_key,
+                "amount": payload.amount,
+                "done": payload.done,
+                "ts": ts,
+            }
+        ],
+    }
+
