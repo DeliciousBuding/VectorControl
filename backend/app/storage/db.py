@@ -244,6 +244,9 @@ def _default_user_settings() -> dict[str, Any]:
             "auto_refresh_enabled": False,
             "auto_refresh_seconds": 60,
             "auto_refresh_visible_only": True,
+            "favorite_fund_ids": [],
+            "only_favorites": False,
+            "table_density": "comfortable",
         },
         "notifications": {
             "feishu": {

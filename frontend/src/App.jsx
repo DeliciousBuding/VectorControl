@@ -22,7 +22,10 @@ const 默认设置 = {
     auto_select_fund: true,
     auto_refresh_enabled: false,
     auto_refresh_seconds: 60,
-    auto_refresh_visible_only: true
+    auto_refresh_visible_only: true,
+    favorite_fund_ids: [],
+    only_favorites: false,
+    table_density: 'comfortable'
   },
   notifications: {
     feishu: {
@@ -61,6 +64,7 @@ const 排序项 = [
   { key: 'day_profit_desc', label: '按今日收益（高到低）' },
   { key: 'holding_profit_desc', label: '按持有收益（高到低）' },
   { key: 'estimate_desc', label: '按涨跌幅（高到低）' },
+  { key: 'favorite_first', label: '按收藏优先' },
   { key: 'name_asc', label: '按名称（A-Z）' }
 ]
 
@@ -200,6 +204,7 @@ function App() {
   const [lastAutoRefresh, setLastAutoRefresh] = useState('--')
   const [refreshing, setRefreshing] = useState(false)
   const refreshingRef = useRef(false)
+  const searchInputRef = useRef(null)
   const [search, setSearch] = useState('')
   const [rows, setRows] = useState([])
   const [selectedFundId, setSelectedFundId] = useState('')
@@ -217,6 +222,11 @@ function App() {
     if (!Number.isFinite(raw)) return 60
     return Math.min(600, Math.max(15, Math.round(raw)))
   }, [settings.display.auto_refresh_seconds])
+
+  const 收藏基金集合 = useMemo(
+    () => new Set(Array.isArray(settings.display.favorite_fund_ids) ? settings.display.favorite_fund_ids : []),
+    [settings.display.favorite_fund_ids]
+  )
 
   const 应用设置 = (nextSettings) => {
     setFilterMode(nextSettings.display.filter_mode || 'all')
@@ -376,6 +386,62 @@ function App() {
     刷新数据
   ])
 
+  const 更新展示设置并持久化 = useCallback(async (patch, successMessage = '') => {
+    const next = {
+      ...settings,
+      display: {
+        ...settings.display,
+        ...patch
+      }
+    }
+    setSettings(next)
+    setSettingsDraft((prev) => ({
+      ...prev,
+      display: {
+        ...prev.display,
+        ...patch
+      }
+    }))
+    try {
+      const response = await saveSettings({ settings: next })
+      const merged = 合并对象(默认设置, response?.settings || next)
+      setSettings(merged)
+      setSettingsDraft((prev) => ({
+        ...prev,
+        display: merged.display
+      }))
+      if (successMessage) {
+        setStatus({ type: 'success', message: successMessage })
+      }
+    } catch (error) {
+      setStatus({ type: 'error', message: error?.message || '设置保存失败' })
+    }
+  }, [settings])
+
+  useEffect(() => {
+    if (!user) return undefined
+
+    const onKeyDown = (event) => {
+      const target = event.target
+      const tag = target?.tagName || ''
+      if (target?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
+
+      if (event.key === '/') {
+        event.preventDefault()
+        searchInputRef.current?.focus()
+        return
+      }
+
+      if ((event.key === 'r' || event.key === 'R') && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        event.preventDefault()
+        void 刷新数据()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [user, 刷新数据])
+
   const filteredRows = useMemo(() => {
     let result = [...rows]
 
@@ -392,21 +458,33 @@ function App() {
       result = result.filter((row) => row.status !== 'ok')
     }
 
+    if (settings.display.only_favorites) {
+      result = result.filter((row) => 收藏基金集合.has(row.fund_id))
+    }
+
     const sortBy = sortMode || 'market_value_desc'
     result.sort((a, b) => {
       if (sortBy === 'market_value_desc') return b.market_value_cny - a.market_value_cny
       if (sortBy === 'day_profit_desc') return 数值化(b.day_profit_cny) - 数值化(a.day_profit_cny)
       if (sortBy === 'holding_profit_desc') return b.holding_profit_cny - a.holding_profit_cny
       if (sortBy === 'estimate_desc') return 数值化(b.estimate_pct, -999) - 数值化(a.estimate_pct, -999)
+      if (sortBy === 'favorite_first') {
+        const aFav = 收藏基金集合.has(a.fund_id) ? 1 : 0
+        const bFav = 收藏基金集合.has(b.fund_id) ? 1 : 0
+        if (bFav !== aFav) return bFav - aFav
+        return b.market_value_cny - a.market_value_cny
+      }
       if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'zh-Hans-CN')
       return 0
     })
 
     return result
-  }, [rows, search, filterMode, sortMode])
+  }, [rows, search, filterMode, sortMode, settings.display.only_favorites, 收藏基金集合])
 
   const 国内持仓 = useMemo(() => filteredRows.filter((row) => row.market_group !== 'us_overseas'), [filteredRows])
   const 美股持仓 = useMemo(() => filteredRows.filter((row) => row.market_group === 'us_overseas'), [filteredRows])
+  const 异常基金数量 = useMemo(() => rows.filter((row) => row.status !== 'ok').length, [rows])
+  const 收藏基金数量 = useMemo(() => rows.filter((row) => 收藏基金集合.has(row.fund_id)).length, [rows, 收藏基金集合])
 
   const 汇总 = useMemo(() => {
     return {
@@ -416,6 +494,18 @@ function App() {
       count: filteredRows.length
     }
   }, [filteredRows])
+
+  const 分组汇总 = useMemo(() => {
+    const calc = (items) => ({
+      totalMarket: items.reduce((sum, row) => sum + row.market_value_cny, 0),
+      totalDay: items.reduce((sum, row) => sum + (row.day_profit_cny ?? 0), 0),
+      count: items.length
+    })
+    return {
+      cn: calc(国内持仓),
+      us: calc(美股持仓)
+    }
+  }, [国内持仓, 美股持仓])
 
   const 总体涨跌幅 = useMemo(() => {
     const valid = filteredRows.filter((row) => row.estimate_pct !== null)
@@ -499,6 +589,48 @@ function App() {
     }
   }
 
+  const 切换收藏基金 = async (fundId) => {
+    const current = Array.isArray(settings.display.favorite_fund_ids) ? settings.display.favorite_fund_ids : []
+    const exists = current.includes(fundId)
+    const next = exists ? current.filter((id) => id !== fundId) : [...current, fundId]
+    await 更新展示设置并持久化(
+      { favorite_fund_ids: next },
+      exists ? '已取消收藏' : '已加入收藏'
+    )
+  }
+
+  const 导出当前列表CSV = () => {
+    if (!filteredRows.length) {
+      setStatus({ type: 'warning', message: '当前没有可导出的基金数据' })
+      return
+    }
+    const quote = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`
+    const header = ['基金代码', '基金名称', '当前市值', '今日涨跌幅', '今日估算收益', '持有收益', '成本', '市场分组', '数据状态', '来源']
+    const rowsCsv = filteredRows.map((row) => [
+      row.fund_id,
+      row.name,
+      数值化(row.market_value_cny).toFixed(2),
+      row.estimate_pct === null ? '' : Number(row.estimate_pct).toFixed(2),
+      row.day_profit_cny === null ? '' : Number(row.day_profit_cny).toFixed(2),
+      Number(row.holding_profit_cny).toFixed(2),
+      Number(row.cost_basis_cny).toFixed(2),
+      row.market_group === 'us_overseas' ? '美股与海外' : '国内与港股',
+      row.status === 'ok' ? '正常' : `异常:${row.reason || '估值缺失'}`,
+      row.source || '未知来源'
+    ])
+    const csv = [header, ...rowsCsv].map((line) => line.map(quote).join(',')).join('\n')
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `vectorcontrol-holdings-${new Date().toISOString().slice(0, 10)}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    setStatus({ type: 'success', message: `已导出 ${filteredRows.length} 条基金记录` })
+  }
+
   const 渲染表格 = (title, data) => (
     <section className="持仓板块" key={title}>
       <div className="持仓板块头部">
@@ -524,9 +656,23 @@ function App() {
               const holdClass = row.holding_profit_cny > 0 ? '红色' : row.holding_profit_cny < 0 ? '绿色' : ''
               const pctClass = row.estimate_pct > 0 ? '红色' : row.estimate_pct < 0 ? '绿色' : ''
 
+              const isFavorite = 收藏基金集合.has(row.fund_id)
+              const isSelected = row.fund_id === 当前基金?.fund_id
+
               return (
-                <tr key={row.fund_id}>
+                <tr key={row.fund_id} className={isSelected ? '选中行' : ''} onClick={() => setSelectedFundId(row.fund_id)}>
                   <td>
+                    <button
+                      type="button"
+                      className={`收藏按钮 ${isFavorite ? '已收藏' : ''}`}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void 切换收藏基金(row.fund_id)
+                      }}
+                      aria-label={isFavorite ? '取消收藏' : '加入收藏'}
+                    >
+                      {isFavorite ? '★' : '☆'}
+                    </button>
                     <div className="基金名">{row.name}</div>
                     <div className="基金代码">代码：{row.fund_id}</div>
                   </td>
@@ -539,7 +685,7 @@ function App() {
                     {row.status === 'ok' ? (
                       <span className="状态正常">正常（{row.source}）</span>
                     ) : (
-                      <span className="状态异常">异常：{row.reason || '估值缺失'}</span>
+                      <span className="状态异常">异常：{row.reason || '估值缺失'}（{row.source}）</span>
                     )}
                   </td>
                 </tr>
@@ -578,8 +724,9 @@ function App() {
         <label className="搜索框">
           <span>搜索</span>
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="输入基金名称或代码"
+            placeholder="输入基金名称或代码（按 / 快速聚焦）"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             disabled={!user}
@@ -613,31 +760,12 @@ function App() {
               <button
                 type="button"
                 className="次按钮"
-                onClick={async () => {
+                onClick={() => {
                   const nextEnabled = !settings.display.auto_refresh_enabled
-                  const next = {
-                    ...settings,
-                    display: {
-                      ...settings.display,
-                      auto_refresh_enabled: nextEnabled
-                    }
-                  }
-                  setSettings(next)
-                  setSettingsDraft(next)
-                  try {
-                    const response = await saveSettings({ settings: next })
-                    const merged = 合并对象(默认设置, response?.settings || next)
-                    setSettings(merged)
-                    setSettingsDraft(merged)
-                    setStatus({
-                      type: 'info',
-                      message: nextEnabled
-                        ? `自动刷新已开启，每 ${自动刷新秒数} 秒执行一次`
-                        : '自动刷新已关闭'
-                    })
-                  } catch (error) {
-                    setStatus({ type: 'error', message: error?.message || '自动刷新状态保存失败' })
-                  }
+                  void 更新展示设置并持久化(
+                    { auto_refresh_enabled: nextEnabled },
+                    nextEnabled ? `自动刷新已开启，每 ${自动刷新秒数} 秒执行一次` : '自动刷新已关闭'
+                  )
                 }}
               >
                 {settings.display.auto_refresh_enabled ? '关闭自动刷新' : '开启自动刷新'}
@@ -693,6 +821,14 @@ function App() {
                   <option value="us_first">美股在上，国内在下</option>
                 </select>
               </label>
+              <label>
+                表格密度
+                <select value={settingsDraft.display.table_density} onChange={(e) => 设置展示字段('table_density', e.target.value)}>
+                  <option value="compact">紧凑</option>
+                  <option value="comfortable">标准</option>
+                  <option value="relaxed">宽松</option>
+                </select>
+              </label>
               <label className="复选">
                 <input
                   type="checkbox"
@@ -700,6 +836,14 @@ function App() {
                   onChange={(e) => 设置展示字段('auto_select_fund', e.target.checked)}
                 />
                 刷新后自动定位到首只基金
+              </label>
+              <label className="复选">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settingsDraft.display.only_favorites)}
+                  onChange={(e) => 设置展示字段('only_favorites', e.target.checked)}
+                />
+                仅显示收藏基金
               </label>
               <label className="复选">
                 <input
@@ -726,6 +870,10 @@ function App() {
                   onChange={(e) => 设置展示字段('auto_refresh_visible_only', e.target.checked)}
                 />
                 页面不可见时暂停自动刷新
+              </label>
+              <label>
+                快捷键提示
+                <div className="快捷提示">按 <code>/</code> 聚焦搜索，按 <code>R</code> 刷新数据</div>
               </label>
             </article>
 
@@ -817,15 +965,36 @@ function App() {
               {item.label}
             </button>
           ))}
+          <button
+            type="button"
+            className={settings.display.only_favorites ? '' : '次按钮'}
+            onClick={() => {
+              void 更新展示设置并持久化(
+                { only_favorites: !settings.display.only_favorites },
+                !settings.display.only_favorites ? '已切换为仅看收藏' : '已显示全部基金'
+              )
+            }}
+          >
+            {settings.display.only_favorites ? '仅看收藏（开）' : '仅看收藏（关）'}
+          </button>
+          <button type="button" className="次按钮" onClick={() => setFilterMode('abnormal')}>
+            仅异常（{异常基金数量}）
+          </button>
+          <button type="button" className="次按钮" onClick={导出当前列表CSV}>
+            导出当前列表
+          </button>
         </div>
-        <label className="排序控件">
-          排序方式
-          <select value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
-            {排序项.map((item) => (
-              <option key={item.key} value={item.key}>{item.label}</option>
-            ))}
-          </select>
-        </label>
+        <div className="工具右">
+          <div className="工具提醒">收藏：{收藏基金数量} 只 · 异常：{异常基金数量} 只</div>
+          <label className="排序控件">
+            排序方式
+            <select value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
+              {排序项.map((item) => (
+                <option key={item.key} value={item.key}>{item.label}</option>
+              ))}
+            </select>
+          </label>
+        </div>
       </section>
 
       <section className="摘要区">
@@ -842,8 +1011,25 @@ function App() {
           <p className={汇总.totalHold > 0 ? '红色' : 汇总.totalHold < 0 ? '绿色' : ''}>{收益格式化(汇总.totalHold)}</p>
         </article>
         <article>
-          <h4>持仓基金数量</h4>
-          <p>{汇总.count} 只</p>
+          <h4>当前视图基金数量</h4>
+          <p>{汇总.count} / {rows.length} 只</p>
+        </article>
+      </section>
+
+      <section className="分组概览">
+        <article>
+          <h4>国内与港股</h4>
+          <p>{金额格式化(分组汇总.cn.totalMarket)}</p>
+          <div className={分组汇总.cn.totalDay > 0 ? '红色' : 分组汇总.cn.totalDay < 0 ? '绿色' : ''}>
+            今日：{收益格式化(分组汇总.cn.totalDay)} · {分组汇总.cn.count} 只
+          </div>
+        </article>
+        <article>
+          <h4>美股与海外</h4>
+          <p>{金额格式化(分组汇总.us.totalMarket)}</p>
+          <div className={分组汇总.us.totalDay > 0 ? '红色' : 分组汇总.us.totalDay < 0 ? '绿色' : ''}>
+            今日：{收益格式化(分组汇总.us.totalDay)} · {分组汇总.us.count} 只
+          </div>
         </article>
       </section>
 
@@ -874,7 +1060,7 @@ function App() {
         </article>
       </section>
 
-      <section className="持仓总区">
+      <section className={`持仓总区 密度-${settings.display.table_density || 'comfortable'}`}>
         <div className="持仓标题">全部持仓基金与今日收益变化</div>
         {板块顺序.map((item) => 渲染表格(item.title, item.data))}
       </section>

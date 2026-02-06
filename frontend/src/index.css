@@ -268,6 +268,20 @@ button:disabled {
   color: #334155;
 }
 
+.快捷提示 {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 8px 10px;
+  color: #475569;
+}
+
+.快捷提示 code {
+  font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+  font-weight: 700;
+  color: #1d4ed8;
+}
+
 .设置卡 .复选 {
   grid-template-columns: auto 1fr;
   align-items: center;
@@ -303,6 +317,19 @@ button:disabled {
   color: #334155;
 }
 
+.工具右 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.工具提醒 {
+  color: var(--muted);
+  font-size: 0.92rem;
+}
+
 .摘要区 {
   margin-top: 18px;
   display: grid;
@@ -326,6 +353,35 @@ button:disabled {
   margin: 10px 0 0;
   font-size: 1.8rem;
   font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
+  font-weight: 700;
+  color: #0b1b45;
+}
+
+.分组概览 {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.分组概览 article {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow);
+}
+
+.分组概览 h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.分组概览 p {
+  margin: 8px 0;
+  font-size: 1.4rem;
   font-weight: 700;
   color: #0b1b45;
 }
@@ -467,6 +523,17 @@ button:disabled {
   padding: 14px 12px;
 }
 
+.持仓总区.密度-compact .持仓表格 th,
+.持仓总区.密度-compact .持仓表格 td {
+  padding: 9px 8px;
+  font-size: 0.9rem;
+}
+
+.持仓总区.密度-relaxed .持仓表格 th,
+.持仓总区.密度-relaxed .持仓表格 td {
+  padding: 16px 14px;
+}
+
 .持仓表格 thead th {
   background: #f5f9ff;
   color: #415371;
@@ -477,6 +544,22 @@ button:disabled {
 .基金名 {
   font-size: 1.02rem;
   font-weight: 700;
+}
+
+.收藏按钮 {
+  border: 1px solid #d4def2;
+  color: #64748b;
+  background: #f8fbff;
+  border-radius: 8px;
+  padding: 2px 8px;
+  margin-right: 8px;
+  min-width: 36px;
+}
+
+.收藏按钮.已收藏 {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fcd34d;
 }
 
 .基金代码 {
@@ -503,6 +586,18 @@ button:disabled {
 .状态异常 {
   color: var(--error);
   font-weight: 600;
+}
+
+.持仓表格 tbody tr {
+  transition: background-color 0.18s ease;
+}
+
+.持仓表格 tbody tr:hover {
+  background: #f9fbff;
+}
+
+.持仓表格 tbody tr.选中行 {
+  background: #ecf4ff;
 }
 
 .空行 {
@@ -565,7 +660,16 @@ button:disabled {
     align-items: flex-start;
   }
 
+  .工具右 {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .摘要区 {
+    grid-template-columns: 1fr;
+  }
+
+  .分组概览 {
     grid-template-columns: 1fr;
   }
 }
