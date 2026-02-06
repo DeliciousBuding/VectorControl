@@ -182,6 +182,8 @@ def build_estimate(
             "bucket": bucket,
             "market_value_cny": round(market_value, 2),
             "cost_basis_cny": round(cost_basis, 2),
+            "shares": round(_to_float(item.get("shares")) or 0.0, 4),
+            "start_date": str(item.get("start_date", "")).strip(),
             "holding_profit_cny": holding_profit,
             "estimate_pct": estimate_pct,
             "status": status,

@@ -596,6 +596,69 @@ def list_holdings(user_id: str = "legacy") -> list[dict[str, Any]]:
     return result
 
 
+def update_holding_fields(
+    user_id: str,
+    fund_id: str,
+    updates: dict[str, Any],
+) -> dict[str, Any] | None:
+    allowed_fields = {"market_value_cny", "cost_basis_cny", "shares", "start_date"}
+    cleaned: dict[str, Any] = {}
+    for key, value in updates.items():
+        if key not in allowed_fields:
+            continue
+        if key == "start_date":
+            text = str(value or "").strip()
+            if not text:
+                continue
+            cleaned[key] = text
+        else:
+            cleaned[key] = _to_float(value)
+
+    if not cleaned:
+        return None
+
+    set_sql = ", ".join(f"{key} = ?" for key in cleaned.keys())
+    params = list(cleaned.values()) + [user_id, fund_id]
+    with connect() as conn:
+        conn.execute(
+            f"""
+            UPDATE holdings
+            SET {set_sql}
+            WHERE user_id = ? AND fund_id = ?
+            """,
+            params,
+        )
+        conn.commit()
+
+        row = conn.execute(
+            """
+            SELECT fund_id, name, bucket, market_value_cny, cost_basis_cny,
+                   shares, cost, start_date, tags_json, market_group
+            FROM holdings
+            WHERE user_id = ? AND fund_id = ?
+            """,
+            (user_id, fund_id),
+        ).fetchone()
+    if not row:
+        return None
+    try:
+        tags = _normalize_tags(json.loads(row["tags_json"]))
+    except Exception:
+        tags = []
+    return {
+        "fund_id": row["fund_id"],
+        "name": row["name"],
+        "bucket": row["bucket"],
+        "market_value_cny": _to_float(row["market_value_cny"]),
+        "cost_basis_cny": _to_float(row["cost_basis_cny"]),
+        "shares": _to_float(row["shares"]),
+        "cost": _to_float(row["cost"]),
+        "start_date": row["start_date"],
+        "tags": tags,
+        "market_group": row["market_group"],
+    }
+
+
 def save_estimate_snapshot(user_id: str, asof: str, payload: dict[str, Any]) -> None:
     with connect() as conn:
         conn.execute(
