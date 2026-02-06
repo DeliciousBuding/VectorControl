@@ -58,6 +58,19 @@ def main() -> int:
     _assert("用户B注册成功", status == 200 and bool(body.get("token")))
     token_b = str(body["token"])
 
+    status, body = _http("GET", "/api/auth/me", token=token_a)
+    _assert("用户A会话可用", status == 200 and body.get("user", {}).get("username") == user_a)
+
+    status, _ = _http("POST", "/api/auth/logout", token=token_a)
+    _assert("用户A退出成功", status == 200)
+
+    status, _ = _http("GET", "/api/holdings", token=token_a)
+    _assert("退出后旧Token失效（401）", status == 401)
+
+    status, body = _http("POST", "/api/auth/login", payload={"username": user_a, "password": password})
+    _assert("用户A重新登录成功", status == 200 and bool(body.get("token")))
+    token_a = str(body["token"])
+
     fund_id = f"G{uuid.uuid4().hex[:5].upper()}"
     status, _ = _http(
         "POST",
@@ -82,7 +95,7 @@ def main() -> int:
     ids_b = {row.get("fund_id") for row in body.get("holdings", [])}
     _assert("用户B看不到用户A持仓", status == 200 and fund_id not in ids_b)
 
-    print("[INFO] Gate-A 检查通过")
+    print("[INFO] Gate-A 检查通过（登录/退出/切账号隔离/未登录401）")
     return 0
 
 
@@ -95,4 +108,3 @@ if __name__ == "__main__":
     except Exception as exc:  # noqa: BLE001
         print(f"[FAIL] 未预期异常: {exc}")
         raise SystemExit(1)
-
