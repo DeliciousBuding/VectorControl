@@ -1,0 +1,25 @@
+﻿holdings:
+  - fund_id: morgan_nasdaq_a
+    name: 摩根纳指A
+    bucket: tech
+    shares: 0
+    cost: 0
+    start_date: "2024-01-01"
+  - fund_id: morgan_nasdaq_c
+    name: 摩根纳指C
+    bucket: tech
+    shares: 0
+    cost: 0
+    start_date: "2024-01-01"
+  - fund_id: nanfang_nasdaq
+    name: 南方纳指
+    bucket: tech
+    shares: 0
+    cost: 0
+    start_date: "2024-01-01"
+  - fund_id: caitong_consumer
+    name: 财通品质消费
+    bucket: consumer
+    shares: 0
+    cost: 0
+    start_date: "2024-01-01"
