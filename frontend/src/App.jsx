@@ -41,6 +41,7 @@ function App() {
     asof,
     updatedAt,
     confirmState,
+    coverage,
     settings,
     refresh,
     setAutoRefreshEnabled,
@@ -290,6 +291,7 @@ function App() {
         asof={asof}
         updatedAt={updatedAt}
         confirmState={confirmState}
+        coverage={coverage}
         searchQuery={searchQuery}
         suggestions={suggestions}
         searchLoading={searchLoading}

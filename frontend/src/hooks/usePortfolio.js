@@ -49,6 +49,7 @@ export function usePortfolio({ user, sorter }) {
   const [asof, setAsof] = useState('--')
   const [updatedAt, setUpdatedAt] = useState('--')
   const [confirmState, setConfirmState] = useState('estimated')
+  const [coverage, setCoverage] = useState({ total: 0, ok: 0, failed: 0 })
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [settingsReady, setSettingsReady] = useState(false)
   const loadingRef = useRef(false)
@@ -74,6 +75,11 @@ export function usePortfolio({ user, sorter }) {
       setAsof(payload?.as_of || payload?.asof || '--')
       setUpdatedAt(payload?.updated_at || '--')
       setConfirmState(payload?.confirm_state || 'estimated')
+      setCoverage({
+        total: Number(payload?.coverage?.total || normalized.length || 0),
+        ok: Number(payload?.coverage?.ok || normalized.filter((item) => item.status === 'ok').length || 0),
+        failed: Number(payload?.coverage?.failed || 0)
+      })
       setLastRefresh(formatDateTime())
 
       const failedCount = normalized.filter((item) => item.status !== 'ok').length
@@ -122,6 +128,7 @@ export function usePortfolio({ user, sorter }) {
       setAsof('--')
       setUpdatedAt('--')
       setConfirmState('estimated')
+      setCoverage({ total: 0, ok: 0, failed: 0 })
       setSettingsReady(false)
       setSettings(DEFAULT_SETTINGS)
       setStatus({ type: 'info', message: '请先登录' })
@@ -206,6 +213,7 @@ export function usePortfolio({ user, sorter }) {
     asof,
     updatedAt,
     confirmState,
+    coverage,
     settings,
     refresh,
     setAutoRefreshEnabled,

@@ -8,6 +8,7 @@ export function TopToolbar({
   asof,
   updatedAt,
   confirmState,
+  coverage,
   searchQuery,
   suggestions,
   searchLoading,
@@ -24,6 +25,7 @@ export function TopToolbar({
     : confirmState === 'partial'
       ? '数据不完整'
       : '估算中'
+
   return (
     <header className="panel top-toolbar">
       <div className="brand-block">
@@ -62,6 +64,7 @@ export function TopToolbar({
             )}
           </label>
         </div>
+
         <div className="toolbar-row">
           <span>当前用户：{user?.username || '--'}</span>
           <button type="button" className="primary" onClick={onRefresh} disabled={refreshing}>
@@ -73,12 +76,14 @@ export function TopToolbar({
           <button type="button" className="ghost" onClick={onOpenSettings}>设置中心</button>
           <button type="button" className="danger" onClick={onLogout}>退出登录</button>
         </div>
+
         <div className="toolbar-row">
           <StatusPill status={status} />
           <span>上次刷新：{lastRefresh}</span>
           <span>数据时点：{asof}</span>
           <span>拉取时间：{updatedAt}</span>
           <span>确认状态：{confirmText}</span>
+          <span>覆盖率：{coverage?.ok ?? 0}/{coverage?.total ?? 0}（失败 {coverage?.failed ?? 0}）</span>
         </div>
       </div>
     </header>
