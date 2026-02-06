@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BACKEND_DIR = ROOT / "backend"
 FRONTEND_DIR = ROOT / "frontend"
 APP_FILE = ROOT / "frontend" / "src" / "App.jsx"
+METRICS_FILE = ROOT / "frontend" / "src" / "utils" / "metrics.js"
 
 BACKEND_PORT = int(os.getenv("VECTORCONTROL_PERF_BACKEND_PORT", "21447"))
 FRONTEND_PORT = int(os.getenv("VECTORCONTROL_PERF_FRONTEND_PORT", "5179"))
@@ -84,11 +85,17 @@ def main() -> int:
         _assert("前端首页可访问", _wait_http(BASE_FRONTEND, timeout=40))
 
         source = APP_FILE.read_text(encoding="utf-8")
+        metrics_source = METRICS_FILE.read_text(encoding="utf-8")
         _assert("存在骨架状态控制", "skeletonLock" in source)
         _assert("存在3秒骨架定时器", "setTimeout(() => {" in source and "}, 3000)" in source)
         _assert("存在5秒降级定时器", "}, 5000)" in source)
         _assert("存在5秒降级状态控制", "assetTimedOut" in source)
         _assert("存在性能埋点记录", "recordMetric(" in source)
+        _assert("埋点事件: 首屏加载开始", "recordMetric('首屏加载开始'" in source)
+        _assert("埋点事件: 首屏加载超时", "recordMetric('首屏加载超时'" in source)
+        _assert("埋点事件: 资产卡更新完成", "recordMetric('资产卡更新完成'" in source)
+        _assert("埋点存储键已定义", "vectorcontrol_frontend_metrics" in metrics_source)
+        _assert("埋点读取接口已定义", "listMetrics" in metrics_source)
 
         print("[INFO] 首屏性能可测化检查通过")
         return 0
