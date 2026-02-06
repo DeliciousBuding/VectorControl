@@ -6,5 +6,5 @@ from typing import Any
 
 class QuoteProvider(ABC):
     @abstractmethod
-    def get_bucket_estimates(self, buckets: list[str]) -> dict[str, dict[str, Any]]:
-        """Return per-bucket estimate info."""
+    def get_fund_quote(self, fund_id: str) -> dict[str, Any] | None:
+        """Return quote info for one fund. None means unavailable."""

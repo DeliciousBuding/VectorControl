@@ -82,7 +82,9 @@ async def get_config() -> dict:
 
 @app.get("/api/estimate")
 async def get_estimate() -> dict:
-    payload = build_estimate()
+    config = getattr(app.state, "config", {})
+    portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+    payload = build_estimate(portfolio=portfolio)
     save_estimate_snapshot(payload["asof"], payload)
     return payload
 
@@ -90,7 +92,8 @@ async def get_estimate() -> dict:
 @app.get("/api/advice")
 async def get_advice() -> dict:
     config = getattr(app.state, "config", {})
-    estimate = build_estimate()
+    portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
+    estimate = build_estimate(portfolio=portfolio)
     holdings = list_holdings()
     policy = config.get("policy", {}) if isinstance(config, dict) else {}
     return build_advice(estimate, holdings, policy)

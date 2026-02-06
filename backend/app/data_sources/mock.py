@@ -6,12 +6,11 @@ from app.data_sources.base import QuoteProvider
 
 
 class MockQuoteProvider(QuoteProvider):
-    def get_bucket_estimates(self, buckets: list[str]) -> dict[str, dict[str, Any]]:
+    def get_fund_quote(self, fund_id: str) -> dict[str, Any] | None:
         return {
-            bucket: {
-                "estimate_pct": 0.0,
-                "confidence": "low",
-                "note": "placeholder",
-            }
-            for bucket in buckets
+            "fund_id": fund_id,
+            "name": "",
+            "estimate_pct": 0.0,
+            "source": "mock",
+            "asof": "",
         }
