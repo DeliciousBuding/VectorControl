@@ -49,7 +49,7 @@ async def auth_middleware(request: Request, call_next):
 
         user = get_user_by_session_token(token_value)
         if not user:
-            return JSONResponse({"detail": "访问令牌无效或已过期"}, status_code=403)
+            return JSONResponse({"detail": "访问令牌无效或已过期"}, status_code=401)
 
         request.state.user_id = user["id"]
         request.state.username = user["username"]

@@ -237,10 +237,13 @@ def build_estimate(
 
         day_profit_cny = round(market_value * ((_to_float(estimate_pct) or 0.0) / 100.0), 2)
         confirmed_profit = _to_float(confirmed_map.get(fund_id)) if fund_id else None
+        yesterday_profit_source = "estimated_today"
         if confirmed_profit is not None:
             yesterday_profit_cny = round(confirmed_profit, 2)
+            yesterday_profit_source = "confirmed"
         elif fund_id in previous_day_profit_map:
             yesterday_profit_cny = round(previous_day_profit_map[fund_id], 2)
+            yesterday_profit_source = "snapshot_fallback"
         else:
             yesterday_profit_cny = day_profit_cny
 
@@ -256,6 +259,7 @@ def build_estimate(
             "holding_profit_rate": holding_profit_rate,
             "day_profit_cny": day_profit_cny,
             "yesterday_profit_cny": yesterday_profit_cny,
+            "yesterday_profit_source": yesterday_profit_source,
             "holding_days": holding_days,
             "position_weight_pct": position_weight_pct,
             "estimate_pct": estimate_pct,
@@ -271,9 +275,17 @@ def build_estimate(
         by_bucket[bucket].append(fund_row)
 
     buckets = [_bucket_summary(bucket, by_bucket[bucket]) for bucket in BUCKETS]
+    total_count = len(per_fund)
+    ok_count = sum(1 for row in per_fund if row.get("status") == "ok")
+    failed_count = total_count - ok_count
 
     return {
         "asof": asof,
         "buckets": buckets,
         "funds": per_fund,
+        "coverage": {
+            "total": total_count,
+            "ok": ok_count,
+            "failed": failed_count,
+        },
     }
