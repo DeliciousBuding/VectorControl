@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from './hooks/useAuth.js'
 import { usePortfolio } from './hooks/usePortfolio.js'
-import { fetchActions, fetchDailyReport, fetchFundSuggest } from './api.js'
+import { fetchActions, fetchDailyReport, fetchFundSuggest, saveAction } from './api.js'
 import { buildFundSeries, splitMarketGroups } from './utils/chart.js'
 import { cycleSortState } from './utils/holdings.js'
 import { classBySign, formatDate, formatPercent } from './utils/format.js'
@@ -15,6 +15,13 @@ import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
 import { listMetrics, recordMetric } from './utils/metrics.js'
 
+const TRADE_TYPES = [
+  { key: 'buy', label: '买入' },
+  { key: 'dca', label: '定投' },
+  { key: 'redeem', label: '赎回' },
+  { key: 'convert', label: '转换' }
+]
+
 function App() {
   const [sortState, setSortState] = useState({ key: 'market_value_cny', order: 'desc' })
   const [selectedFundId, setSelectedFundId] = useState('')
@@ -25,6 +32,13 @@ function App() {
   const [actionLogs, setActionLogs] = useState([])
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError] = useState('')
+  const [tradeType, setTradeType] = useState('buy')
+  const [tradeFundCode, setTradeFundCode] = useState('')
+  const [tradeAmount, setTradeAmount] = useState('')
+  const [tradeDone, setTradeDone] = useState(false)
+  const [tradeSubmitting, setTradeSubmitting] = useState(false)
+  const [tradeSubmitError, setTradeSubmitError] = useState('')
+  const [tradeSubmitResult, setTradeSubmitResult] = useState(null)
   const [reportSummary, setReportSummary] = useState('')
   const [assetReadyMs, setAssetReadyMs] = useState(0)
   const [assetTimedOut, setAssetTimedOut] = useState(false)
@@ -278,6 +292,47 @@ function App() {
     }
   }
 
+  const handleTradeSubmit = async (event) => {
+    event.preventDefault()
+    const code = tradeFundCode.trim()
+    const amount = Number(tradeAmount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setTradeSubmitError('请输入大于 0 的交易金额')
+      return
+    }
+
+    setTradeSubmitError('')
+    setTradeSubmitting(true)
+    try {
+      const date = new Date().toISOString().slice(0, 10)
+      const actionKey = code ? `${tradeType}_${code}` : `${tradeType}_manual`
+      const payload = await saveAction({
+        date,
+        action_key: actionKey,
+        amount,
+        done: tradeDone
+      })
+      const latest = Array.isArray(payload?.actions) ? payload.actions[0] : null
+      if (latest) {
+        const record = { ...latest, date: payload?.date || date }
+        setActionLogs((prev) =>
+          [record, ...prev].sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || '')))
+        )
+        setTradeSubmitResult(record)
+      } else {
+        setTradeSubmitResult(null)
+      }
+      setTradeAmount('')
+      setTradeFundCode('')
+      recordMetric('交易入口提交成功', { trade_type: tradeType, amount, done: tradeDone })
+    } catch (error) {
+      setTradeSubmitError(error?.message || '交易提交失败')
+      recordMetric('交易入口提交失败', { trade_type: tradeType })
+    } finally {
+      setTradeSubmitting(false)
+    }
+  }
+
   if (!authReady) {
     return (
       <div className="page-shell">
@@ -406,15 +461,66 @@ function App() {
         <section className="panel holdings-main">
           <div className="section-head">
             <h2>交易入口</h2>
-            <span>买入/定投/赎回/转换</span>
+            <span>买入 / 定投 / 赎回 / 转换</span>
           </div>
+
           <div className="trade-grid">
-            <button type="button" className="primary">买入</button>
-            <button type="button" className="ghost">定投</button>
-            <button type="button" className="ghost">赎回</button>
-            <button type="button" className="ghost">转换</button>
+            {TRADE_TYPES.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                className={tradeType === item.key ? 'primary' : 'ghost'}
+                onClick={() => {
+                  setTradeType(item.key)
+                  setTradeSubmitError('')
+                  setTradeSubmitResult(null)
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
           </div>
-          <p className="trade-tip">交易详细流程按 ROADMAP 持续完善，当前先提供记录视图与待办闭环。</p>
+
+          <form className="trade-form" onSubmit={handleTradeSubmit}>
+            <label>
+              基金代码（可选）
+              <input
+                value={tradeFundCode}
+                onChange={(event) => setTradeFundCode(event.target.value)}
+                placeholder="例如 016453"
+                maxLength={16}
+              />
+            </label>
+            <label>
+              金额
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={tradeAmount}
+                onChange={(event) => setTradeAmount(event.target.value)}
+                placeholder="请输入金额"
+              />
+            </label>
+            <label className="trade-check">
+              <input type="checkbox" checked={tradeDone} onChange={(event) => setTradeDone(event.target.checked)} />
+              提交后标记为已执行
+            </label>
+            <button type="submit" className="primary" disabled={tradeSubmitting}>
+              {tradeSubmitting ? '提交中...' : `提交${TRADE_TYPES.find((item) => item.key === tradeType)?.label || '交易'}`}
+            </button>
+          </form>
+
+          {tradeSubmitError && <div className="chart-empty">{tradeSubmitError}</div>}
+          {tradeSubmitResult && (
+            <div className="trade-result">
+              <strong>交易提交成功</strong>
+              <p>动作：{tradeSubmitResult.action_key}</p>
+              <p>金额：{Number(tradeSubmitResult.amount || 0).toFixed(2)}</p>
+              <p>状态：{tradeSubmitResult.done ? '已执行' : '未执行'}</p>
+            </div>
+          )}
+          <p className="trade-tip">已打通买入/定投/赎回/转换入口，提交后写入执行记录并在下方列表回显。</p>
 
           <div className="section-head trade-head">
             <h3>交易记录（近7天）</h3>

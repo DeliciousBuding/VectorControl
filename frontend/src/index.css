@@ -449,6 +449,62 @@ button:disabled {
   font-size: 14px;
 }
 
+.trade-form {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr 1fr auto auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.trade-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.trade-form input[type='text'],
+.trade-form input[type='number'] {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--text);
+  background: #fff;
+}
+
+.trade-check {
+  display: flex !important;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+}
+
+.trade-result {
+  margin-top: 10px;
+  border: 1px solid #b9ebd8;
+  border-radius: 12px;
+  background: #f3fff9;
+  padding: 10px 12px;
+}
+
+.trade-result strong {
+  display: block;
+  font-size: 14px;
+  color: #0f766e;
+}
+
+.trade-result p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #36506a;
+}
+
 .trade-head {
   margin-top: 18px;
 }
@@ -1002,6 +1058,10 @@ button:disabled {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .trade-form {
+    grid-template-columns: 1fr 1fr;
+  }
+
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1030,6 +1090,10 @@ button:disabled {
   .summary-grid,
   .risk-grid,
   .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trade-form {
     grid-template-columns: 1fr;
   }
 }
