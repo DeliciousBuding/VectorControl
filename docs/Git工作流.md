@@ -9,12 +9,13 @@
 2. 本地自测（后端 compile + 关键接口、前端 build）。
 3. 中文 commit message。
 4. 同步更新文档（`README.md` + `docs/*.md` + `ROADMAP.md`）并勾选状态。
-5. 通过 Gate-A/B/C 后再合并 `dev -> main`。
+5. 通过 Gate-A/B/C/D 后再合并 `dev -> main`。
 
 ## 3. 合并门槛
 - Gate-A：按 `docs/部署与运行.md` 可复现。
 - Gate-B：接口契约未破坏（`docs/接口契约.md`）。
 - Gate-C：外部源失败可降级，页面不崩。
+- Gate-D：VPS 部署闭环可验收（HTTPS、容器状态、安全边界）。
 
 ## 4. 提交边界
 - 功能提交只改本次主题相关文件。

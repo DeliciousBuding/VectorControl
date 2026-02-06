@@ -1,0 +1,73 @@
+services:
+  frontend-build:
+    build:
+      context: ..
+      dockerfile: deploy/frontend/Dockerfile
+      args:
+        VITE_API_BASE: ${VITE_API_BASE:-/api}
+    image: vectorcontrol-frontend-build:latest
+    volumes:
+      - ./data/frontend-dist:/dist
+    command: ["/bin/sh", "-c", "rm -rf /dist/* && cp -r /out/dist/. /dist/"]
+    restart: "no"
+
+  backend:
+    build:
+      context: ..
+      dockerfile: deploy/backend/Dockerfile
+    image: vectorcontrol-backend:latest
+    container_name: vectorcontrol-backend
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      API_TOKEN: ${API_TOKEN:-}
+      APP_ENV: prod
+      DATABASE_URL: ${DATABASE_URL:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+    volumes:
+      - ./data/backend:/app/backend/data
+    expose:
+      - "8000"
+    restart: unless-stopped
+    networks:
+      - vc_net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: vectorcontrol-postgres
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      POSTGRES_DB: ${POSTGRES_DB:-vectorcontrol}
+      POSTGRES_USER: ${POSTGRES_USER:-vectorcontrol}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    expose:
+      - "5432"
+    restart: unless-stopped
+    networks:
+      - vc_net
+
+  nginx:
+    build:
+      context: ..
+      dockerfile: deploy/nginx/Dockerfile
+    image: vectorcontrol-nginx:latest
+    container_name: vectorcontrol-nginx
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./data/frontend-dist:/usr/share/nginx/html:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/site.rendered.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certbot/conf:/etc/letsencrypt:ro
+      - ./certbot/www:/var/www/certbot:ro
+    restart: unless-stopped
+    networks:
+      - vc_net
+
+networks:
+  vc_net:
+    driver: bridge

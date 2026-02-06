@@ -19,6 +19,7 @@ app = FastAPI(title="vectorcontrol-backend", version="0.1.0")
 
 PUBLIC_PATHS = {
     "/api/health",
+    "/api/healthz",
     "/api/auth/register",
     "/api/auth/login",
 }
@@ -68,6 +69,11 @@ def on_startup() -> None:
 @app.get("/api/health")
 async def health() -> dict:
     return {"ok": True, "service": "vectorcontrol-backend"}
+
+
+@app.get("/api/healthz")
+async def healthz() -> dict:
+    return {"status": "ok", "service": "vectorcontrol-backend"}
 
 
 app.include_router(auth.router)

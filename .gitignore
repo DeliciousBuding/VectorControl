@@ -1,2 +1,8 @@
-﻿__pycache__/
+__pycache__/
 *.pyc
+
+deploy/.env.prod
+deploy/nginx/site.rendered.conf
+deploy/certbot/
+deploy/data/
+deploy/backups/
