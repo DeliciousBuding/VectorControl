@@ -88,6 +88,17 @@ export function logoutUser() {
   })
 }
 
+export function fetchSettings() {
+  return apiFetch('/api/settings')
+}
+
+export function saveSettings(payload) {
+  return apiFetch('/api/settings', {
+    method: 'PUT',
+    body: payload
+  })
+}
+
 export function fetchEstimate() {
   return apiFetch('/api/estimate')
 }

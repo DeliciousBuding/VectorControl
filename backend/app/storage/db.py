@@ -233,6 +233,44 @@ def _migrate_estimate_snapshot(conn: sqlite3.Connection) -> None:
     conn.execute("ALTER TABLE estimate_snapshot_new RENAME TO estimate_snapshot")
 
 
+def _default_user_settings() -> dict[str, Any]:
+    return {
+        "display": {
+            "font_scale": "large",
+            "filter_mode": "all",
+            "sort_mode": "market_value_desc",
+            "group_order": "cn_first",
+            "auto_select_fund": True,
+        },
+        "notifications": {
+            "feishu": {
+                "enabled": False,
+                "webhook_url": "",
+                "advice_time": "14:50",
+                "report_time": "15:10",
+            },
+            "email": {
+                "enabled": False,
+                "smtp_host": "",
+                "smtp_port": 587,
+                "sender": "",
+                "recipients": "",
+                "use_tls": True,
+            },
+        },
+    }
+
+
+def _merge_dict(base: dict[str, Any], incoming: dict[str, Any]) -> dict[str, Any]:
+    result: dict[str, Any] = dict(base)
+    for key, value in incoming.items():
+        if isinstance(value, dict) and isinstance(result.get(key), dict):
+            result[key] = _merge_dict(dict(result[key]), value)
+        else:
+            result[key] = value
+    return result
+
+
 def init_db() -> None:
     with connect() as conn:
         conn.execute(
@@ -294,6 +332,15 @@ def init_db() -> None:
                 user_id TEXT NOT NULL,
                 asof TEXT NOT NULL,
                 payload_json TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_settings (
+                user_id TEXT PRIMARY KEY,
+                settings_json TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )
             """
         )
@@ -604,3 +651,41 @@ def list_actions(user_id: str, date: str) -> list[dict[str, Any]]:
         }
         for row in rows
     ]
+
+
+def get_user_settings(user_id: str) -> dict[str, Any]:
+    defaults = _default_user_settings()
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT settings_json FROM user_settings WHERE user_id = ?",
+            (user_id,),
+        ).fetchone()
+    if not row:
+        return defaults
+
+    try:
+        loaded = json.loads(str(row["settings_json"]))
+    except Exception:
+        return defaults
+
+    if not isinstance(loaded, dict):
+        return defaults
+    return _merge_dict(defaults, loaded)
+
+
+def upsert_user_settings(user_id: str, incoming: dict[str, Any]) -> dict[str, Any]:
+    settings = _merge_dict(get_user_settings(user_id), incoming)
+    payload = json.dumps(settings, ensure_ascii=False)
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO user_settings (user_id, settings_json, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                settings_json = excluded.settings_json,
+                updated_at = excluded.updated_at
+            """,
+            (user_id, payload, _now_iso()),
+        )
+        conn.commit()
+    return settings

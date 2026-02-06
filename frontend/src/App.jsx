@@ -1,7 +1,43 @@
 import { useEffect, useMemo, useState } from 'react'
-import { fetchEstimate, fetchMe, loginUser, logoutUser, registerUser, setStoredToken, getStoredToken } from './api.js'
+import {
+  fetchEstimate,
+  fetchMe,
+  fetchSettings,
+  loginUser,
+  logoutUser,
+  registerUser,
+  saveSettings,
+  setStoredToken,
+  getStoredToken
+} from './api.js'
 
 const 日内时刻 = ['09:30', '10:00', '10:30', '11:00', '11:30', '13:30', '14:00', '14:30', '15:00']
+
+const 默认设置 = {
+  display: {
+    font_scale: 'large',
+    filter_mode: 'all',
+    sort_mode: 'market_value_desc',
+    group_order: 'cn_first',
+    auto_select_fund: true
+  },
+  notifications: {
+    feishu: {
+      enabled: false,
+      webhook_url: '',
+      advice_time: '14:50',
+      report_time: '15:10'
+    },
+    email: {
+      enabled: false,
+      smtp_host: '',
+      smtp_port: 587,
+      sender: '',
+      recipients: '',
+      use_tls: true
+    }
+  }
+}
 
 const 状态样式映射 = {
   info: '状态提示 信息',
@@ -9,6 +45,21 @@ const 状态样式映射 = {
   warning: '状态提示 警告',
   error: '状态提示 错误'
 }
+
+const 过滤项 = [
+  { key: 'all', label: '全部' },
+  { key: 'up', label: '仅上涨' },
+  { key: 'down', label: '仅下跌' },
+  { key: 'abnormal', label: '仅异常' }
+]
+
+const 排序项 = [
+  { key: 'market_value_desc', label: '按市值（高到低）' },
+  { key: 'day_profit_desc', label: '按今日收益（高到低）' },
+  { key: 'holding_profit_desc', label: '按持有收益（高到低）' },
+  { key: 'estimate_desc', label: '按涨跌幅（高到低）' },
+  { key: 'name_asc', label: '按名称（A-Z）' }
+]
 
 const 格式化时间 = () => new Date().toLocaleString('zh-CN', { hour12: false })
 
@@ -41,6 +92,19 @@ const 计算种子 = (text) => {
     hash = (hash * 33 + raw.charCodeAt(i)) % 100000
   }
   return hash / 1201
+}
+
+const 合并对象 = (base, incoming) => {
+  if (!incoming || typeof incoming !== 'object') return base
+  const result = { ...base }
+  Object.entries(incoming).forEach(([key, value]) => {
+    if (value && typeof value === 'object' && !Array.isArray(value) && typeof result[key] === 'object') {
+      result[key] = 合并对象(result[key], value)
+    } else {
+      result[key] = value
+    }
+  })
+  return result
 }
 
 const 构造波形 = (基准涨跌幅, seed = 1, 幅度 = 0.3) => {
@@ -122,22 +186,43 @@ function App() {
   const [rows, setRows] = useState([])
   const [selectedFundId, setSelectedFundId] = useState('')
 
+  const [settings, setSettings] = useState(默认设置)
+  const [settingsDraft, setSettingsDraft] = useState(默认设置)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsSaving, setSettingsSaving] = useState(false)
+
+  const [filterMode, setFilterMode] = useState('all')
+  const [sortMode, setSortMode] = useState('market_value_desc')
+
+  const 应用设置 = (nextSettings) => {
+    setFilterMode(nextSettings.display.filter_mode || 'all')
+    setSortMode(nextSettings.display.sort_mode || 'market_value_desc')
+  }
+
+  const 加载设置 = async () => {
+    const payload = await fetchSettings()
+    const merged = 合并对象(默认设置, payload?.settings || {})
+    setSettings(merged)
+    setSettingsDraft(merged)
+    应用设置(merged)
+    return merged
+  }
+
   useEffect(() => {
     const token = getStoredToken()
-    if (!token) {
-      return
-    }
+    if (!token) return
 
     ;(async () => {
       try {
         const me = await fetchMe()
         setUser(me.user)
+        await 加载设置()
         setStatus({ type: 'success', message: `欢迎回来，${me.user.username}` })
         await 刷新数据()
       } catch {
         setStoredToken('')
         setUser(null)
-        setStatus({ type: 'warning', message: '会话已失效，请重新登录' })
+        setStatus({ type: 'warning', message: '会话失效，请重新登录' })
       }
     })()
   }, [])
@@ -155,6 +240,7 @@ function App() {
       setStoredToken(response.token)
       setUser(response.user)
       setPassword('')
+      await 加载设置()
       setStatus({ type: 'success', message: `${authMode === 'register' ? '注册' : '登录'}成功` })
       await 刷新数据()
     } catch (error) {
@@ -174,6 +260,10 @@ function App() {
     setUser(null)
     setRows([])
     setSelectedFundId('')
+    setSettings(默认设置)
+    setSettingsDraft(默认设置)
+    setSettingsOpen(false)
+    应用设置(默认设置)
     setStatus({ type: 'info', message: '已退出登录' })
   }
 
@@ -190,34 +280,33 @@ function App() {
         throw new Error('返回数据缺少持仓列表')
       }
 
-      const normalized = payload.funds
-        .map((item) => {
-          const marketValue = 数值化(item.market_value_cny)
-          const estimatePct =
-            item.estimate_pct === null || item.estimate_pct === undefined
-              ? null
-              : Number(item.estimate_pct)
-          return {
-            fund_id: item.fund_id || '--',
-            name: item.name || '未命名基金',
-            market_value_cny: marketValue,
-            cost_basis_cny: 数值化(item.cost_basis_cny),
-            holding_profit_cny: Number.isFinite(Number(item.holding_profit_cny))
-              ? Number(item.holding_profit_cny)
-              : marketValue - 数值化(item.cost_basis_cny),
-            estimate_pct: estimatePct,
-            day_profit_cny: estimatePct === null ? null : (marketValue * estimatePct) / 100,
-            source: item.source || '未知来源',
-            status: item.status || 'failed',
-            reason: item.reason || '',
-            market_group: item.market_group || 'cn_hk'
-          }
-        })
-        .sort((a, b) => b.market_value_cny - a.market_value_cny)
+      const normalized = payload.funds.map((item) => {
+        const marketValue = 数值化(item.market_value_cny)
+        const estimatePct =
+          item.estimate_pct === null || item.estimate_pct === undefined
+            ? null
+            : Number(item.estimate_pct)
+
+        return {
+          fund_id: item.fund_id || '--',
+          name: item.name || '未命名基金',
+          market_value_cny: marketValue,
+          cost_basis_cny: 数值化(item.cost_basis_cny),
+          holding_profit_cny: Number.isFinite(Number(item.holding_profit_cny))
+            ? Number(item.holding_profit_cny)
+            : marketValue - 数值化(item.cost_basis_cny),
+          estimate_pct: estimatePct,
+          day_profit_cny: estimatePct === null ? null : (marketValue * estimatePct) / 100,
+          source: item.source || '未知来源',
+          status: item.status || 'failed',
+          reason: item.reason || '',
+          market_group: item.market_group || 'cn_hk'
+        }
+      })
 
       setRows(normalized)
       setLastRefresh(格式化时间())
-      if (!selectedFundId || !normalized.some((row) => row.fund_id === selectedFundId)) {
+      if ((settings.display.auto_select_fund ?? true) && (!selectedFundId || !normalized.some((row) => row.fund_id === selectedFundId))) {
         setSelectedFundId(normalized[0]?.fund_id || '')
       }
 
@@ -233,19 +322,36 @@ function App() {
   }
 
   const filteredRows = useMemo(() => {
-    const keyword = search.trim().toLowerCase()
-    if (!keyword) return rows
-    return rows.filter((row) => row.name.toLowerCase().includes(keyword) || row.fund_id.toLowerCase().includes(keyword))
-  }, [rows, search])
+    let result = [...rows]
 
-  const 国内持仓 = useMemo(
-    () => filteredRows.filter((row) => row.market_group !== 'us_overseas'),
-    [filteredRows]
-  )
-  const 美股持仓 = useMemo(
-    () => filteredRows.filter((row) => row.market_group === 'us_overseas'),
-    [filteredRows]
-  )
+    const keyword = search.trim().toLowerCase()
+    if (keyword) {
+      result = result.filter((row) => row.name.toLowerCase().includes(keyword) || row.fund_id.toLowerCase().includes(keyword))
+    }
+
+    if (filterMode === 'up') {
+      result = result.filter((row) => Number(row.estimate_pct) > 0)
+    } else if (filterMode === 'down') {
+      result = result.filter((row) => Number(row.estimate_pct) < 0)
+    } else if (filterMode === 'abnormal') {
+      result = result.filter((row) => row.status !== 'ok')
+    }
+
+    const sortBy = sortMode || 'market_value_desc'
+    result.sort((a, b) => {
+      if (sortBy === 'market_value_desc') return b.market_value_cny - a.market_value_cny
+      if (sortBy === 'day_profit_desc') return 数值化(b.day_profit_cny) - 数值化(a.day_profit_cny)
+      if (sortBy === 'holding_profit_desc') return b.holding_profit_cny - a.holding_profit_cny
+      if (sortBy === 'estimate_desc') return 数值化(b.estimate_pct, -999) - 数值化(a.estimate_pct, -999)
+      if (sortBy === 'name_asc') return a.name.localeCompare(b.name, 'zh-Hans-CN')
+      return 0
+    })
+
+    return result
+  }, [rows, search, filterMode, sortMode])
+
+  const 国内持仓 = useMemo(() => filteredRows.filter((row) => row.market_group !== 'us_overseas'), [filteredRows])
+  const 美股持仓 = useMemo(() => filteredRows.filter((row) => row.market_group === 'us_overseas'), [filteredRows])
 
   const 汇总 = useMemo(() => {
     return {
@@ -275,6 +381,59 @@ function App() {
     return 构造波形(当前基金.estimate_pct ?? 0, 计算种子(当前基金.fund_id), 0.32)
   }, [当前基金])
 
+  const 设置展示字段 = (key, value) => {
+    setSettingsDraft((prev) => ({
+      ...prev,
+      display: {
+        ...prev.display,
+        [key]: value
+      }
+    }))
+  }
+
+  const 设置飞书字段 = (key, value) => {
+    setSettingsDraft((prev) => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        feishu: {
+          ...prev.notifications.feishu,
+          [key]: value
+        }
+      }
+    }))
+  }
+
+  const 设置邮箱字段 = (key, value) => {
+    setSettingsDraft((prev) => ({
+      ...prev,
+      notifications: {
+        ...prev.notifications,
+        email: {
+          ...prev.notifications.email,
+          [key]: value
+        }
+      }
+    }))
+  }
+
+  const 保存设置 = async () => {
+    setSettingsSaving(true)
+    try {
+      const response = await saveSettings({ settings: settingsDraft })
+      const merged = 合并对象(默认设置, response?.settings || settingsDraft)
+      setSettings(merged)
+      setSettingsDraft(merged)
+      应用设置(merged)
+      setStatus({ type: 'success', message: '设置已保存（按用户隔离）' })
+      setSettingsOpen(false)
+    } catch (error) {
+      setStatus({ type: 'error', message: error?.message || '设置保存失败' })
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
+
   const 渲染表格 = (title, data) => (
     <section className="持仓板块" key={title}>
       <div className="持仓板块头部">
@@ -299,6 +458,7 @@ function App() {
               const dayClass = row.day_profit_cny > 0 ? '红色' : row.day_profit_cny < 0 ? '绿色' : ''
               const holdClass = row.holding_profit_cny > 0 ? '红色' : row.holding_profit_cny < 0 ? '绿色' : ''
               const pctClass = row.estimate_pct > 0 ? '红色' : row.estimate_pct < 0 ? '绿色' : ''
+
               return (
                 <tr key={row.fund_id}>
                   <td>
@@ -333,8 +493,18 @@ function App() {
     </section>
   )
 
+  const 板块顺序 = settings.display.group_order === 'us_first'
+    ? [
+        { key: 'us', title: '美股与海外（QDII）', data: 美股持仓 },
+        { key: 'cn', title: '国内与港股', data: 国内持仓 }
+      ]
+    : [
+        { key: 'cn', title: '国内与港股（优先展示）', data: 国内持仓 },
+        { key: 'us', title: '美股与海外（QDII）', data: 美股持仓 }
+      ]
+
   return (
-    <div className="页面">
+    <div className={`页面 字号-${settings.display.font_scale || 'large'}`}>
       <header className="顶部栏">
         <div>
           <div className="主标题">VectorControl</div>
@@ -355,40 +525,25 @@ function App() {
       <section className="控制区">
         <div className="控制左">
           <div className="标题">用户登录与数据隔离</div>
-          <div className="说明">每个用户拥有独立持仓快照、动作记录与日报数据。</div>
+          <div className="说明">每个用户拥有独立持仓、快照、执行记录与个人设置。</div>
         </div>
 
         {!user ? (
           <div className="认证区">
             <div className="认证模式">
-              <button type="button" className={authMode === 'login' ? '' : '次按钮'} onClick={() => setAuthMode('login')}>
-                登录
-              </button>
-              <button type="button" className={authMode === 'register' ? '' : '次按钮'} onClick={() => setAuthMode('register')}>
-                注册
-              </button>
+              <button type="button" className={authMode === 'login' ? '' : '次按钮'} onClick={() => setAuthMode('login')}>登录</button>
+              <button type="button" className={authMode === 'register' ? '' : '次按钮'} onClick={() => setAuthMode('register')}>注册</button>
             </div>
-            <input
-              type="text"
-              placeholder="用户名（至少 3 位）"
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-            />
-            <input
-              type="password"
-              placeholder="密码（至少 6 位）"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-            />
-            <button type="button" onClick={提交认证} disabled={authLoading}>
-              {authLoading ? '处理中...' : authMode === 'register' ? '注册并登录' : '立即登录'}
-            </button>
+            <input type="text" placeholder="用户名（至少 3 位）" value={username} onChange={(event) => setUsername(event.target.value)} />
+            <input type="password" placeholder="密码（至少 6 位）" value={password} onChange={(event) => setPassword(event.target.value)} />
+            <button type="button" onClick={提交认证} disabled={authLoading}>{authLoading ? '处理中...' : authMode === 'register' ? '注册并登录' : '立即登录'}</button>
           </div>
         ) : (
           <div className="登录态区">
             <div className="登录态文案">当前用户：{user.username}</div>
             <div className="登录态操作">
               <button type="button" onClick={刷新数据}>刷新数据</button>
+              <button type="button" className="次按钮" onClick={() => setSettingsOpen((v) => !v)}>{settingsOpen ? '收起设置' : '设置中心'}</button>
               <button type="button" className="次按钮" onClick={退出登录}>退出登录</button>
             </div>
           </div>
@@ -396,6 +551,152 @@ function App() {
 
         <div className={状态样式映射[status.type] || 状态样式映射.info}>状态：{status.message}</div>
         <div className="刷新时间">上次刷新：{lastRefresh}</div>
+      </section>
+
+      {user && settingsOpen && (
+        <section className="设置区">
+          <div className="设置标题">个人设置（按用户隔离）</div>
+          <div className="设置网格">
+            <article className="设置卡">
+              <h4>显示与交互</h4>
+              <label>
+                字体大小
+                <select value={settingsDraft.display.font_scale} onChange={(e) => 设置展示字段('font_scale', e.target.value)}>
+                  <option value="medium">中</option>
+                  <option value="large">大</option>
+                  <option value="xlarge">特大</option>
+                </select>
+              </label>
+              <label>
+                默认筛选
+                <select value={settingsDraft.display.filter_mode} onChange={(e) => 设置展示字段('filter_mode', e.target.value)}>
+                  {过滤项.map((item) => (
+                    <option key={item.key} value={item.key}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                默认排序
+                <select value={settingsDraft.display.sort_mode} onChange={(e) => 设置展示字段('sort_mode', e.target.value)}>
+                  {排序项.map((item) => (
+                    <option key={item.key} value={item.key}>{item.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                板块顺序
+                <select value={settingsDraft.display.group_order} onChange={(e) => 设置展示字段('group_order', e.target.value)}>
+                  <option value="cn_first">国内在上，美股在下</option>
+                  <option value="us_first">美股在上，国内在下</option>
+                </select>
+              </label>
+              <label className="复选">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settingsDraft.display.auto_select_fund)}
+                  onChange={(e) => 设置展示字段('auto_select_fund', e.target.checked)}
+                />
+                刷新后自动定位到首只基金
+              </label>
+            </article>
+
+            <article className="设置卡">
+              <h4>飞书推送（预留）</h4>
+              <label className="复选">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settingsDraft.notifications.feishu.enabled)}
+                  onChange={(e) => 设置飞书字段('enabled', e.target.checked)}
+                />
+                启用飞书推送（后端调度接入后生效）
+              </label>
+              <label>
+                Webhook 地址
+                <input
+                  type="text"
+                  value={settingsDraft.notifications.feishu.webhook_url}
+                  onChange={(e) => 设置飞书字段('webhook_url', e.target.value)}
+                  placeholder="https://open.feishu.cn/..."
+                />
+              </label>
+              <label>
+                预判推送时间
+                <input
+                  type="time"
+                  value={settingsDraft.notifications.feishu.advice_time}
+                  onChange={(e) => 设置飞书字段('advice_time', e.target.value)}
+                />
+              </label>
+              <label>
+                复盘推送时间
+                <input
+                  type="time"
+                  value={settingsDraft.notifications.feishu.report_time}
+                  onChange={(e) => 设置飞书字段('report_time', e.target.value)}
+                />
+              </label>
+            </article>
+
+            <article className="设置卡">
+              <h4>邮件推送（预留）</h4>
+              <label className="复选">
+                <input
+                  type="checkbox"
+                  checked={Boolean(settingsDraft.notifications.email.enabled)}
+                  onChange={(e) => 设置邮箱字段('enabled', e.target.checked)}
+                />
+                启用邮件推送（后端发送器接入后生效）
+              </label>
+              <label>
+                SMTP 主机
+                <input type="text" value={settingsDraft.notifications.email.smtp_host} onChange={(e) => 设置邮箱字段('smtp_host', e.target.value)} placeholder="smtp.example.com" />
+              </label>
+              <label>
+                SMTP 端口
+                <input type="number" value={settingsDraft.notifications.email.smtp_port} onChange={(e) => 设置邮箱字段('smtp_port', Number(e.target.value) || 0)} />
+              </label>
+              <label>
+                发件人
+                <input type="text" value={settingsDraft.notifications.email.sender} onChange={(e) => 设置邮箱字段('sender', e.target.value)} placeholder="no-reply@example.com" />
+              </label>
+              <label>
+                收件人（逗号分隔）
+                <input type="text" value={settingsDraft.notifications.email.recipients} onChange={(e) => 设置邮箱字段('recipients', e.target.value)} placeholder="a@x.com,b@y.com" />
+              </label>
+              <label className="复选">
+                <input type="checkbox" checked={Boolean(settingsDraft.notifications.email.use_tls)} onChange={(e) => 设置邮箱字段('use_tls', e.target.checked)} />
+                使用 TLS
+              </label>
+            </article>
+          </div>
+          <div className="设置操作">
+            <button type="button" onClick={保存设置} disabled={settingsSaving}>{settingsSaving ? '保存中...' : '保存设置'}</button>
+            <button type="button" className="次按钮" onClick={() => { setSettingsDraft(settings); setSettingsOpen(false) }}>取消</button>
+          </div>
+        </section>
+      )}
+
+      <section className="工具区">
+        <div className="过滤组">
+          {过滤项.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={filterMode === item.key ? '' : '次按钮'}
+              onClick={() => setFilterMode(item.key)}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+        <label className="排序控件">
+          排序方式
+          <select value={sortMode} onChange={(e) => setSortMode(e.target.value)}>
+            {排序项.map((item) => (
+              <option key={item.key} value={item.key}>{item.label}</option>
+            ))}
+          </select>
+        </label>
       </section>
 
       <section className="摘要区">
@@ -446,8 +747,7 @@ function App() {
 
       <section className="持仓总区">
         <div className="持仓标题">全部持仓基金与今日收益变化</div>
-        {渲染表格('国内与港股（优先展示）', 国内持仓)}
-        {渲染表格('美股与海外（QDII）', 美股持仓)}
+        {板块顺序.map((item) => 渲染表格(item.title, item.data))}
       </section>
     </div>
   )

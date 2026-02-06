@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
+from typing import Any
 
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
@@ -17,12 +18,14 @@ from app.storage.db import (
     delete_session,
     get_latest_estimate_snapshot,
     get_user_by_session_token,
+    get_user_settings,
     init_db,
     insert_action,
     list_actions,
     list_holdings,
     save_estimate_snapshot,
     seed_user_holdings_if_empty,
+    upsert_user_settings,
     verify_user_credentials,
 )
 
@@ -50,6 +53,10 @@ class ActionIn(BaseModel):
 class AuthIn(BaseModel):
     username: str
     password: str
+
+
+class SettingsIn(BaseModel):
+    settings: dict[str, Any]
 
 
 def _today_str() -> str:
@@ -156,6 +163,20 @@ async def me(request: Request) -> dict:
         "holdings_count": len(holdings),
         "mode": "user",
     }
+
+
+@app.get("/api/settings")
+async def get_settings(request: Request) -> dict:
+    user_id = "legacy" if _is_admin(request) else _get_user_id(request)
+    settings = get_user_settings(user_id)
+    return {"settings": settings, "user_id": user_id}
+
+
+@app.put("/api/settings")
+async def put_settings(request: Request, payload: SettingsIn) -> dict:
+    user_id = "legacy" if _is_admin(request) else _get_user_id(request)
+    settings = upsert_user_settings(user_id, payload.settings)
+    return {"settings": settings, "user_id": user_id}
 
 
 @app.post("/api/auth/logout")
