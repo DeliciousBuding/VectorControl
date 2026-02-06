@@ -39,6 +39,12 @@ function App() {
   const [tradeSubmitting, setTradeSubmitting] = useState(false)
   const [tradeSubmitError, setTradeSubmitError] = useState('')
   const [tradeSubmitResult, setTradeSubmitResult] = useState(null)
+  const [planName, setPlanName] = useState('')
+  const [planFundCode, setPlanFundCode] = useState('')
+  const [planAmount, setPlanAmount] = useState('')
+  const [planSchedule, setPlanSchedule] = useState('weekly')
+  const [planSubmitting, setPlanSubmitting] = useState(false)
+  const [planError, setPlanError] = useState('')
   const [reportSummary, setReportSummary] = useState('')
   const [assetReadyMs, setAssetReadyMs] = useState(0)
   const [assetTimedOut, setAssetTimedOut] = useState(false)
@@ -104,6 +110,27 @@ function App() {
       .slice(0, 6)
   }, [filteredRows])
 
+  const dcaPlans = useMemo(() => {
+    const items = settings?.strategy?.dca_plans
+    return Array.isArray(items) ? items : []
+  }, [settings])
+
+  const dcaStatusMap = useMemo(() => {
+    const map = {}
+    for (const item of actionLogs) {
+      const key = String(item?.action_key || '')
+      if (!key.startsWith('dca_plan_')) continue
+      const planId = key.slice('dca_plan_'.length)
+      if (!planId || map[planId]) continue
+      map[planId] = item.done ? 'ok' : 'failed'
+    }
+    return map
+  }, [actionLogs])
+
+  const dcaFailedPlans = useMemo(() => {
+    return dcaPlans.filter((plan) => dcaStatusMap[String(plan.id)] === 'failed')
+  }, [dcaPlans, dcaStatusMap])
+
   const handleToggleAutoRefresh = () => {
     setAutoRefreshEnabled(!settings.display.auto_refresh_enabled)
   }
@@ -151,7 +178,7 @@ function App() {
       setReportSummary('')
       return
     }
-    if (activeTab !== 'trade' && activeTab !== 'profile') return
+    if (activeTab !== 'trade' && activeTab !== 'profile' && activeTab !== 'home') return
 
     let mounted = true
     const loadTradeAndReport = async () => {
@@ -333,6 +360,68 @@ function App() {
     }
   }
 
+  const handleCreatePlan = async (event) => {
+    event.preventDefault()
+    const amount = Number(planAmount)
+    if (!planName.trim()) {
+      setPlanError('请输入计划名称')
+      return
+    }
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setPlanError('请输入大于 0 的计划金额')
+      return
+    }
+
+    setPlanError('')
+    setPlanSubmitting(true)
+    try {
+      const nextPlans = [
+        ...dcaPlans,
+        {
+          id: `plan_${Date.now()}`,
+          name: planName.trim(),
+          fund_id: planFundCode.trim(),
+          amount,
+          schedule: planSchedule,
+          paused: false,
+          created_at: new Date().toISOString()
+        }
+      ]
+      await saveSettingsPatch({ strategy: { dca_plans: nextPlans } })
+      setPlanName('')
+      setPlanFundCode('')
+      setPlanAmount('')
+      setPlanSchedule('weekly')
+      recordMetric('定投计划创建成功', { schedule: planSchedule, amount })
+    } catch (error) {
+      setPlanError(error?.message || '定投计划保存失败')
+    } finally {
+      setPlanSubmitting(false)
+    }
+  }
+
+  const handleTogglePlan = async (planId) => {
+    const nextPlans = dcaPlans.map((item) =>
+      String(item.id) === String(planId) ? { ...item, paused: !item.paused } : item
+    )
+    await saveSettingsPatch({ strategy: { dca_plans: nextPlans } })
+  }
+
+  const handlePlanAction = async (plan, done) => {
+    const date = new Date().toISOString().slice(0, 10)
+    const actionKey = `dca_plan_${plan.id}`
+    const payload = await saveAction({
+      date,
+      action_key: actionKey,
+      amount: Number(plan.amount || 0),
+      done
+    })
+    const latest = Array.isArray(payload?.actions) ? payload.actions[0] : null
+    if (!latest) return
+    const record = { ...latest, date: payload?.date || date }
+    setActionLogs((prev) => [record, ...prev].sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || ''))))
+  }
+
   if (!authReady) {
     return (
       <div className="page-shell">
@@ -423,8 +512,14 @@ function App() {
               </article>
               <article className="todo-card">
                 <h3>提醒中心</h3>
-                <p>统一管理阈值提醒与系统消息。</p>
-                <button type="button" className="ghost" onClick={() => setActiveTab('profile')}>去我的</button>
+                <p>
+                  {dcaFailedPlans.length > 0
+                    ? `有 ${dcaFailedPlans.length} 个定投计划扣款失败，建议优先处理。`
+                    : '暂无定投失败待办，保持计划执行即可。'}
+                </p>
+                <button type="button" className="ghost" onClick={() => setActiveTab(dcaFailedPlans.length > 0 ? 'trade' : 'profile')}>
+                  {dcaFailedPlans.length > 0 ? '去处理定投' : '去我的'}
+                </button>
               </article>
             </div>
             {searchQuery.trim() && filteredRows.length === 0 && (
@@ -521,6 +616,86 @@ function App() {
             </div>
           )}
           <p className="trade-tip">已打通买入/定投/赎回/转换入口，提交后写入执行记录并在下方列表回显。</p>
+
+          <div className="section-head trade-head">
+            <h3>定投多计划</h3>
+            <span>{`共 ${dcaPlans.length} 个计划，失败待办 ${dcaFailedPlans.length} 个`}</span>
+          </div>
+          <form className="trade-form dca-plan-form" onSubmit={handleCreatePlan}>
+            <label>
+              计划名称
+              <input
+                value={planName}
+                onChange={(event) => setPlanName(event.target.value)}
+                placeholder="例如：纳指周定投"
+                maxLength={40}
+              />
+            </label>
+            <label>
+              基金代码（可选）
+              <input
+                value={planFundCode}
+                onChange={(event) => setPlanFundCode(event.target.value)}
+                placeholder="例如 016533"
+                maxLength={16}
+              />
+            </label>
+            <label>
+              每期金额
+              <input
+                type="number"
+                min="0.01"
+                step="0.01"
+                value={planAmount}
+                onChange={(event) => setPlanAmount(event.target.value)}
+                placeholder="请输入金额"
+              />
+            </label>
+            <label>
+              扣款频率
+              <select value={planSchedule} onChange={(event) => setPlanSchedule(event.target.value)}>
+                <option value="daily">每日</option>
+                <option value="weekly">每周</option>
+                <option value="monthly">每月</option>
+              </select>
+            </label>
+            <button type="submit" className="primary" disabled={planSubmitting}>
+              {planSubmitting ? '保存中...' : '新增计划'}
+            </button>
+          </form>
+          {planError && <div className="chart-empty">{planError}</div>}
+          {dcaPlans.length === 0 && <div className="chart-empty">暂无定投计划，请先新增。</div>}
+          {dcaPlans.length > 0 && (
+            <div className="plan-list">
+              {dcaPlans.map((plan) => {
+                const failed = dcaStatusMap[String(plan.id)] === 'failed'
+                return (
+                  <article key={plan.id} className="plan-item">
+                    <div>
+                      <h4>{plan.name}</h4>
+                      <p>
+                        代码：{plan.fund_id || '--'} ｜ 频率：{plan.schedule} ｜ 金额：{Number(plan.amount || 0).toFixed(2)}
+                      </p>
+                    </div>
+                    <div className="plan-actions">
+                      <span className={failed ? 'record-pending' : 'record-done'}>
+                        {failed ? '失败待办' : '状态正常'}
+                      </span>
+                      <button type="button" className="ghost" onClick={() => handleTogglePlan(plan.id)}>
+                        {plan.paused ? '恢复' : '暂停'}
+                      </button>
+                      <button type="button" className="ghost" onClick={() => handlePlanAction(plan, false)}>
+                        记录失败
+                      </button>
+                      <button type="button" className="primary" onClick={() => handlePlanAction(plan, true)}>
+                        标记补扣
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          )}
 
           <div className="section-head trade-head">
             <h3>交易记录（近7天）</h3>

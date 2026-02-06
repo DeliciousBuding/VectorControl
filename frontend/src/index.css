@@ -478,6 +478,20 @@ button:disabled {
   background: #fff;
 }
 
+.trade-form select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--text);
+  background: #fff;
+}
+
+.dca-plan-form {
+  margin-top: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .trade-check {
   display: flex !important;
   align-items: center;
@@ -507,6 +521,41 @@ button:disabled {
 
 .trade-head {
   margin-top: 18px;
+}
+
+.plan-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.plan-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.plan-item h4 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.plan-item p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.plan-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .record-list {
@@ -1062,6 +1111,10 @@ button:disabled {
     grid-template-columns: 1fr 1fr;
   }
 
+  .dca-plan-form {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1094,6 +1147,14 @@ button:disabled {
   }
 
   .trade-form {
+    grid-template-columns: 1fr;
+  }
+
+  .dca-plan-form {
+    grid-template-columns: 1fr;
+  }
+
+  .plan-item {
     grid-template-columns: 1fr;
   }
 }
