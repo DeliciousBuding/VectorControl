@@ -5,6 +5,7 @@ from datetime import date, datetime, timezone
 from typing import Any
 
 from app.core.config_loader import load_all
+from app.core.market_group import decide_market_group
 from app.data_sources.base import QuoteProvider
 from app.data_sources.eastmoney import EastMoneyQuoteProvider
 
@@ -55,16 +56,6 @@ def _normalize_tags(item: dict[str, Any]) -> list[str]:
     if isinstance(raw, str) and raw.strip():
         return [raw.strip().lower()]
     return []
-
-
-def _market_group(name: str, tags: list[str]) -> str:
-    tag_set = set(tags)
-    if "nasdaq" in tag_set or "qdii" in tag_set:
-        return "us_overseas"
-    lower_name = name.lower()
-    if "qdii" in lower_name or "纳斯达克" in name:
-        return "us_overseas"
-    return "cn_hk"
 
 
 def _parse_date(text: str) -> date | None:
@@ -203,7 +194,13 @@ def build_estimate(
         position_weight_pct = round((market_value / total_market_value) * 100, 4) if total_market_value > 0 else 0.0
         holding_days = _holding_days(start_date, today_local)
         tags = _normalize_tags(item)
-        market_group = _market_group(name, tags)
+        market_group = str(item.get("market_group", "")).strip() or decide_market_group(
+            name=name,
+            tags=tags,
+            market=str(item.get("market", "")),
+            currency=str(item.get("currency", "")),
+            asset_class=str(item.get("asset_class", "")),
+        )
 
         quote: dict[str, Any] | None = None
         request_error = ""

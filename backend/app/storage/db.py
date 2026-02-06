@@ -8,6 +8,7 @@ import sqlite3
 from datetime import datetime, timedelta
 from typing import Any
 
+from app.core.market_group import decide_market_group
 from app.core.settings import DATA_DIR
 
 DB_PATH = DATA_DIR / "app.db"
@@ -62,15 +63,6 @@ def _normalize_tags(raw: Any) -> list[str]:
     if isinstance(raw, str) and raw.strip():
         return [raw.strip().lower()]
     return []
-
-
-def _guess_market_group(name: str, tags: list[str]) -> str:
-    tag_set = set(tags)
-    if "nasdaq" in tag_set or "qdii" in tag_set:
-        return "us_overseas"
-    if "纳斯达克" in name or "QDII" in name.upper():
-        return "us_overseas"
-    return "cn_hk"
 
 
 def _normalize_catalog_text(value: Any) -> str:
@@ -164,7 +156,7 @@ def _migrate_holdings(conn: sqlite3.Connection) -> None:
         if "market_group" in cols and row["market_group"]:
             market_group = str(row["market_group"])
         else:
-            market_group = _guess_market_group(name, tags)
+            market_group = decide_market_group(name=name, tags=tags)
         archived = int(row["archived"]) if "archived" in cols and row["archived"] else 0
         archived_at = str(row["archived_at"]) if "archived_at" in cols and row["archived_at"] else ""
 
@@ -620,7 +612,13 @@ def seed_user_holdings_if_empty(user_id: str, portfolio: dict[str, Any]) -> int:
 
             name = str(item.get("name", "")).strip()
             tags = _normalize_tags(item.get("tags", []))
-            market_group = str(item.get("market_group", "")).strip() or _guess_market_group(name, tags)
+            market_group = str(item.get("market_group", "")).strip() or decide_market_group(
+                name=name,
+                tags=tags,
+                market=str(item.get("market", "")),
+                currency=str(item.get("currency", "")),
+                asset_class=str(item.get("asset_class", "")),
+            )
             market_value = _to_float(item.get("market_value_cny", item.get("market_value", 0)))
             cost_basis = _to_float(
                 item.get("cost_basis_cny", item.get("cost_basis", item.get("cost", market_value)))
@@ -809,7 +807,13 @@ def create_or_replace_holding(user_id: str, item: dict[str, Any]) -> dict[str, A
     cost = _to_float(item.get("cost", cost_basis_cny))
     start_date = str(item.get("start_date", "")).strip() or datetime.now().date().isoformat()
     tags = _normalize_tags(item.get("tags", []))
-    market_group = str(item.get("market_group", "")).strip() or _guess_market_group(name, tags)
+    market_group = str(item.get("market_group", "")).strip() or decide_market_group(
+        name=name,
+        tags=tags,
+        market=str(item.get("market", "")),
+        currency=str(item.get("currency", "")),
+        asset_class=str(item.get("asset_class", "")),
+    )
 
     with connect() as conn:
         conn.execute(

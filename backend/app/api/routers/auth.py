@@ -4,7 +4,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
-from app.api.deps import get_holdings_user_id, get_user_id, get_username, is_admin
+from app.api.deps import get_user_id, get_username, is_admin
 from app.core.rate_limit import LimitRule, auth_rate_limiter
 from app.storage.db import (
     create_session,
