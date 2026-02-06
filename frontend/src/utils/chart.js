@@ -73,7 +73,7 @@ export function buildFundSeries(fund, rangeKey) {
     benchmark: benchmarkValues[index],
     userProfit: userProfitValues[index],
     zero: 0,
-    cost: asNumber(fund?.cost_basis_cny)
+    costLine: 0
   }))
 }
 

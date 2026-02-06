@@ -32,7 +32,13 @@ function App() {
     saveHolding
   } = usePortfolio({ user, sorter: sortState })
 
-  const dateLabel = formatDate(new Date())
+  const dateLabel = useMemo(() => {
+    if (asof && asof !== '--') {
+      const fromAsof = formatDate(asof)
+      if (fromAsof !== '--') return fromAsof
+    }
+    return formatDate(new Date())
+  }, [asof])
 
   const sparklineMap = useMemo(() => {
     const map = {}
@@ -93,8 +99,8 @@ function App() {
 
       <section className="panel holdings-main">
         <div className="section-head">
-          <h2>全部持仓基金与今日收益变化</h2>
-          <span>基金名右侧展示实时波形图；字段支持排序与编辑</span>
+          <h2>全部持仓总览</h2>
+          <span>支持排序、编辑与波形联动</span>
         </div>
 
         <HoldingsTable
@@ -122,7 +128,7 @@ function App() {
         />
       </section>
 
-      <FundDetailPanel fund={currentFund} rows={rows} />
+      <FundDetailPanel fund={currentFund} rows={rows} dateLabel={dateLabel} />
 
       <RiskCenter risk={riskOverview} />
 

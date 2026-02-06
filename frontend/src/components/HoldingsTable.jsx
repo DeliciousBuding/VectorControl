@@ -6,7 +6,7 @@ import { classBySign, formatMoney, formatPercent, formatSignedMoney } from '../u
 function DualValue({ top, bottom, topClass = '', bottomClass = '' }) {
   return (
     <div className="dual-value">
-      <div className={topClass}>{top}</div>
+      <div className={`main ${topClass}`}>{top}</div>
       <div className={`sub ${bottomClass}`}>{bottom}</div>
     </div>
   )
@@ -26,6 +26,7 @@ export function HoldingsTable({
   const [editingId, setEditingId] = useState('')
   const [draft, setDraft] = useState({})
   const totalMarket = useMemo(() => rows.reduce((sum, item) => sum + Number(item.market_value_cny || 0), 0), [rows])
+  const dateSuffix = dateLabel && dateLabel !== '--' ? `(${dateLabel})` : ''
 
   const beginEdit = (row) => {
     setEditingId(row.fund_id)
@@ -33,7 +34,7 @@ export function HoldingsTable({
       market_value_cny: row.market_value_cny,
       shares: row.shares,
       cost_basis_cny: row.cost_basis_cny,
-      start_date: row.start_date || ''
+      start_date: row.start_date ? String(row.start_date).slice(0, 10) : ''
     })
   }
 
@@ -57,9 +58,9 @@ export function HoldingsTable({
   const sortCell = (label, key) => {
     const active = sortState.key === key
     return (
-      <button type="button" className="th-button" onClick={() => onSort(key)}>
+      <button type="button" className={`th-button ${active ? 'is-active' : ''}`} onClick={() => onSort(key)}>
         <span>{label}</span>
-        <SortToggle active={active} order={active ? sortState.order : ''} onToggle={() => onSort(key)} />
+        <SortToggle active={active} order={active ? sortState.order : ''} />
       </button>
     )
   }
@@ -76,12 +77,12 @@ export function HoldingsTable({
             <tr>
               <th>{sortCell('基金', 'name')}</th>
               <th>走势</th>
-              <th className="align-right">{sortCell('当日市值', 'market_value_cny')}</th>
+              <th className="align-right">{sortCell('持有金额', 'market_value_cny')}</th>
               <th className="align-right">持有份额</th>
               <th className="align-right">持仓占比</th>
-              <th className="align-right">{sortCell(`持有收益\n(${dateLabel})`, 'holding_profit_cny')}</th>
+              <th className="align-right">{sortCell(`持有收益${dateSuffix}`, 'holding_profit_cny')}</th>
               <th className="align-right">持仓成本</th>
-              <th className="align-right">{sortCell(`当日收益\n(${dateLabel})`, 'day_profit_cny')}</th>
+              <th className="align-right">{sortCell(`当日收益${dateSuffix}`, 'day_profit_cny')}</th>
               <th className="align-right">昨日收益</th>
               <th className="align-right">最新净值</th>
               <th className="align-right">{sortCell('持有天数', 'holding_days')}</th>
@@ -98,6 +99,7 @@ export function HoldingsTable({
               const selected = selectedFundId === row.fund_id
               const isEditing = editingId === row.fund_id
               const weight = totalMarket > 0 ? (row.market_value_cny / totalMarket) * 100 : 0
+              const startDateText = row.start_date ? String(row.start_date).slice(0, 10) : '--'
               return (
                 <tr key={row.fund_id} className={selected ? 'row-selected' : ''} onClick={() => onSelectFund(row.fund_id)}>
                   <td>
@@ -113,15 +115,30 @@ export function HoldingsTable({
                   <td>
                     <SparklineMini points={sparklineMap[row.fund_id] || []} />
                   </td>
-                  <td className="align-right">{formatMoney(row.market_value_cny)}</td>
-                  <td className="align-right">{isEditing ? (
-                    <input
-                      className="table-input"
-                      value={draft.shares}
-                      onChange={(e) => setDraft((prev) => ({ ...prev, shares: e.target.value }))}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : formatMoney(row.shares, 2)}</td>
+                  <td className="align-right">
+                    {isEditing ? (
+                      <input
+                        className="table-input"
+                        value={draft.market_value_cny}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, market_value_cny: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      formatMoney(row.market_value_cny)
+                    )}
+                  </td>
+                  <td className="align-right">
+                    {isEditing ? (
+                      <input
+                        className="table-input"
+                        value={draft.shares}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, shares: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      formatMoney(row.shares, 2)
+                    )}
+                  </td>
                   <td className="align-right">{formatPercent(weight)}</td>
                   <td className="align-right">
                     <DualValue
@@ -131,14 +148,18 @@ export function HoldingsTable({
                       bottomClass={classBySign(row.holding_profit_rate)}
                     />
                   </td>
-                  <td className="align-right">{isEditing ? (
-                    <input
-                      className="table-input"
-                      value={draft.cost_basis_cny}
-                      onChange={(e) => setDraft((prev) => ({ ...prev, cost_basis_cny: e.target.value }))}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  ) : formatMoney(row.cost_basis_cny)}</td>
+                  <td className="align-right">
+                    {isEditing ? (
+                      <input
+                        className="table-input"
+                        value={draft.cost_basis_cny}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, cost_basis_cny: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      formatMoney(row.cost_basis_cny)
+                    )}
+                  </td>
                   <td className="align-right">
                     <span className={classBySign(row.day_profit_cny)}>{formatSignedMoney(row.day_profit_cny)}</span>
                   </td>
@@ -152,7 +173,22 @@ export function HoldingsTable({
                       topClass={classBySign(row.estimate_pct)}
                     />
                   </td>
-                  <td className="align-right">{row.holding_days === '--' ? '--' : `${row.holding_days}天`}</td>
+                  <td className="align-right">
+                    {isEditing ? (
+                      <input
+                        type="date"
+                        className="table-input"
+                        value={draft.start_date}
+                        onChange={(e) => setDraft((prev) => ({ ...prev, start_date: e.target.value }))}
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <DualValue
+                        top={row.holding_days === '--' ? '--' : `${row.holding_days}天`}
+                        bottom={startDateText}
+                      />
+                    )}
+                  </td>
                   <td className="align-right">
                     {!isEditing && (
                       <button type="button" className="text-btn" onClick={(e) => { e.stopPropagation(); beginEdit(row) }}>

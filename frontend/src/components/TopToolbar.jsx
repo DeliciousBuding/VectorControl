@@ -17,8 +17,8 @@ export function TopToolbar({
       <div className="brand-block">
         <div className="logo">VC</div>
         <div>
-          <h1>VectorControl</h1>
-          <p>单页持仓中枢 · 理性决策工作台</p>
+          <h1>持仓决策台</h1>
+          <p>基金持仓与当日收益一屏掌握</p>
         </div>
       </div>
 
