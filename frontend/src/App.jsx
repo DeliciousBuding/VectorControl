@@ -3,6 +3,7 @@ import {
   fetchActions,
   fetchAdvice,
   fetchEstimate,
+  fetchReportDaily,
   getQueryToken,
   getStoredToken,
   saveActions,
@@ -65,9 +66,9 @@ const reportPreview = {
   summary:
     '今日复盘摘要占位：策略执行状态、风险提示与明日观察点将在刷新后显示。',
   sections: [
-    { title: '仓位观察', content: '等待数据接入。' },
-    { title: '风险提示', content: '等待数据接入。' },
-    { title: '明日计划', content: '等待数据接入。' }
+    { title: '仓位观察', lines: ['等待数据接入。'] },
+    { title: '风险提示', lines: ['等待数据接入。'] },
+    { title: '明日计划', lines: ['等待数据接入。'] }
   ]
 }
 
@@ -110,6 +111,38 @@ const normalizeActionMap = (payload) => {
   return map.size ? map : null
 }
 
+const normalizeReport = (payload) => {
+  if (!payload || typeof payload !== 'object') return null
+
+  const summary =
+    typeof payload.summary === 'string' && payload.summary.trim()
+      ? payload.summary
+      : reportPreview.summary
+
+  const sections = Array.isArray(payload.sections)
+    ? payload.sections.map((section, index) => {
+        const title =
+          typeof section?.title === 'string' && section.title.trim()
+            ? section.title
+            : `Section ${index + 1}`
+        const lines = Array.isArray(section?.lines)
+          ? section.lines.filter((line) => line !== null && line !== undefined)
+          : typeof section?.lines === 'string'
+            ? [section.lines]
+            : []
+        return {
+          title,
+          lines: lines.length ? lines : ['—']
+        }
+      })
+    : []
+
+  return {
+    summary,
+    sections: sections.length ? sections : reportPreview.sections
+  }
+}
+
 const buildActionsPayload = (records) => ({
   actions: records.map((record) => ({
     action_key: record.id,
@@ -128,6 +161,7 @@ function App() {
     executionRecords.map((record) => ({ ...record, checked: false }))
   )
   const [saveStatus, setSaveStatus] = useState('--')
+  const [reportData, setReportData] = useState(reportPreview)
 
   useEffect(() => {
     const stored = getStoredToken()
@@ -206,6 +240,17 @@ function App() {
             : record
         )
       )
+    } catch (error) {
+      errors.push(error)
+    }
+
+    try {
+      const report = await fetchReportDaily()
+      const normalized = normalizeReport(report)
+      if (!normalized) {
+        throw new Error('数据格式异常：缺少 report')
+      }
+      setReportData(normalized)
     } catch (error) {
       errors.push(error)
     }
@@ -356,12 +401,18 @@ function App() {
             <h2>复盘预览</h2>
             <span className="panel-note">/api/report/daily</span>
           </div>
-          <div className="report-summary">{reportPreview.summary}</div>
+          <div className="report-summary">{reportData.summary}</div>
           <div className="report-grid">
-            {reportPreview.sections.map((section) => (
+            {reportData.sections.map((section) => (
               <article className="report-card" key={section.title}>
                 <div className="report-title">{section.title}</div>
-                <div className="report-content">{section.content}</div>
+                <div className="report-content">
+                  {section.lines.map((line, index) => (
+                    <p className="report-line" key={`${section.title}-${index}`}>
+                      {line}
+                    </p>
+                  ))}
+                </div>
               </article>
             ))}
           </div>

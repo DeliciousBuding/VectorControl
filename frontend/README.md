@@ -1,6 +1,6 @@
 ﻿# Fund Watchtower Frontend
 
-F4 delivers `/api/actions` integration for execution checkboxes while keeping the single-page layout.
+F5 delivers `/api/report/daily` integration for the daily review preview while keeping the single-page layout.
 
 ## Requirements
 - Node.js 18+ (includes npm).
@@ -19,7 +19,7 @@ npm run build
 Vite outputs static assets to `dist/` for backend hosting.
 
 ## API Integration Notes
-- Use relative paths only (e.g., `/api/estimate`, `/api/advice`, `/api/actions`).
+- Use relative paths only (e.g., `/api/estimate`, `/api/advice`, `/api/actions`, `/api/report/daily`).
 - Token is stored in `localStorage` key `fund_watchtower_token`.
 - Query fallback supported: `?token=YOUR_TOKEN`.
 - Requests include `Authorization: Bearer <token>` when available.
@@ -30,4 +30,4 @@ Vite outputs static assets to `dist/` for backend hosting.
 - Four-ship board: data from `/api/estimate` buckets.
 - 今日指令: actions from `/api/advice`.
 - 执行记录: checkboxes loaded/saved via `/api/actions`.
-- 复盘预览: summary + sections from `/api/report/daily` (F5).
+- 复盘预览: summary + sections from `/api/report/daily`.
