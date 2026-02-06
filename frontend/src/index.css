@@ -492,6 +492,11 @@ button:disabled {
   grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 
+.reminder-form {
+  margin-top: 8px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
 .trade-check {
   display: flex !important;
   align-items: center;
@@ -1115,6 +1120,10 @@ button:disabled {
     grid-template-columns: 1fr 1fr 1fr;
   }
 
+  .reminder-form {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -1151,6 +1160,10 @@ button:disabled {
   }
 
   .dca-plan-form {
+    grid-template-columns: 1fr;
+  }
+
+  .reminder-form {
     grid-template-columns: 1fr;
   }
 

@@ -45,6 +45,13 @@ function App() {
   const [planSchedule, setPlanSchedule] = useState('weekly')
   const [planSubmitting, setPlanSubmitting] = useState(false)
   const [planError, setPlanError] = useState('')
+  const [ruleName, setRuleName] = useState('')
+  const [ruleFundCode, setRuleFundCode] = useState('')
+  const [ruleOperator, setRuleOperator] = useState('<=')
+  const [ruleThreshold, setRuleThreshold] = useState('')
+  const [ruleSilentHours, setRuleSilentHours] = useState('24')
+  const [ruleSubmitting, setRuleSubmitting] = useState(false)
+  const [ruleError, setRuleError] = useState('')
   const [reportSummary, setReportSummary] = useState('')
   const [assetReadyMs, setAssetReadyMs] = useState(0)
   const [assetTimedOut, setAssetTimedOut] = useState(false)
@@ -130,6 +137,33 @@ function App() {
   const dcaFailedPlans = useMemo(() => {
     return dcaPlans.filter((plan) => dcaStatusMap[String(plan.id)] === 'failed')
   }, [dcaPlans, dcaStatusMap])
+
+  const reminderRules = useMemo(() => {
+    const items = settings?.notifications?.rules
+    return Array.isArray(items) ? items : []
+  }, [settings])
+
+  const reminderRuleStates = useMemo(() => {
+    return reminderRules.map((rule) => {
+      const targetRows = rule.fund_id
+        ? rows.filter((row) => String(row.fund_id) === String(rule.fund_id))
+        : rows
+      const values = targetRows.map((row) => Number(row.estimate_pct || 0))
+      const minValue = values.length > 0 ? Math.min(...values) : null
+      const maxValue = values.length > 0 ? Math.max(...values) : null
+      let hit = false
+      if (values.length > 0) {
+        if (rule.operator === '<=') hit = values.some((value) => value <= Number(rule.threshold))
+        if (rule.operator === '>=') hit = values.some((value) => value >= Number(rule.threshold))
+      }
+      return {
+        ...rule,
+        hit: Boolean(rule.enabled) && hit,
+        currentValue: rule.operator === '<=' ? minValue : maxValue,
+        scopeCount: targetRows.length
+      }
+    })
+  }, [reminderRules, rows])
 
   const handleToggleAutoRefresh = () => {
     setAutoRefreshEnabled(!settings.display.auto_refresh_enabled)
@@ -420,6 +454,62 @@ function App() {
     if (!latest) return
     const record = { ...latest, date: payload?.date || date }
     setActionLogs((prev) => [record, ...prev].sort((a, b) => String(b.ts || '').localeCompare(String(a.ts || ''))))
+  }
+
+  const handleCreateRule = async (event) => {
+    event.preventDefault()
+    const threshold = Number(ruleThreshold)
+    const silentHours = Number(ruleSilentHours)
+    if (!ruleName.trim()) {
+      setRuleError('请输入规则名称')
+      return
+    }
+    if (!Number.isFinite(threshold)) {
+      setRuleError('请输入有效阈值')
+      return
+    }
+    if (!Number.isFinite(silentHours) || silentHours < 0) {
+      setRuleError('静默期需为不小于 0 的数字')
+      return
+    }
+
+    setRuleError('')
+    setRuleSubmitting(true)
+    try {
+      const nextRules = [
+        ...reminderRules,
+        {
+          id: `rule_${Date.now()}`,
+          name: ruleName.trim(),
+          fund_id: ruleFundCode.trim(),
+          metric: 'estimate_pct',
+          operator: ruleOperator,
+          threshold,
+          silent_hours: silentHours,
+          enabled: true,
+          created_at: new Date().toISOString(),
+          reason_template: `当估值 ${ruleOperator} ${threshold}% 时触发提醒`
+        }
+      ]
+      await saveSettingsPatch({ notifications: { rules: nextRules } })
+      setRuleName('')
+      setRuleFundCode('')
+      setRuleThreshold('')
+      setRuleSilentHours('24')
+      setRuleOperator('<=')
+      recordMetric('提醒规则创建成功', { operator: ruleOperator, threshold, silent_hours: silentHours })
+    } catch (error) {
+      setRuleError(error?.message || '提醒规则保存失败')
+    } finally {
+      setRuleSubmitting(false)
+    }
+  }
+
+  const handleToggleRule = async (ruleId) => {
+    const nextRules = reminderRules.map((item) =>
+      String(item.id) === String(ruleId) ? { ...item, enabled: !item.enabled } : item
+    )
+    await saveSettingsPatch({ notifications: { rules: nextRules } })
   }
 
   if (!authReady) {
@@ -806,6 +896,88 @@ function App() {
               </article>
             ))}
           </div>
+
+          <div className="section-head trade-head">
+            <h3>提醒规则中心</h3>
+            <span>{`阈值规则 ${reminderRules.length} 条，已触发 ${reminderRuleStates.filter((item) => item.hit).length} 条`}</span>
+          </div>
+          <form className="trade-form reminder-form" onSubmit={handleCreateRule}>
+            <label>
+              规则名称
+              <input
+                value={ruleName}
+                onChange={(event) => setRuleName(event.target.value)}
+                placeholder="例如：纳指回撤提醒"
+                maxLength={40}
+              />
+            </label>
+            <label>
+              基金代码（可选）
+              <input
+                value={ruleFundCode}
+                onChange={(event) => setRuleFundCode(event.target.value)}
+                placeholder="留空表示全持仓"
+                maxLength={16}
+              />
+            </label>
+            <label>
+              触发条件
+              <select value={ruleOperator} onChange={(event) => setRuleOperator(event.target.value)}>
+                <option value="<=">小于等于阈值</option>
+                <option value=">=">大于等于阈值</option>
+              </select>
+            </label>
+            <label>
+              阈值（%）
+              <input
+                type="number"
+                step="0.01"
+                value={ruleThreshold}
+                onChange={(event) => setRuleThreshold(event.target.value)}
+                placeholder="例如 -1.5"
+              />
+            </label>
+            <label>
+              静默期（小时）
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={ruleSilentHours}
+                onChange={(event) => setRuleSilentHours(event.target.value)}
+              />
+            </label>
+            <button type="submit" className="primary" disabled={ruleSubmitting}>
+              {ruleSubmitting ? '保存中...' : '新增提醒'}
+            </button>
+          </form>
+          {ruleError && <div className="chart-empty">{ruleError}</div>}
+          {reminderRuleStates.length === 0 && <div className="chart-empty">暂无提醒规则，请先新增阈值规则。</div>}
+          {reminderRuleStates.length > 0 && (
+            <div className="plan-list">
+              {reminderRuleStates.map((rule) => (
+                <article key={rule.id} className="plan-item">
+                  <div>
+                    <h4>{rule.name}</h4>
+                    <p>
+                      作用范围：{rule.fund_id || '全持仓'}（{rule.scopeCount}） ｜ 规则：估值 {rule.operator} {Number(rule.threshold).toFixed(2)}%
+                    </p>
+                    <p>
+                      触发说明：{rule.reason_template} ｜ 当前值：{rule.currentValue == null ? '--' : `${Number(rule.currentValue).toFixed(2)}%`} ｜ 静默期：{rule.silent_hours} 小时
+                    </p>
+                  </div>
+                  <div className="plan-actions">
+                    <span className={rule.hit ? 'record-pending' : 'record-done'}>
+                      {rule.hit ? '已触发' : '未触发'}
+                    </span>
+                    <button type="button" className="ghost" onClick={() => handleToggleRule(rule.id)}>
+                      {rule.enabled ? '暂停' : '启用'}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
