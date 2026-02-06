@@ -5,10 +5,10 @@ import logging
 from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 
-from app.api.routers import actions, advice, auth, config, estimate, holdings, report, risk, settings
+from app.api.routers import actions, advice, auth, config, estimate, funds, holdings, profile, report, risk, settings
 from app.core.config_loader import load_all
 from app.core.settings import ensure_api_token
-from app.storage.db import get_user_by_session_token, init_db
+from app.storage.db import get_user_by_session_token, init_db, sync_fund_catalog_from_config
 
 API_TOKEN = ensure_api_token()
 
@@ -62,6 +62,7 @@ async def auth_middleware(request: Request, call_next):
 def on_startup() -> None:
     app.state.config = load_all()
     init_db()
+    sync_fund_catalog_from_config(app.state.config)
 
 
 @app.get("/api/health")
@@ -78,3 +79,5 @@ app.include_router(advice.router)
 app.include_router(actions.router)
 app.include_router(holdings.router)
 app.include_router(report.router)
+app.include_router(profile.router)
+app.include_router(funds.router)
