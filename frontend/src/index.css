@@ -511,6 +511,91 @@ button:disabled {
   color: #36506a;
 }
 
+.state-showcase {
+  margin-top: 8px;
+  padding: 12px;
+}
+
+.state-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.state-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: #fff;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.state-card h4 {
+  margin: 0;
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-h2);
+}
+
+.state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.demo-hover {
+  filter: brightness(0.96);
+}
+
+.state-field {
+  display: grid;
+  gap: 4px;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  color: var(--text);
+}
+
+.state-field input {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-input);
+  padding: 8px 10px;
+  font-size: 14px;
+}
+
+.state-input-error {
+  border-color: var(--color-error) !important;
+  background: #fff5f5;
+}
+
+.state-error-text {
+  color: var(--color-error);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-caption);
+}
+
+.state-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.status-warning {
+  color: #b45309;
+  background: #fffbeb;
+}
+
+.state-skeleton {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.state-skeleton-line {
+  height: 12px;
+}
+
 .trade-head {
   margin-top: 18px;
 }
@@ -1113,6 +1198,10 @@ button:disabled {
 
   .metric-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .state-grid {
+    grid-template-columns: 1fr;
   }
 }
 

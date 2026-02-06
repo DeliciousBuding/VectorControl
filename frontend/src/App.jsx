@@ -13,6 +13,7 @@ import { FundDetailPanel } from './components/FundDetailPanel.jsx'
 import { RiskCenter } from './components/RiskCenter.jsx'
 import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
+import { StateShowcase } from './components/StateShowcase.jsx'
 import { listMetrics, recordMetric } from './utils/metrics.js'
 
 const TRADE_TYPES = [
@@ -894,8 +895,14 @@ function App() {
                   {item.actionLabel}
                 </button>
               </article>
-            ))}
+              ))}
           </div>
+
+          <div className="section-head trade-head">
+            <h3>组件状态样例页</h3>
+            <span>默认 / 悬浮 / 禁用 / 加载 / 错误</span>
+          </div>
+          <StateShowcase />
 
           <div className="section-head trade-head">
             <h3>提醒规则中心</h3>
