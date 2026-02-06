@@ -1,19 +1,17 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&display=swap');
 
 :root {
-  --bg: #edf2fb;
+  --bg: #eef3fb;
   --panel: #ffffff;
-  --line: #d8e0ef;
-  --text: #0f172a;
-  --muted: #61728f;
+  --line: #d7e0ef;
+  --text: #12203a;
+  --muted: #60708f;
   --brand: #1d4ed8;
   --brand-dark: #1e3a8a;
-  --positive: #dc2626;
-  --negative: #0f766e;
-  --ok: #15803d;
+  --green: #0f766e;
+  --red: #dc2626;
   --warn: #d97706;
-  --error: #dc2626;
-  --shadow: 0 16px 42px rgba(31, 41, 55, 0.12);
+  --shadow: 0 18px 38px rgba(15, 23, 42, 0.09);
 }
 
 * {
@@ -25,778 +23,653 @@ body {
   font-family: 'Noto Sans SC', 'Segoe UI', sans-serif;
   color: var(--text);
   background:
-    radial-gradient(circle at 10% -10%, rgba(59, 130, 246, 0.15), transparent 45%),
-    radial-gradient(circle at 90% -10%, rgba(14, 165, 233, 0.12), transparent 45%),
+    radial-gradient(circle at 10% -10%, rgba(59, 130, 246, 0.15), transparent 42%),
+    radial-gradient(circle at 90% -10%, rgba(14, 165, 233, 0.14), transparent 38%),
     var(--bg);
 }
 
-.页面 {
-  max-width: 1380px;
+button,
+input,
+select {
+  font-family: inherit;
+}
+
+.page-shell {
+  max-width: 1480px;
   margin: 0 auto;
-  padding: 24px 22px 60px;
+  padding: 20px 18px 56px;
 }
 
-.页面.字号-medium {
-  font-size: 14px;
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
 }
 
-.页面.字号-large {
-  font-size: 16px;
+.loading-panel {
+  margin-top: 18vh;
+  text-align: center;
+  padding: 48px;
+  font-size: 22px;
+  font-weight: 700;
 }
 
-.页面.字号-xlarge {
+.login-panel {
+  max-width: 520px;
+  margin: 10vh auto 0;
+  padding: 26px;
+}
+
+.login-panel h2 {
+  margin: 0;
+  font-size: 34px;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+}
+
+.login-panel p {
+  margin: 8px 0 16px;
+  color: var(--muted);
   font-size: 18px;
 }
 
-.顶部栏 {
-  background: linear-gradient(130deg, #ffffff, #f9fbff);
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  box-shadow: var(--shadow);
-  padding: 20px 24px;
+.auth-mode {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 18px;
-}
-
-.主标题 {
-  font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
-  font-size: 2.2rem;
-  line-height: 1;
-  font-weight: 700;
-  letter-spacing: 0.3px;
-  color: #0b1b45;
-}
-
-.副标题 {
-  margin-top: 8px;
-  font-size: 1rem;
-  color: var(--muted);
-}
-
-.搜索框 {
-  width: min(520px, 100%);
-  display: grid;
-  grid-template-columns: 58px 1fr;
   gap: 10px;
-  align-items: center;
-  background: #f7faff;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 10px 12px;
+  margin-bottom: 14px;
 }
 
-.搜索框 span {
-  color: var(--muted);
-}
-
-.搜索框 input {
-  border: none;
-  outline: none;
-  background: transparent;
-  font-size: 1rem;
-  color: var(--text);
-}
-
-.控制区,
-.设置区,
-.摘要区 article,
-.图卡,
-.持仓总区,
-.工具区 {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  box-shadow: var(--shadow);
-}
-
-.控制区 {
-  margin-top: 18px;
-  border-radius: 20px;
-  padding: 16px 18px;
+.auth-form {
   display: grid;
-  grid-template-columns: 1.2fr 1.8fr auto;
-  gap: 14px;
-  align-items: center;
+  gap: 12px;
 }
 
-.控制左 .标题 {
-  font-size: 1.2rem;
-  font-weight: 700;
-}
-
-.控制左 .说明 {
-  margin-top: 4px;
-  color: var(--muted);
-}
-
-.认证区 {
+.auth-form label {
   display: grid;
-  grid-template-columns: auto 1fr 1fr auto;
-  gap: 10px;
-  align-items: center;
+  gap: 6px;
+  font-size: 16px;
 }
 
-.认证模式 {
-  display: flex;
-  gap: 8px;
-}
-
-.认证区 input,
-.设置卡 input,
-.设置卡 select,
-.排序控件 select {
+.auth-form input {
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 0.96rem;
+  padding: 10px 12px;
+  font-size: 16px;
 }
 
-.登录态区 {
+.top-toolbar {
+  padding: 18px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 18px;
+  align-items: center;
+}
+
+.brand-block {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.logo {
+  width: 50px;
+  height: 50px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(140deg, #3b82f6, #1d4ed8);
+  color: #fff;
+  font-family: 'Manrope', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+}
+
+.brand-block h1 {
+  margin: 0;
+  font-size: 40px;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  line-height: 1;
+}
+
+.brand-block p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 19px;
+}
+
+.toolbar-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.toolbar-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-}
-
-.登录态文案 {
-  font-weight: 700;
-}
-
-.登录态操作 {
-  display: flex;
-  gap: 10px;
+  justify-content: flex-end;
   flex-wrap: wrap;
+  gap: 10px;
+  font-size: 16px;
 }
 
 button {
   border: none;
-  border-radius: 12px;
-  padding: 10px 15px;
-  font-size: 0.95rem;
+  border-radius: 10px;
+  padding: 8px 12px;
   font-weight: 700;
-  color: #fff;
-  background: var(--brand);
+  font-size: 15px;
   cursor: pointer;
 }
 
+button.primary {
+  color: #fff;
+  background: var(--brand);
+}
+
+button.ghost {
+  color: var(--brand-dark);
+  background: #e8efff;
+}
+
+button.danger {
+  color: #fff;
+  background: #dc2626;
+}
+
 button:hover {
-  filter: brightness(0.95);
+  filter: brightness(0.96);
 }
 
 button:disabled {
+  opacity: 0.75;
   cursor: not-allowed;
-  opacity: 0.7;
 }
 
-.次按钮 {
-  background: var(--brand-dark);
-}
-
-.状态提示 {
+.status-pill {
   border-radius: 999px;
-  padding: 8px 14px;
   border: 1px solid var(--line);
-  white-space: nowrap;
+  padding: 7px 12px;
+  font-weight: 600;
+  font-size: 14px;
 }
 
-.状态提示.信息 {
+.status-info {
   color: #1d4ed8;
   background: #eef4ff;
 }
 
-.状态提示.成功 {
-  color: var(--ok);
+.status-success {
+  color: #15803d;
   background: #ecfdf5;
 }
 
-.状态提示.警告 {
-  color: var(--warn);
-  background: #fff7ed;
+.status-warning {
+  color: #b45309;
+  background: #fffbeb;
 }
 
-.状态提示.错误 {
-  color: var(--error);
+.status-error {
+  color: #b91c1c;
   background: #fef2f2;
 }
 
-.刷新时间 {
-  color: var(--muted);
-  justify-self: end;
-  display: grid;
-  gap: 3px;
-  text-align: right;
-  font-size: 0.93rem;
-}
-
-.设置区 {
+.summary-grid {
   margin-top: 16px;
-  border-radius: 20px;
-  padding: 16px;
-}
-
-.设置标题 {
-  font-size: 1.15rem;
-  font-weight: 700;
-  margin-bottom: 10px;
-}
-
-.设置网格 {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-}
-
-.设置卡 {
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 12px;
-  background: #f8fbff;
-  display: grid;
-  gap: 8px;
-}
-
-.设置卡 h4 {
-  margin: 0 0 4px;
-  font-size: 1.03rem;
-}
-
-.设置卡 label {
-  display: grid;
-  gap: 6px;
-  font-size: 0.92rem;
-  color: #334155;
-}
-
-.快捷提示 {
-  border: 1px dashed var(--line);
-  border-radius: 10px;
-  background: #ffffff;
-  padding: 8px 10px;
-  color: #475569;
-}
-
-.快捷提示 code {
-  font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
-  font-weight: 700;
-  color: #1d4ed8;
-}
-
-.设置卡 .复选 {
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 8px;
-}
-
-.设置操作 {
-  margin-top: 12px;
-  display: flex;
-  gap: 10px;
-}
-
-.工具区 {
-  margin-top: 16px;
-  border-radius: 16px;
-  padding: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.过滤组 {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.排序控件 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #334155;
-}
-
-.工具右 {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-}
-
-.工具提醒 {
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.摘要区 {
-  margin-top: 18px;
-  display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 14px;
 }
 
-.摘要区 article {
-  border-radius: 18px;
-  padding: 16px;
+.summary-card {
+  padding: 14px;
 }
 
-.摘要区 h4 {
+.summary-card h3 {
   margin: 0;
   color: var(--muted);
-  font-size: 0.95rem;
-  font-weight: 600;
+  font-size: 15px;
 }
 
-.摘要区 p {
-  margin: 10px 0 0;
-  font-size: 1.8rem;
-  font-family: 'Space Grotesk', 'Noto Sans SC', sans-serif;
-  font-weight: 700;
-  color: #0b1b45;
-}
-
-.分组概览 {
-  margin-top: 14px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.分组概览 article {
-  background: #ffffff;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 14px 16px;
-  box-shadow: var(--shadow);
-}
-
-.分组概览 h4 {
-  margin: 0;
-  color: var(--muted);
-  font-size: 0.95rem;
-  font-weight: 600;
-}
-
-.分组概览 p {
-  margin: 8px 0;
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #0b1b45;
-}
-
-.风险区 {
-  margin-top: 16px;
-}
-
-.风险卡 {
-  background: #ffffff;
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 16px;
-  box-shadow: var(--shadow);
-}
-
-.风险头 {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 10px;
-}
-
-.风险头 h3 {
-  margin: 0;
-  font-size: 1.2rem;
-}
-
-.风险头 span {
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.风险网格 {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.风险项 {
-  border: 1px solid #dce6f7;
-  border-radius: 12px;
-  background: #f8fbff;
-  padding: 12px;
-  display: grid;
-  gap: 6px;
-}
-
-.风险项 h4 {
-  margin: 0 0 2px;
-  font-size: 1rem;
-}
-
-.风险说明 {
-  color: var(--muted);
-  font-size: 0.9rem;
-}
-
-.相关性列表 {
-  display: grid;
-  gap: 4px;
-  font-size: 0.92rem;
-}
-
-.压力列表 {
-  display: grid;
-  gap: 6px;
-}
-
-.压力列表 > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-}
-
-.预警列表 {
-  margin: 0;
-  padding-left: 18px;
-  display: grid;
-  gap: 6px;
-}
-
-.图表区 {
-  margin-top: 18px;
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.图卡 {
-  border-radius: 20px;
-  padding: 16px;
-}
-
-.图卡.图卡-跨列 {
-  grid-column: 1 / -1;
-}
-
-.图卡头 {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.图卡头 h3 {
-  margin: 0;
-  font-size: 1.25rem;
-}
-
-.图卡头 span {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--brand-dark);
-}
-
-.图提示 {
-  margin-top: 8px;
-  color: var(--muted);
-  font-size: 0.92rem;
-}
-
-.走势控制区 {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.切换组 {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.切换按钮 {
-  padding: 8px 12px;
-  border-radius: 10px;
-  border: 1px solid #bcd0f8;
-  background: #eff6ff;
-  color: #1d4ed8;
-}
-
-.切换按钮.激活 {
-  border-color: #1d4ed8;
-  background: #1d4ed8;
-  color: #ffffff;
-}
-
-.图卡头 select {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 10px;
-  max-width: 340px;
-}
-
-.单基金信息 {
-  margin-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 14px;
-  align-items: center;
-}
-
-.单基金信息 strong {
-  font-size: 1.1rem;
-}
-
-.单基金信息 span {
-  color: var(--muted);
-}
-
-.图容器 {
-  margin-top: 10px;
-}
-
-.波形图 {
-  width: 100%;
-  height: 220px;
+.summary-card strong {
   display: block;
-  border-radius: 12px;
-  background: linear-gradient(180deg, #f8fbff, #f2f8ff 70%, #f9fbff);
-  border: 1px solid #ebf1fc;
-}
-
-.图刻度 {
   margin-top: 8px;
-  display: grid;
-  grid-template-columns: repeat(9, minmax(0, 1fr));
-  gap: 6px;
-  font-size: 12px;
-  color: #7485a4;
-  text-align: center;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  font-size: 30px;
+  line-height: 1.2;
 }
 
-.图占位 {
-  height: 220px;
-  display: grid;
-  place-items: center;
-  color: var(--muted);
-  border: 1px dashed var(--line);
-  border-radius: 12px;
+.summary-card span {
+  display: block;
+  margin-top: 4px;
+  font-size: 16px;
 }
 
-.持仓总区 {
-  margin-top: 18px;
-  border-radius: 22px;
-  padding: 18px;
+.holdings-main {
+  margin-top: 16px;
+  padding: 16px;
 }
 
-.持仓标题 {
-  font-size: 1.4rem;
-  font-weight: 700;
-  margin-bottom: 14px;
-}
-
-.持仓板块 + .持仓板块 {
-  margin-top: 18px;
-}
-
-.持仓板块头部 {
+.section-head {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
-.持仓板块头部 h3 {
+.section-head h2,
+.section-head h3 {
   margin: 0;
-  font-size: 1.2rem;
+  font-size: 26px;
 }
 
-.持仓板块头部 span {
+.section-head span {
   color: var(--muted);
+  font-size: 14px;
 }
 
-.表格滚动 {
-  overflow-x: auto;
+.holdings-section + .holdings-section {
+  margin-top: 20px;
+}
+
+.table-wrap {
   border: 1px solid var(--line);
   border-radius: 14px;
+  overflow: auto;
 }
 
-.持仓表格 {
+.holdings-table {
   width: 100%;
-  min-width: 980px;
+  min-width: 1500px;
   border-collapse: collapse;
-  background: #fff;
 }
 
-.持仓表格 th,
-.持仓表格 td {
-  border-bottom: 1px solid #ebf0f8;
-  text-align: left;
-  padding: 14px 12px;
+.holdings-table th,
+.holdings-table td {
+  padding: 10px 10px;
+  border-bottom: 1px solid #e8edf7;
+  vertical-align: middle;
 }
 
-.持仓总区.密度-compact .持仓表格 th,
-.持仓总区.密度-compact .持仓表格 td {
-  padding: 9px 8px;
-  font-size: 0.9rem;
-}
-
-.持仓总区.密度-relaxed .持仓表格 th,
-.持仓总区.密度-relaxed .持仓表格 td {
-  padding: 16px 14px;
-}
-
-.持仓表格 thead th {
-  background: #f5f9ff;
-  color: #415371;
+.holdings-table th {
+  background: #f6f9ff;
+  color: #445672;
+  font-size: 13px;
   font-weight: 700;
-  font-size: 0.9rem;
+  white-space: pre-line;
 }
 
-.基金名 {
-  font-size: 1.02rem;
+.holdings-table td {
+  font-size: 15px;
+}
+
+.align-right {
+  text-align: right;
+}
+
+.th-button {
+  border: none;
+  background: transparent;
+  color: inherit;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.sort-toggle {
+  border: none;
+  background: transparent;
+  display: inline-grid;
+  gap: 1px;
+  padding: 0;
+}
+
+.triangle {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+}
+
+.triangle.up {
+  border-bottom: 6px solid #a3b0c7;
+}
+
+.triangle.down {
+  border-top: 6px solid #a3b0c7;
+}
+
+.triangle.active.up,
+.triangle.active.down {
+  border-bottom-color: #2563eb;
+  border-top-color: #2563eb;
+}
+
+.fund-name {
+  font-size: 16px;
   font-weight: 700;
 }
 
-.收藏按钮 {
-  border: 1px solid #d4def2;
-  color: #64748b;
-  background: #f8fbff;
-  border-radius: 8px;
-  padding: 2px 8px;
-  margin-right: 8px;
-  min-width: 36px;
-}
-
-.收藏按钮.已收藏 {
-  color: #b45309;
-  background: #fffbeb;
-  border-color: #fcd34d;
-}
-
-.基金代码 {
+.fund-sub {
   margin-top: 4px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 13px;
 }
 
-.红色 {
-  color: var(--positive);
+.fund-code {
+  font-family: 'Manrope', sans-serif;
+}
+
+.badge {
+  border-radius: 8px;
+  padding: 2px 6px;
+  font-size: 12px;
   font-weight: 700;
 }
 
-.绿色 {
-  color: var(--negative);
+.badge-wait {
+  color: #1d4ed8;
+  background: #e8efff;
+}
+
+.badge-error {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.dual-value {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.dual-value .sub {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.table-input {
+  width: 90px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 4px 6px;
+  text-align: right;
+}
+
+.text-btn {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  font-weight: 700;
+  padding: 2px;
+}
+
+.row-actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.danger-text {
+  color: #b91c1c;
+}
+
+.row-selected {
+  background: #edf4ff;
+}
+
+.sparkline {
+  width: 100px;
+  height: 30px;
+}
+
+.sparkline-empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.empty-row {
+  text-align: center;
+  color: var(--muted);
+  padding: 24px !important;
+}
+
+.is-up {
+  color: var(--red);
   font-weight: 700;
 }
 
-.状态正常 {
-  color: var(--ok);
-  font-weight: 600;
+.is-down {
+  color: var(--green);
+  font-weight: 700;
 }
 
-.状态异常 {
-  color: var(--error);
-  font-weight: 600;
+.detail-panel {
+  margin-top: 16px;
+  padding: 16px;
 }
 
-.持仓表格 tbody tr {
-  transition: background-color 0.18s ease;
+.detail-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
 }
 
-.持仓表格 tbody tr:hover {
-  background: #f9fbff;
+.detail-head h3 {
+  margin: 0;
+  font-size: 28px;
 }
 
-.持仓表格 tbody tr.选中行 {
-  background: #ecf4ff;
-}
-
-.空行 {
-  text-align: center !important;
+.detail-head p {
+  margin: 6px 0 0;
   color: var(--muted);
-  padding: 30px 12px !important;
 }
 
-@media (max-width: 1220px) {
-  .控制区 {
-    grid-template-columns: 1fr;
-  }
+.range-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 
-  .刷新时间 {
-    justify-self: start;
-  }
+.metric-grid {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
 
-  .认证区 {
-    grid-template-columns: 1fr;
-  }
+.metric-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px;
+  background: #f8fbff;
+}
 
-  .登录态区 {
-    flex-direction: column;
-    align-items: flex-start;
-  }
+.metric-item h4 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
 
-  .设置网格 {
-    grid-template-columns: 1fr;
-  }
+.metric-main {
+  margin-top: 6px;
+  font-size: 24px;
+  font-weight: 700;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+}
 
-  .摘要区 {
+.metric-sub {
+  margin-top: 2px;
+  font-size: 14px;
+}
+
+.chart-panel {
+  margin-top: 14px;
+}
+
+.chart-panel h4 {
+  margin: 0 0 8px;
+  font-size: 17px;
+}
+
+.chart-wrap {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 6px;
+  background: linear-gradient(180deg, #f9fbff, #f5f8ff);
+}
+
+.chart {
+  width: 100%;
+  height: 290px;
+  display: block;
+}
+
+.chart-y-label,
+.chart-x-label {
+  fill: #64748b;
+  font-size: 11px;
+}
+
+.chart-empty {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+  text-align: center;
+  padding: 30px;
+}
+
+.risk-panel {
+  margin-top: 16px;
+  padding: 16px;
+}
+
+.risk-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.risk-card {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.risk-card h4 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.risk-card p,
+.risk-card li {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.risk-card ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.settings-mask {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.34);
+  z-index: 999;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.settings-drawer {
+  width: min(540px, 95vw);
+  height: 100%;
+  background: #fff;
+  border-left: 1px solid var(--line);
+  box-shadow: -10px 0 30px rgba(15, 23, 42, 0.15);
+  padding: 16px;
+  overflow: auto;
+}
+
+.settings-drawer header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.settings-drawer h3 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.settings-group {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.settings-group h4 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.settings-group label {
+  display: grid;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.settings-group input {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  font-size: 14px;
+}
+
+.settings-drawer footer {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding-top: 10px;
+}
+
+@media (max-width: 1280px) {
+  .summary-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .图表区 {
-    grid-template-columns: 1fr;
-  }
-
-  .图卡.图卡-跨列 {
-    grid-column: auto;
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 760px) {
-  .页面 {
-    padding: 14px 12px 32px;
-  }
-
-  .顶部栏 {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .主标题 {
-    font-size: 1.8rem;
-  }
-
-  .搜索框 {
-    width: 100%;
-  }
-
-  .工具区 {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .工具右 {
-    width: 100%;
-    justify-content: space-between;
-  }
-
-  .摘要区 {
+@media (max-width: 900px) {
+  .top-toolbar {
     grid-template-columns: 1fr;
   }
 
-  .分组概览 {
-    grid-template-columns: 1fr;
+  .toolbar-row {
+    justify-content: flex-start;
   }
 
-  .风险网格 {
+  .brand-block h1 {
+    font-size: 32px;
+  }
+
+  .summary-grid,
+  .risk-grid,
+  .metric-grid {
     grid-template-columns: 1fr;
   }
 }

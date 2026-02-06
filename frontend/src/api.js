@@ -16,7 +16,7 @@ export function setStoredToken(token) {
       localStorage.removeItem(SESSION_TOKEN_KEY)
     }
   } catch {
-    // ignore storage errors
+    // 忽略浏览器存储异常
   }
 }
 
@@ -43,11 +43,11 @@ export async function apiFetch(path, options = {}) {
       body
     })
   } catch {
-    throw new Error('网络请求失败，请检查连接。')
+    throw new Error('网络请求失败，请检查连接状态')
   }
 
-  let payload = null
   const text = await response.text()
+  let payload = null
   if (text) {
     try {
       payload = JSON.parse(text)
@@ -57,7 +57,7 @@ export async function apiFetch(path, options = {}) {
   }
 
   if (!response.ok) {
-    const message = payload?.detail || payload?.message || payload?.error || `请求失败 (${response.status})`
+    const message = payload?.detail || payload?.message || payload?.error || `请求失败（${response.status}）`
     throw new Error(message)
   }
 
@@ -65,17 +65,11 @@ export async function apiFetch(path, options = {}) {
 }
 
 export function registerUser(payload) {
-  return apiFetch('/api/auth/register', {
-    method: 'POST',
-    body: payload
-  })
+  return apiFetch('/api/auth/register', { method: 'POST', body: payload })
 }
 
 export function loginUser(payload) {
-  return apiFetch('/api/auth/login', {
-    method: 'POST',
-    body: payload
-  })
+  return apiFetch('/api/auth/login', { method: 'POST', body: payload })
 }
 
 export function fetchMe() {
@@ -83,9 +77,7 @@ export function fetchMe() {
 }
 
 export function logoutUser() {
-  return apiFetch('/api/auth/logout', {
-    method: 'POST'
-  })
+  return apiFetch('/api/auth/logout', { method: 'POST' })
 }
 
 export function fetchSettings() {
@@ -93,10 +85,11 @@ export function fetchSettings() {
 }
 
 export function saveSettings(payload) {
-  return apiFetch('/api/settings', {
-    method: 'PUT',
-    body: payload
-  })
+  return apiFetch('/api/settings', { method: 'PUT', body: payload })
+}
+
+export function fetchConfig() {
+  return apiFetch('/api/config')
 }
 
 export function fetchEstimate() {
@@ -105,4 +98,24 @@ export function fetchEstimate() {
 
 export function fetchRiskOverview() {
   return apiFetch('/api/risk/overview')
+}
+
+export function fetchAdvice() {
+  return apiFetch('/api/advice')
+}
+
+export function fetchActions(date = '') {
+  const query = date ? `?date=${encodeURIComponent(date)}` : ''
+  return apiFetch(`/api/actions${query}`)
+}
+
+export function saveAction(payload) {
+  return apiFetch('/api/actions', { method: 'POST', body: payload })
+}
+
+export function updateHolding(fundId, payload) {
+  return apiFetch(`/api/holdings/${encodeURIComponent(fundId)}`, {
+    method: 'PATCH',
+    body: payload
+  })
 }
