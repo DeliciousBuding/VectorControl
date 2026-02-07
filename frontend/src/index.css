@@ -90,10 +90,10 @@ select {
 }
 
 .top-toolbar {
-  padding: 18px;
+  padding: 12px 14px;
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 18px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -104,34 +104,34 @@ select {
 }
 
 .logo {
-  width: 50px;
-  height: 50px;
-  border-radius: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
   display: grid;
   place-items: center;
   background: linear-gradient(140deg, #3b82f6, #1d4ed8);
   color: #fff;
   font-family: 'Manrope', sans-serif;
   font-weight: 800;
-  font-size: 22px;
+  font-size: 19px;
 }
 
 .brand-block h1 {
   margin: 0;
-  font-size: 34px;
+  font-size: 28px;
   font-family: 'Manrope', 'Noto Sans SC', sans-serif;
-  line-height: 1;
+  line-height: 1.05;
 }
 
 .brand-block p {
-  margin: 6px 0 0;
+  margin: 4px 0 0;
   color: var(--muted);
-  font-size: 19px;
+  font-size: 15px;
 }
 
 .toolbar-actions {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .toolbar-row {
@@ -139,8 +139,25 @@ select {
   align-items: center;
   justify-content: flex-end;
   flex-wrap: wrap;
-  gap: 10px;
-  font-size: 16px;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.toolbar-row-search {
+  margin-bottom: 2px;
+}
+
+.toolbar-meta {
+  color: var(--muted);
+}
+
+.toolbar-note {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.4;
+  text-align: right;
+  max-width: 860px;
 }
 
 .toolbar-search {
@@ -160,7 +177,7 @@ select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   font-size: 14px;
   background: #fff;
 }

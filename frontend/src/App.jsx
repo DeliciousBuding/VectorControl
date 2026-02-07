@@ -108,6 +108,22 @@ function App() {
   const { domestic: homeDomesticRows, overseas: homeOverseasRows } = useMemo(() => splitMarketGroups(rows), [rows])
   const homeDomesticPreview = useMemo(() => [...homeDomesticRows].sort((a, b) => Number(b.market_value_cny || 0) - Number(a.market_value_cny || 0)).slice(0, 4), [homeDomesticRows])
   const homeOverseasPreview = useMemo(() => [...homeOverseasRows].sort((a, b) => Number(b.market_value_cny || 0) - Number(a.market_value_cny || 0)).slice(0, 4), [homeOverseasRows])
+  const hasOverseasHoldings = useMemo(
+    () => rows.some((row) => String(row.market_group || '').toLowerCase() === 'overseas'),
+    [rows]
+  )
+  const marketDataHint = useMemo(() => {
+    const now = new Date()
+    const day = now.getDay()
+    const isWeekend = day === 0 || day === 6
+    const cnPart = isWeekend
+      ? 'A股周末休市，当前显示最近交易日结算数据。'
+      : 'A股按北京时间交易时段更新，非交易时段显示最近结算数据。'
+    const usPart = hasOverseasHoldings
+      ? '美股盘中显示估算值，北京时间凌晨收盘后切换为结算值；美股周末同样休市。'
+      : '当前持仓无美股/海外基金。'
+    return `${cnPart} ${usPart}`
+  }, [hasOverseasHoldings])
 
   const currentFund = useMemo(() => {
     if (!filteredRows.length) return null
@@ -558,6 +574,7 @@ function App() {
         onToggleAutoRefresh={handleToggleAutoRefresh}
         onOpenSettings={() => setSettingsOpen(true)}
         onLogout={logout}
+        marketDataHint={marketDataHint}
       />
 
       <BottomTabs active={activeTab} onChange={setActiveTab} />

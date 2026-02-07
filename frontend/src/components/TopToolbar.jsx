@@ -1,4 +1,11 @@
-import { StatusPill } from './StatusPill.jsx'
+﻿import { StatusPill } from './StatusPill.jsx'
+
+function formatClock(value) {
+  if (!value || value === '--') return '--'
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return '--'
+  return date.toLocaleTimeString('zh-CN', { hour12: false })
+}
 
 export function TopToolbar({
   user,
@@ -6,7 +13,6 @@ export function TopToolbar({
   refreshing,
   lastRefresh,
   asof,
-  updatedAt,
   confirmState,
   coverage,
   searchQuery,
@@ -18,13 +24,17 @@ export function TopToolbar({
   onRefresh,
   onToggleAutoRefresh,
   onOpenSettings,
-  onLogout
+  onLogout,
+  marketDataHint
 }) {
   const confirmText = confirmState === 'confirmed'
-    ? '已更新'
+    ? '已结算'
     : confirmState === 'partial'
-      ? '数据不完整'
+      ? '部分结算'
       : '估算中'
+
+  const refreshClock = formatClock(lastRefresh)
+  const asofClock = formatClock(asof)
 
   return (
     <header className="panel top-toolbar">
@@ -37,7 +47,7 @@ export function TopToolbar({
       </div>
 
       <div className="toolbar-actions">
-        <div className="toolbar-row">
+        <div className="toolbar-row toolbar-row-search">
           <label className="toolbar-search">
             <span>全局搜索</span>
             <input
@@ -77,14 +87,15 @@ export function TopToolbar({
           <button type="button" className="danger" onClick={onLogout}>退出登录</button>
         </div>
 
-        <div className="toolbar-row">
+        <div className="toolbar-row toolbar-meta">
           <StatusPill status={status} />
-          <span>上次刷新：{lastRefresh}</span>
-          <span>数据时点：{asof}</span>
-          <span>拉取时间：{updatedAt}</span>
-          <span>确认状态：{confirmText}</span>
-          <span>覆盖率：{coverage?.ok ?? 0}/{coverage?.total ?? 0}（失败 {coverage?.failed ?? 0}）</span>
+          <span>上次刷新：{refreshClock}</span>
+          <span>数据时点：{asofClock}</span>
+          <span>状态：{confirmText}</span>
+          <span>覆盖率：{coverage?.ok ?? 0}/{coverage?.total ?? 0}</span>
         </div>
+
+        <div className="toolbar-note">{marketDataHint}</div>
       </div>
     </header>
   )
