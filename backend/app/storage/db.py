@@ -519,6 +519,46 @@ def create_user(username: str, password: str) -> dict[str, Any]:
     return {"id": user_id, "username": clean_username, "created_at": created_at}
 
 
+def username_exists(username: str) -> bool:
+    clean_username = username.strip().lower()
+    if not clean_username:
+        return False
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM user_accounts WHERE username = ? LIMIT 1",
+            (clean_username,),
+        ).fetchone()
+    return bool(row)
+
+
+def reset_user_password(username: str, password: str) -> dict[str, Any] | None:
+    clean_username = username.strip().lower()
+    if not clean_username:
+        raise ValueError("用户名不能为空")
+    if len(password) < 6:
+        raise ValueError("密码至少 6 个字符")
+
+    password_hash = _hash_password(password)
+    with connect() as conn:
+        row = conn.execute(
+            "SELECT id, username, created_at FROM user_accounts WHERE username = ?",
+            (clean_username,),
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute(
+            "UPDATE user_accounts SET password_hash = ? WHERE id = ?",
+            (password_hash, row["id"]),
+        )
+        conn.commit()
+
+    return {
+        "id": row["id"],
+        "username": row["username"],
+        "created_at": row["created_at"],
+    }
+
+
 def verify_user_credentials(username: str, password: str) -> dict[str, Any] | None:
     clean_username = username.strip().lower()
     with connect() as conn:
