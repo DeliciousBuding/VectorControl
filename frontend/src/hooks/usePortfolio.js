@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchEstimate, fetchRiskOverview, fetchSettings, saveSettings, updateHolding } from '../api.js'
+import { fetchEstimate, fetchSettings, saveSettings, updateHolding } from '../api.js'
 import { formatDateTime } from '../utils/format.js'
 import { normalizeFundRows, sortRows } from '../utils/holdings.js'
 
@@ -98,16 +98,9 @@ export function usePortfolio({ user, sorter }) {
       })
       setEstimateCacheHit(Boolean(payload?.cache_hit))
       setLastRefresh(formatDateTime())
+      setRiskOverview(payload?.risk_overview && typeof payload.risk_overview === 'object' ? payload.risk_overview : null)
 
       const failedCount = normalized.filter((item) => item.status !== 'ok').length
-
-      try {
-        const risk = await fetchRiskOverview()
-        setRiskOverview(risk)
-      } catch (error) {
-        setStatus({ type: 'warning', message: `持仓已刷新，风险中枢加载失败：${error.message}` })
-        return
-      }
 
       if (failedCount > 0) {
         setStatus({ type: 'warning', message: `刷新完成，${failedCount} 只基金估值异常` })

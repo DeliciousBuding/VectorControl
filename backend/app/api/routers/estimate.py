@@ -8,11 +8,13 @@ from fastapi import APIRouter, Request
 from app.api.deps import get_config, get_holdings_user_id, get_snapshot_user_id, is_admin
 from app.core.settings import get_env
 from app.estimator.engine import build_estimate
+from app.risk.engine import build_risk_overview
 from app.storage.db import (
     get_confirmed_fund_profit_map,
     get_latest_estimate_snapshot,
     get_latest_estimate_snapshot_on_or_before,
     list_holdings,
+    list_estimate_snapshots,
     save_estimate_snapshot,
 )
 
@@ -55,6 +57,23 @@ def _snapshot_age_seconds(snapshot: dict | None) -> float | None:
     return max(0.0, age)
 
 
+def _attach_risk_overview(payload: dict, snapshot_user_id: str) -> None:
+    if not isinstance(payload, dict):
+        return
+    if isinstance(payload.get("risk_overview"), dict):
+        return
+
+    funds = payload.get("funds", [])
+    if not isinstance(funds, list):
+        funds = []
+
+    snapshots = list_estimate_snapshots(snapshot_user_id, limit=240)
+    risk = build_risk_overview(funds=funds, snapshots=snapshots)
+    risk["asof"] = payload.get("asof") or payload.get("as_of")
+    risk["holdings_count"] = len(funds)
+    payload["risk_overview"] = risk
+
+
 @router.get("/estimate")
 async def get_estimate(request: Request) -> dict:
     request_started = perf_counter()
@@ -75,6 +94,7 @@ async def get_estimate(request: Request) -> dict:
         snapshot_age_seconds = _snapshot_age_seconds(latest_snapshot)
         if latest_snapshot and snapshot_age_seconds is not None and snapshot_age_seconds <= cache_ttl_seconds:
             payload = dict(latest_snapshot)
+            _attach_risk_overview(payload, snapshot_user_id)
             payload["cache_hit"] = True
             payload["cache_age_seconds"] = round(snapshot_age_seconds, 3)
             payload["server_elapsed_ms"] = int((perf_counter() - request_started) * 1000)
@@ -90,6 +110,7 @@ async def get_estimate(request: Request) -> dict:
     payload["cache_hit"] = False
     payload["cache_age_seconds"] = 0
     payload["build_elapsed_ms"] = int((perf_counter() - estimate_started) * 1000)
+    _attach_risk_overview(payload, snapshot_user_id)
     payload["server_elapsed_ms"] = int((perf_counter() - request_started) * 1000)
     save_estimate_snapshot(snapshot_user_id, payload["asof"], payload)
     return payload
