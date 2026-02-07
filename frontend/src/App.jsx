@@ -14,7 +14,7 @@ import { RiskCenter } from './components/RiskCenter.jsx'
 import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
-import { listMetrics, recordMetric } from './utils/metrics.js'
+import { recordMetric } from './utils/metrics.js'
 
 const TRADE_TYPES = [
   { key: 'buy', label: '买入' },
@@ -105,6 +105,9 @@ function App() {
   }, [rows, searchQuery])
 
   const { domestic, overseas } = useMemo(() => splitMarketGroups(filteredRows), [filteredRows])
+  const { domestic: homeDomesticRows, overseas: homeOverseasRows } = useMemo(() => splitMarketGroups(rows), [rows])
+  const homeDomesticPreview = useMemo(() => [...homeDomesticRows].sort((a, b) => Number(b.market_value_cny || 0) - Number(a.market_value_cny || 0)).slice(0, 4), [homeDomesticRows])
+  const homeOverseasPreview = useMemo(() => [...homeOverseasRows].sort((a, b) => Number(b.market_value_cny || 0) - Number(a.market_value_cny || 0)).slice(0, 4), [homeOverseasRows])
 
   const currentFund = useMemo(() => {
     if (!filteredRows.length) return null
@@ -354,6 +357,11 @@ function App() {
     }
   }
 
+
+  const openHoldingFromHome = (fundId) => {
+    setSelectedFundId(String(fundId || ''))
+    setActiveTab('holdings')
+  }
   const handleTradeSubmit = async (event) => {
     event.preventDefault()
     const code = tradeFundCode.trim()
@@ -557,34 +565,7 @@ function App() {
       {activeTab === 'home' && (
         <>
           <SummaryCards rows={rows} loading={loading} />
-          <section className="panel home-main perf-panel">
-            <div className="section-head">
-              <h2>首屏性能</h2>
-              <span>用于 Gate-B 验收</span>
-            </div>
-            <div className="perf-grid">
-              <article className="todo-card">
-                <h3>资产卡首刷耗时</h3>
-                <p>{assetReadyMs > 0 ? `${assetReadyMs} ms` : '尚未完成'}</p>
-              </article>
-              <article className="todo-card">
-                <h3>5秒超时状态</h3>
-                <p>{assetTimedOut ? '已触发降级提示' : '未触发'}</p>
-              </article>
-              <article className="todo-card">
-                <h3>最近埋点条数</h3>
-                <p>{listMetrics().length} 条</p>
-              </article>
-            </div>
-            {!assetTimedOut && (loading || skeletonLock) && (
-              <div className="chart-empty">骨架加载中，正在准备首屏数据...</div>
-            )}
-            {assetTimedOut && (
-              <div className="chart-empty">
-                首屏数据超过 5 秒未完成，请检查后端连接或外部数据源状态。
-              </div>
-            )}
-          </section>
+          
           <section className="panel home-main">
             <div className="section-head">
               <h2>今日待办</h2>
@@ -616,6 +597,60 @@ function App() {
             {searchQuery.trim() && filteredRows.length === 0 && (
               <div className="chart-empty">未匹配到基金：请尝试代码、名称或拼音。</div>
             )}
+          </section>
+          <section className="panel home-main">
+            <div className="section-head">
+              <h2>持仓速览</h2>
+              <button type="button" className="ghost" onClick={() => setActiveTab('holdings')}>查看全部持仓</button>
+            </div>
+
+            <div className="watch-list">
+              <article className="watch-item watch-item-head">
+                <div>
+                  <h3>国内 / 港股</h3>
+                  <p>按市值排序（前4）</p>
+                </div>
+              </article>
+              {homeDomesticPreview.length === 0 && <div className="chart-empty">暂无国内 / 港股持仓</div>}
+              {homeDomesticPreview.map((row) => (
+                <article key={`home-domestic-${row.fund_id}`} className="watch-item">
+                  <div>
+                    <h3>{row.name}</h3>
+                    <p>{row.fund_id} · 市值 {Number(row.market_value_cny || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="plan-actions">
+                    <span className={`watch-profit ${classBySign(row.day_profit_cny)}`}>
+                      {formatPercent(row.estimate_pct)}
+                    </span>
+                    <button type="button" className="ghost" onClick={() => openHoldingFromHome(row.fund_id)}>详情</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+
+            <div className="watch-list">
+              <article className="watch-item watch-item-head">
+                <div>
+                  <h3>美股 / 海外</h3>
+                  <p>按市值排序（前4）</p>
+                </div>
+              </article>
+              {homeOverseasPreview.length === 0 && <div className="chart-empty">暂无美股 / 海外持仓</div>}
+              {homeOverseasPreview.map((row) => (
+                <article key={`home-overseas-${row.fund_id}`} className="watch-item">
+                  <div>
+                    <h3>{row.name}</h3>
+                    <p>{row.fund_id} · 市值 {Number(row.market_value_cny || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="plan-actions">
+                    <span className={`watch-profit ${classBySign(row.day_profit_cny)}`}>
+                      {formatPercent(row.estimate_pct)}
+                    </span>
+                    <button type="button" className="ghost" onClick={() => openHoldingFromHome(row.fund_id)}>详情</button>
+                  </div>
+                </article>
+              ))}
+            </div>
           </section>
         </>
       )}
