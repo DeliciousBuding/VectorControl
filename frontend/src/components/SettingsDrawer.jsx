@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fetchNetworkBenchmarkLatest, runNetworkBenchmark } from '../api.js'
 
 const PROFILE_OPTIONS = [
@@ -42,11 +42,7 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
   if (!open) return null
 
   const timeoutSeconds = Number(draft?.network_benchmark?.timeout_seconds || 6)
-
-  const benchmarkSummary = useMemo(() => {
-    if (!benchmarkResult?.summary) return null
-    return benchmarkResult.summary
-  }, [benchmarkResult])
+  const benchmarkSummary = benchmarkResult?.summary || null
 
   const save = async () => {
     const nextDraft = {
