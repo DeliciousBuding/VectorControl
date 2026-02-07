@@ -24,6 +24,12 @@ const DEFAULT_SETTINGS = {
       recipients: '',
       use_tls: true
     }
+  },
+  network_benchmark: {
+    default_profile: 'cn_fund',
+    timeout_seconds: 6,
+    last_run_at: '',
+    last_result: null
   }
 }
 
@@ -104,7 +110,7 @@ export function usePortfolio({ user, sorter }) {
       }
 
       if (failedCount > 0) {
-        setStatus({ type: 'warning', message: `刷新完成：${failedCount} 只基金估值异常` })
+        setStatus({ type: 'warning', message: `刷新完成，${failedCount} 只基金估值异常` })
       } else {
         setStatus({ type: 'success', message: auto ? '自动刷新成功' : '刷新成功' })
       }

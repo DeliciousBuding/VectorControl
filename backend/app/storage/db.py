@@ -284,6 +284,12 @@ def _default_user_settings() -> dict[str, Any]:
                 "use_tls": True,
             },
         },
+        "network_benchmark": {
+            "default_profile": "cn_fund",
+            "timeout_seconds": 6,
+            "last_run_at": "",
+            "last_result": None,
+        },
     }
 
 
