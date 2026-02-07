@@ -31,7 +31,13 @@ function mergeDeep(base, incoming) {
   const result = { ...base }
   if (!incoming || typeof incoming !== 'object') return result
   for (const [key, value] of Object.entries(incoming)) {
-    if (value && typeof value === 'object' && !Array.isArray(value) && result[key] && typeof result[key] === 'object') {
+    if (
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value) &&
+      result[key] &&
+      typeof result[key] === 'object'
+    ) {
       result[key] = mergeDeep(result[key], value)
     } else {
       result[key] = value
@@ -50,6 +56,8 @@ export function usePortfolio({ user, sorter }) {
   const [updatedAt, setUpdatedAt] = useState('--')
   const [confirmState, setConfirmState] = useState('estimated')
   const [coverage, setCoverage] = useState({ total: 0, ok: 0, failed: 0 })
+  const [refreshElapsedMs, setRefreshElapsedMs] = useState(0)
+  const [estimateCacheHit, setEstimateCacheHit] = useState(false)
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [settingsReady, setSettingsReady] = useState(false)
   const loadingRef = useRef(false)
@@ -57,6 +65,8 @@ export function usePortfolio({ user, sorter }) {
   const refresh = useCallback(async ({ silent = false, auto = false } = {}) => {
     if (!user) return
     if (loadingRef.current) return
+
+    const refreshStarted = performance.now()
     loadingRef.current = true
     setLoading(true)
 
@@ -65,7 +75,7 @@ export function usePortfolio({ user, sorter }) {
     }
 
     try {
-      const payload = await fetchEstimate()
+      const payload = await fetchEstimate({ preferCached: true, forceRefresh: false })
       if (!Array.isArray(payload?.funds)) {
         throw new Error('估值接口返回格式异常')
       }
@@ -80,6 +90,7 @@ export function usePortfolio({ user, sorter }) {
         ok: Number(payload?.coverage?.ok || normalized.filter((item) => item.status === 'ok').length || 0),
         failed: Number(payload?.coverage?.failed || 0)
       })
+      setEstimateCacheHit(Boolean(payload?.cache_hit))
       setLastRefresh(formatDateTime())
 
       const failedCount = normalized.filter((item) => item.status !== 'ok').length
@@ -100,6 +111,7 @@ export function usePortfolio({ user, sorter }) {
     } catch (error) {
       setStatus({ type: 'error', message: error?.message || '刷新失败' })
     } finally {
+      setRefreshElapsedMs(Math.max(0, Math.round(performance.now() - refreshStarted)))
       loadingRef.current = false
       setLoading(false)
     }
@@ -129,6 +141,8 @@ export function usePortfolio({ user, sorter }) {
       setUpdatedAt('--')
       setConfirmState('estimated')
       setCoverage({ total: 0, ok: 0, failed: 0 })
+      setRefreshElapsedMs(0)
+      setEstimateCacheHit(false)
       setSettingsReady(false)
       setSettings(DEFAULT_SETTINGS)
       setStatus({ type: 'info', message: '请先登录' })
@@ -191,8 +205,7 @@ export function usePortfolio({ user, sorter }) {
       }
       setRows((prev) => prev.map((item) => {
         if (item.fund_id !== fundId) return item
-        const merged = { ...item, ...normalizeFundRows([updated])[0] }
-        return merged
+        return { ...item, ...normalizeFundRows([updated])[0] }
       }))
       setStatus({ type: 'success', message: `已更新 ${fundId} 持仓` })
       return true
@@ -214,6 +227,8 @@ export function usePortfolio({ user, sorter }) {
     updatedAt,
     confirmState,
     coverage,
+    refreshElapsedMs,
+    estimateCacheHit,
     settings,
     refresh,
     setAutoRefreshEnabled,

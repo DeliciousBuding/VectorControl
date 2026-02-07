@@ -1,73 +1,121 @@
 # VectorControl
 
-VectorControl 閺勵垯绔存稉顏堟桨閸氭垳閲滄禍鐑樺鐠у嫯鈧懐娈戦妴灞惧瘮娴犳挸鍠呯粵鏍﹁厬閺嬵潿鈧秹銆嶉惄顔衡偓? 
-閻╊喗鐖ｆ稉宥嗘Ц妫板嫭绁寸敮鍌氭簚閿涘矁鈧本妲搁幎濠冨鐠у嫭绁︾粙瀣紣缁嬪瀵叉稉鐚寸窗
+VectorControl 是一个面向个人投资决策的全栈系统，核心目标是把“数据获取 -> 估值汇总 -> 动作建议 -> 执行记录 -> 日报复盘”做成可审计、可回放、可部署的闭环。
 
-`娴兼澘鈧?-> 閹稿洣鎶?-> 閹笛嗩攽 -> 婢跺秶娲廯
+## 1. 项目定位
 
-妞ゅ湱娲板楦跨殶閿?- 婢舵氨鏁ら幋閿嬫殶閹诡噣娈х粋浼欑礄閹?`user_id`閿?- 閹恒儱褰涙總鎴犲缁嬪啿鐣鹃敍鍫濆涧婢х偛鐡у▓纰夌礉娑撳秵鏁肩拠顓濈疅閿?- 婢惰精瑙﹂崣顖炴缁狙嶇礄閸楁洖鐔€闁叉垵銇戠拹銉ょ瑝闂冪粯鏌囬崗銊ョ湰閿?- 閸欘垶鍎寸純灞傗偓浣稿讲閸ョ偞绮撮妴浣稿讲妤犲本鏁归敍鍦檃te-A/B/C/D閿?
-## 瑜版挸澧犻崣鎴濈閻楀牊婀?- `v1.0.0`閿涘潰ain 閸欐垵绔烽悧鍫礆
+- 面向对象：基金持仓用户（以“纪律执行”和“复盘解释”为核心）
+- 产品原则：
+  - 不做情绪化推荐
+  - 不做不可解释黑盒预测
+  - 优先保证可用性、可追溯性、可回滚
+- 当前主分支策略：
+  - `dev`：开发与集成分支
+  - `main`：发布与线上部署分支（每次发布带版本号）
 
-## 閺嬭埖鐎柅鐔活潔
-- 閸撳秶顏敍姝歊eact + Vite`閿涘苯宕熸い闈涗紣娴ｆ粌褰撮敍灞剧壋韫囧啴銆夐棃顫礋妫ｆ牠銆?閼奉亪鈧?娴溿倖妲?閹镐椒绮?閹存垹娈戦妴?- 閸氬海顏敍姝欶astAPI`閿涘本瀵?`router + service-like modules + storage` 閸掑棗鐪伴妴?- 閺佺増宓佹惔鎿勭窗姒涙顓?SQLite閿涘牊婀伴崷甯礆閿涘瞼鏁撴禍褍缂撶拋?PostgreSQL閿涘牆鍑￠幓鎰返 Compose 缂傛牗甯撻敍澶堚偓?- 闁板秶鐤嗛敍姝歝onfig/*.yaml` 閻劋绨崚婵嗩潗閸栨牕顕遍崗銉ょ瑢婢跺洣鍞ょ€电厧鍤敍灞肩瑝娴ｆ粈璐熸潻鎰攽閹礁鍟撻崗銉ф埂濠ф劑鈧?- 闁劎璁查敍姝欴ocker Compose + Nginx + HTTPS`閿涘湢et閳ユ獨 Encrypt閿涘鈧?
-閺囩顕涚紒鍡欑波閺嬪嫯顫嗛敍姝歞ocs/閺嬭埖鐎拠瀛樻.md`
+## 2. 技术栈
 
-## 閻╊喖缍嶇紒鎾寸€?```text
+- 前端：`React + Vite`
+- 后端：`FastAPI`
+- 存储：`PostgreSQL`（生产），兼容本地轻量运行
+- 部署：`Docker Compose + Nginx + Let's Encrypt`
+- 配置：`config/*.yaml`（策略与初始化配置）
+
+## 3. 目录结构
+
+```text
 VectorControl/
-閳规壕鏀?backend/                     # FastAPI 閸氬海顏?閳? 閳规柡鏀?app/
-閳?    閳规壕鏀?main.py               # 鎼存梻鏁ょ憗鍛村帳閵嗕椒鑵戦梻缈犳閵嗕浇鐭鹃悽杈ㄦ暈閸?閳?    閳规壕鏀?api/routers/          # 閹恒儱褰涚捄顖滄暠鐏?閳?    閳规壕鏀?storage/              # 閺佺増宓佹惔鎾诡問闂傤喕绗岀悰銊х波閺嬪嫬鍨垫慨瀣
-閳?    閳规壕鏀?estimator/            # 娴兼澘鈧鈧焦瀵氶弽鍥у經瀵板嫨鈧浇浠涢崥鍫モ偓鏄忕帆
-閳?    閳规壕鏀?risk/                 # 妞嬪酣娅撳鍌濐潔娑撳氦顩惄鏍芳
-閳?    閳规壕鏀?policy/               # 閹稿洣鎶ょ憴鍕灟娑撳酣妲囬崐?閳?    閳规壕鏀?data_sources/         # 婢舵牠鍎撮弫鐗堝祦濠ф劧绱欑搾鍛/閸ョ偤鈧偓閿?閳?    閳规柡鏀?notifier/             # 閹恒劑鈧焦澧跨仦鏇氱秴
-閳规壕鏀?frontend/                    # React 閸撳秶顏?閳? 閳规柡鏀?src/
-閳?    閳规壕鏀?components/           # 妞ょ敻娼扮紒鍕
-閳?    閳规壕鏀?hooks/                # 闁村瓨娼堟稉搴濈瑹閸旓紕濮搁幀?閳?    閳规壕鏀?utils/                # 閸ユ崘銆冮妴浣稿經瀵板嫨鈧焦鐗稿蹇撳瀹搞儱鍙?閳?    閳规柡鏀?api.js                # 閸氬苯鐓?/api 鐠囬攱鐪扮亸浣筋棅
-閳规壕鏀?config/                      # 閸掓繂顫愰崠鏍帳缂冾噯绱欓崺娲櫨閵嗕焦瀵旀禒鎾扁偓浣虹摜閻ｃ儻绱?閳规壕鏀?deploy/                      # 閻㈢喍楠囩紓鏍ㄥ笓閿涘湑ompose/Nginx/Dockerfile閿?閳规壕鏀?scripts/                     # Gate 妤犲本鏁规稉搴ㄥ劥缂冭尪鍓奸張?閳规壕鏀?docs/                        # 閺嬭埖鐎妴浣割殩缁撅负鈧浇顔曠拋掳鈧線鍎寸純灞傗偓浣筋潐閼?閳规壕鏀?ROADMAP.md                   # 娴犺濮熷〒鍛礋娑撳骸瀣€闁绻樻惔?閳规柡鏀?AGENTS.md                    # 娴犳挸绨辩痪褎澧界悰宀冾潐閸?```
+  backend/                 # FastAPI 后端
+    app/
+      api/routers/         # 接口路由层
+      storage/             # 数据访问层（数据库与初始化）
+      estimator/           # 估值与汇总逻辑
+      risk/                # 风险指标与风控逻辑
+      policy/              # 策略规则
+      data_sources/        # 外部数据源适配与降级
+      notifier/            # 推送能力（预留）
+      main.py              # 应用入口
+  frontend/                # React 前端
+    src/
+      components/          # 页面组件
+      hooks/               # 状态与业务 Hook
+      utils/               # 工具函数
+      api.js               # 后端接口封装
+      App.jsx              # 页面主入口
+  deploy/                  # 生产部署配置
+    docker-compose.prod.yml
+    nginx/
+  scripts/                 # 启动、验收、部署脚本
+  docs/                    # 架构、规范、部署、路线图文档
+  config/                  # 持仓与策略配置
+  ROADMAP.md               # 里程碑与任务清单
+  AGENTS.md                # Agent 执行规范
+```
 
-## 閸氬海顏弽绋跨妇閹恒儱褰?- 闁村瓨娼堟稉搴ｆ暏閹村嚖绱癭/api/auth/register`閵嗕梗/api/auth/login`閵嗕梗/api/auth/me`閵嗕梗/api/auth/logout`
-- 闁板秶鐤嗘稉搴㈠瘮娴犳搫绱癭/api/config`閵嗕梗/api/holdings`閵嗕梗/api/holdings/import_yaml`
-- 娴兼澘鈧棿绗屾搴ㄦ珦閿涙瓪/api/estimate`閵嗕梗/api/risk/overview`
-- 閸愬磭鐡ユ稉搴㈠⒔鐞涘矉绱癭/api/advice`閵嗕梗/api/actions`
-- 婢跺秶娲忛敍姝?api/report/daily`
-- 閸嬨儱鎮嶅Λ鈧弻銉窗`/api/health`閵嗕梗/api/healthz`
+## 4. 核心业务闭环
 
-閹恒儱褰涙總鎴犲鐠囷箒顫嗛敍姝歞ocs/閹恒儱褰涙總鎴犲.md`
+1. **数据采集**：从外部数据源获取基金估值与行情
+2. **估值汇总**：按持仓计算当日收益、持有收益、仓位占比等指标
+3. **动作建议**：依据策略与风控规则生成当日建议
+4. **执行记录**：记录用户执行结果与动作日志
+5. **日报复盘**：输出可追溯日报文本与摘要
 
-## 閺堫剙婀村鈧崣?### 1) 閸氼垰濮╅崥搴ｎ伂
+## 5. 关键接口（示例）
+
+- 健康检查：`GET /api/health`、`GET /api/healthz`
+- 鉴权：`POST /api/auth/register`、`POST /api/auth/login`、`GET /api/auth/me`、`POST /api/auth/logout`
+- 持仓：`GET /api/holdings`、`POST /api/holdings`、`POST /api/holdings/import_yaml`
+- 估值：`GET /api/estimate`
+- 建议与执行：`GET /api/advice`、`GET/POST /api/actions`
+- 报告：`GET /api/report/daily`
+
+详细字段与契约请见：`docs/接口契约.md`
+
+## 6. 本地开发启动
+
+### 后端
+
 ```bash
 cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 21345
 ```
 
-### 2) 閸氼垰濮╅崜宥囶伂
+### 前端
+
 ```bash
 cd frontend
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-### 3) 濞村繗顫嶉崳銊問闂?- 閸撳秶顏敍姝歨ttp://127.0.0.1:5173`
-- 閸氬海顏崑銉ユ倣濡偓閺屻儻绱癭http://127.0.0.1:21345/api/health`
+### 本地访问
 
-## 娑撯偓闁款喛鍓奸張顑跨瑢闂傘劎顩?- 閺堫剙婀撮懘姘拱閿涙瓪scripts/start_backend.bat`閵嗕梗scripts/start_frontend.bat`
-- Gate 妤犲本鏁归敍姝歴cripts/check_gate_a_full.py`閵嗕梗scripts/check_gate_b_full.py`閵嗕梗scripts/check_gate_c_full.py`閵嗕梗scripts/check_gate_d.py`
+- 前端：`http://127.0.0.1:5173`
+- 后端健康检查：`http://127.0.0.1:21345/api/health`
 
-闁劎璁茬紒鍡氬Ν鐟欎緤绱癭docs/闁劎璁叉稉搴ょ箥鐞?md`
+## 7. 生产部署（VPS）
 
-## 瑜版挸澧犻崚鍡樻暜缁涙牜鏆?- `dev`閿涙碍妫╃敮绋跨磻閸欐垳绗岄梿鍡樺灇
-- `main`閿涙艾褰傜敮鍐х瑢閻㈢喍楠?
-鐠囷妇绮忕憴鍕瘱鐟欎緤绱癭AGENTS.md` 娑?`docs/Git瀹搞儰缍斿ù?md`
+生产环境采用 Docker Compose 编排，Nginx 负责反向代理与 HTTPS。
 
-## 閺傚洦銆傜槐銏犵穿
-- 閺嬭埖鐎拠瀛樻閿涙瓪docs/閺嬭埖鐎拠瀛樻.md`
-- 閺堚偓閺傛媽绻樻惔锔肩窗`docs/閺堚偓閺傛媽绻樻惔?md`
-- 娴溠冩惂閽冩繂娴橀敍姝歞ocs/娴溠冩惂闂団偓濮瑰倷绗屾い鐢告桨閽冩繂娴?md`
-- 鐠佹崘顓哥憴鍕瘱閿涙瓪docs/鐠佹崘顓哥化鑽ょ埠娑撳簼姘︽禍鎺曨潐閼?md`
-- 閹恒儱褰涙總鎴犲閿涙瓪docs/閹恒儱褰涙總鎴犲.md`
-- 闁劎璁叉潻鎰攽閿涙瓪docs/闁劎璁叉稉搴ょ箥鐞?md`
-- 瀵偓閸欐垼顫夐懠鍐跨窗`docs/瀵偓閸欐垼顫夐懠?md`
-- Git 瀹搞儰缍斿ù渚婄窗`docs/Git瀹搞儰缍斿ù?md`
+- 部署入口文档：`docs/部署与运行.md`
+- Gate-D 验收脚本：`scripts/check_gate_d.py`
+- 关键要求：
+  - 仅暴露 80/443
+  - 数据库不对公网暴露
+  - 证书通过 Let's Encrypt 管理
 
-## 閸忓秷鐭楁竟鐗堟
-- 閺堫剟銆嶉惄顔荤矌閻劋绨€涳缚绡勬稉搴′紣缁嬪鐤勭捄纰夌礉娑撳秵鐎幋鎰鐠у嫬缂撶拋顔衡偓?- 婢舵牠鍎撮弫鐗堝祦濠ф劕褰查懗钘夋鏉╃喆鈧胶宸辨径杈ㄥ灗閸欐ɑ娲块敍宀冾嚞閼奉亣顢戦崚銈嗘焽妞嬪酣娅撻妴?
+## 8. 文档导航
+
+- `docs/最新进度.md`：最新进展与变更记录
+- `docs/产品需求与页面蓝图.md`：产品与页面结构
+- `docs/设计系统与交互规范.md`：设计 Token 与交互规则
+- `docs/接口契约.md`：接口定义与字段约束
+- `docs/开发规范.md`：开发约束与编码规范
+- `docs/Git工作流.md`：分支策略与提交流程
+- `ROADMAP.md`：任务路线图与完成状态
+
+## 9. 备注
+
+- 本项目所有文档、注释、提交信息统一使用中文。
+- 如遇乱码，请优先检查文件编码是否为 **UTF-8 无 BOM**。

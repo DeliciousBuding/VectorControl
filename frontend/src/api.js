@@ -92,8 +92,16 @@ export function fetchConfig() {
   return apiFetch('/api/config')
 }
 
-export function fetchEstimate() {
-  return apiFetch('/api/estimate')
+export function fetchEstimate(options = {}) {
+  const query = new URLSearchParams()
+  if (options.forceRefresh !== undefined) {
+    query.set('force_refresh', options.forceRefresh ? '1' : '0')
+  }
+  if (options.preferCached !== undefined) {
+    query.set('prefer_cached', options.preferCached ? '1' : '0')
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return apiFetch(`/api/estimate${suffix}`)
 }
 
 export function fetchRiskOverview() {

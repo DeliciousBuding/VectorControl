@@ -71,6 +71,8 @@ function App() {
     updatedAt,
     confirmState,
     coverage,
+    refreshElapsedMs,
+    estimateCacheHit,
     settings,
     refresh,
     setAutoRefreshEnabled,
@@ -560,6 +562,8 @@ function App() {
         updatedAt={updatedAt}
         confirmState={confirmState}
         coverage={coverage}
+        refreshElapsedMs={refreshElapsedMs}
+        estimateCacheHit={estimateCacheHit}
         searchQuery={searchQuery}
         suggestions={suggestions}
         searchLoading={searchLoading}

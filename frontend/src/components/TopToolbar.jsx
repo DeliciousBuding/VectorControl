@@ -15,6 +15,8 @@ export function TopToolbar({
   asof,
   confirmState,
   coverage,
+  refreshElapsedMs,
+  estimateCacheHit,
   searchQuery,
   suggestions,
   searchLoading,
@@ -91,6 +93,8 @@ export function TopToolbar({
           <StatusPill status={status} />
           <span>上次刷新：{refreshClock}</span>
           <span>数据时点：{asofClock}</span>
+          <span>刷新用时：{refreshElapsedMs > 0 ? `${refreshElapsedMs} ms` : '--'}</span>
+          <span>数据来源：{estimateCacheHit ? '缓存快照' : '实时拉取'}</span>
           <span>状态：{confirmText}</span>
           <span>覆盖率：{coverage?.ok ?? 0}/{coverage?.total ?? 0}</span>
         </div>
