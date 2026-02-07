@@ -53,6 +53,7 @@ else
 fi
 
 echo "[1/5] 构建前端静态资源..."
+docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" build frontend-build
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm frontend-build
 
 if [[ "${VC_ENABLE_TLS}" == "true" ]]; then
