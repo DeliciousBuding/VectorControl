@@ -1,106 +1,83 @@
 # VectorControl
 
-VectorControl 是一个面向个人投资者的「持仓决策中枢」项目。  
-目标不是预测市场，而是把投资流程工程化为：
+VectorControl 鏄竴涓潰鍚戜釜浜烘姇璧勮€呯殑銆屾寔浠撳喅绛栦腑鏋€嶉」鐩€? 
+鐩爣涓嶆槸棰勬祴甯傚満锛岃€屾槸鎶婃姇璧勬祦绋嬪伐绋嬪寲涓猴細
 
-`估值 -> 指令 -> 执行 -> 复盘`
+`浼板€?-> 鎸囦护 -> 鎵ц -> 澶嶇洏`
 
-项目强调：
-- 多用户数据隔离（按 `user_id`）
-- 接口契约稳定（只增字段，不改语义）
-- 失败可降级（单基金失败不阻断全局）
-- 可部署、可回滚、可验收（Gate-A/B/C/D）
+椤圭洰寮鸿皟锛?- 澶氱敤鎴锋暟鎹殧绂伙紙鎸?`user_id`锛?- 鎺ュ彛濂戠害绋冲畾锛堝彧澧炲瓧娈碉紝涓嶆敼璇箟锛?- 澶辫触鍙檷绾э紙鍗曞熀閲戝け璐ヤ笉闃绘柇鍏ㄥ眬锛?- 鍙儴缃层€佸彲鍥炴粴銆佸彲楠屾敹锛圙ate-A/B/C/D锛?
+## 褰撳墠鍙戝竷鐗堟湰
+- `v1.0.0`锛坢ain 鍙戝竷鐗堬級
 
-## 当前发布版本
-- `v1.0.0`（main 发布版）
+## 鏋舵瀯閫熻
+- 鍓嶇锛歚React + Vite`锛屽崟椤靛伐浣滃彴锛屾牳蹇冮〉闈负棣栭〉/鑷€?浜ゆ槗/鎸佷粨/鎴戠殑銆?- 鍚庣锛歚FastAPI`锛屾寜 `router + service-like modules + storage` 鍒嗗眰銆?- 鏁版嵁搴擄細榛樿 SQLite锛堟湰鍦帮級锛岀敓浜у缓璁?PostgreSQL锛堝凡鎻愪緵 Compose 缂栨帓锛夈€?- 閰嶇疆锛歚config/*.yaml` 鐢ㄤ簬鍒濆鍖栧鍏ヤ笌澶囦唤瀵煎嚭锛屼笉浣滀负杩愯鎬佸啓鍏ョ湡婧愩€?- 閮ㄧ讲锛歚Docker Compose + Nginx + HTTPS`锛圠et鈥檚 Encrypt锛夈€?
+鏇磋缁嗙粨鏋勮锛歚docs/鏋舵瀯璇存槑.md`
 
-## 架构速览
-- 前端：`React + Vite`，单页工作台，核心页面为首页/自选/交易/持仓/我的。
-- 后端：`FastAPI`，按 `router + service-like modules + storage` 分层。
-- 数据库：默认 SQLite（本地），生产建议 PostgreSQL（已提供 Compose 编排）。
-- 配置：`config/*.yaml` 用于初始化导入与备份导出，不作为运行态写入真源。
-- 部署：`Docker Compose + Nginx + HTTPS`（Let’s Encrypt）。
-
-更详细结构见：`docs/架构说明.md`
-
-## 目录结构
+## 鐩綍缁撴瀯
 ```text
 VectorControl/
-├─ backend/                     # FastAPI 后端
-│  └─ app/
-│     ├─ main.py               # 应用装配、中间件、路由注册
-│     ├─ api/routers/          # 接口路由层
-│     ├─ storage/              # 数据库访问与表结构初始化
-│     ├─ estimator/            # 估值、指标口径、聚合逻辑
-│     ├─ risk/                 # 风险概览与覆盖率
-│     ├─ policy/               # 指令规则与阈值
-│     ├─ data_sources/         # 外部数据源（超时/回退）
-│     └─ notifier/             # 推送扩展位
-├─ frontend/                    # React 前端
-│  └─ src/
-│     ├─ components/           # 页面组件
-│     ├─ hooks/                # 鉴权与业务状态
-│     ├─ utils/                # 图表、口径、格式化工具
-│     └─ api.js                # 同域 /api 请求封装
-├─ config/                      # 初始化配置（基金、持仓、策略）
-├─ deploy/                      # 生产编排（Compose/Nginx/Dockerfile）
-├─ scripts/                     # Gate 验收与部署脚本
-├─ docs/                        # 架构、契约、设计、部署、规范
-├─ ROADMAP.md                   # 任务清单与勾选进度
-└─ AGENTS.md                    # 仓库级执行规则
-```
+鈹溾攢 backend/                     # FastAPI 鍚庣
+鈹? 鈹斺攢 app/
+鈹?    鈹溾攢 main.py               # 搴旂敤瑁呴厤銆佷腑闂翠欢銆佽矾鐢辨敞鍐?鈹?    鈹溾攢 api/routers/          # 鎺ュ彛璺敱灞?鈹?    鈹溾攢 storage/              # 鏁版嵁搴撹闂笌琛ㄧ粨鏋勫垵濮嬪寲
+鈹?    鈹溾攢 estimator/            # 浼板€笺€佹寚鏍囧彛寰勩€佽仛鍚堥€昏緫
+鈹?    鈹溾攢 risk/                 # 椋庨櫓姒傝涓庤鐩栫巼
+鈹?    鈹溾攢 policy/               # 鎸囦护瑙勫垯涓庨槇鍊?鈹?    鈹溾攢 data_sources/         # 澶栭儴鏁版嵁婧愶紙瓒呮椂/鍥為€€锛?鈹?    鈹斺攢 notifier/             # 鎺ㄩ€佹墿灞曚綅
+鈹溾攢 frontend/                    # React 鍓嶇
+鈹? 鈹斺攢 src/
+鈹?    鈹溾攢 components/           # 椤甸潰缁勪欢
+鈹?    鈹溾攢 hooks/                # 閴存潈涓庝笟鍔＄姸鎬?鈹?    鈹溾攢 utils/                # 鍥捐〃銆佸彛寰勩€佹牸寮忓寲宸ュ叿
+鈹?    鈹斺攢 api.js                # 鍚屽煙 /api 璇锋眰灏佽
+鈹溾攢 config/                      # 鍒濆鍖栭厤缃紙鍩洪噾銆佹寔浠撱€佺瓥鐣ワ級
+鈹溾攢 deploy/                      # 鐢熶骇缂栨帓锛圕ompose/Nginx/Dockerfile锛?鈹溾攢 scripts/                     # Gate 楠屾敹涓庨儴缃茶剼鏈?鈹溾攢 docs/                        # 鏋舵瀯銆佸绾︺€佽璁°€侀儴缃层€佽鑼?鈹溾攢 ROADMAP.md                   # 浠诲姟娓呭崟涓庡嬀閫夎繘搴?鈹斺攢 AGENTS.md                    # 浠撳簱绾ф墽琛岃鍒?```
 
-## 后端核心接口
-- 鉴权与用户：`/api/auth/register`、`/api/auth/login`、`/api/auth/me`、`/api/auth/logout`
-- 配置与持仓：`/api/config`、`/api/holdings`、`/api/holdings/import_yaml`
-- 估值与风险：`/api/estimate`、`/api/risk/overview`
-- 决策与执行：`/api/advice`、`/api/actions`
-- 复盘：`/api/report/daily`
-- 健康检查：`/api/health`、`/api/healthz`
+## 鍚庣鏍稿績鎺ュ彛
+- 閴存潈涓庣敤鎴凤細`/api/auth/register`銆乣/api/auth/login`銆乣/api/auth/me`銆乣/api/auth/logout`
+- 閰嶇疆涓庢寔浠擄細`/api/config`銆乣/api/holdings`銆乣/api/holdings/import_yaml`
+- 浼板€间笌椋庨櫓锛歚/api/estimate`銆乣/api/risk/overview`
+- 鍐崇瓥涓庢墽琛岋細`/api/advice`銆乣/api/actions`
+- 澶嶇洏锛歚/api/report/daily`
+- 鍋ュ悍妫€鏌ワ細`/api/health`銆乣/api/healthz`
 
-接口契约详见：`docs/接口契约.md`
+鎺ュ彛濂戠害璇﹁锛歚docs/鎺ュ彛濂戠害.md`
 
-## 本地开发
-### 1) 启动后端
+## 鏈湴寮€鍙?### 1) 鍚姩鍚庣
 ```bash
 cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 21345
 ```
 
-### 2) 启动前端
+### 2) 鍚姩鍓嶇
 ```bash
 cd frontend
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-### 3) 浏览器访问
-- 前端：`http://127.0.0.1:5173`
-- 后端健康检查：`http://127.0.0.1:21345/api/health`
+### 3) 娴忚鍣ㄨ闂?- 鍓嶇锛歚http://127.0.0.1:5173`
+- 鍚庣鍋ュ悍妫€鏌ワ細`http://127.0.0.1:21345/api/health`
 
-## 一键脚本与门禁
-- 本地脚本：`scripts/start_backend.bat`、`scripts/start_frontend.bat`
-- Gate 验收：`scripts/check_gate_a_full.py`、`scripts/check_gate_b_full.py`、`scripts/check_gate_c_full.py`、`scripts/check_gate_d.py`
+## 涓€閿剼鏈笌闂ㄧ
+- 鏈湴鑴氭湰锛歚scripts/start_backend.bat`銆乣scripts/start_frontend.bat`
+- Gate 楠屾敹锛歚scripts/check_gate_a_full.py`銆乣scripts/check_gate_b_full.py`銆乣scripts/check_gate_c_full.py`銆乣scripts/check_gate_d.py`
 
-部署细节见：`docs/部署与运行.md`
+閮ㄧ讲缁嗚妭瑙侊細`docs/閮ㄧ讲涓庤繍琛?md`
 
-## 当前分支策略
-- `dev`：日常开发与集成
-- `main`：发布与生产
+## 褰撳墠鍒嗘敮绛栫暐
+- `dev`锛氭棩甯稿紑鍙戜笌闆嗘垚
+- `main`锛氬彂甯冧笌鐢熶骇
 
-详细规范见：`AGENTS.md` 与 `docs/Git工作流.md`
+璇︾粏瑙勮寖瑙侊細`AGENTS.md` 涓?`docs/Git宸ヤ綔娴?md`
 
-## 文档索引
-- 架构说明：`docs/架构说明.md`
-- 最新进度：`docs/最新进度.md`
-- 产品蓝图：`docs/产品需求与页面蓝图.md`
-- 设计规范：`docs/设计系统与交互规范.md`
-- 接口契约：`docs/接口契约.md`
-- 部署运行：`docs/部署与运行.md`
-- 开发规范：`docs/开发规范.md`
-- Git 工作流：`docs/Git工作流.md`
+## 鏂囨。绱㈠紩
+- 鏋舵瀯璇存槑锛歚docs/鏋舵瀯璇存槑.md`
+- 鏈€鏂拌繘搴︼細`docs/鏈€鏂拌繘搴?md`
+- 浜у搧钃濆浘锛歚docs/浜у搧闇€姹備笌椤甸潰钃濆浘.md`
+- 璁捐瑙勮寖锛歚docs/璁捐绯荤粺涓庝氦浜掕鑼?md`
+- 鎺ュ彛濂戠害锛歚docs/鎺ュ彛濂戠害.md`
+- 閮ㄧ讲杩愯锛歚docs/閮ㄧ讲涓庤繍琛?md`
+- 寮€鍙戣鑼冿細`docs/寮€鍙戣鑼?md`
+- Git 宸ヤ綔娴侊細`docs/Git宸ヤ綔娴?md`
 
-## 免责声明
-- 本项目仅用于学习与工程实践，不构成投资建议。
-- 外部数据源可能延迟、缺失或变更，请自行判断风险。
+## 鍏嶈矗澹版槑
+- 鏈」鐩粎鐢ㄤ簬瀛︿範涓庡伐绋嬪疄璺碉紝涓嶆瀯鎴愭姇璧勫缓璁€?- 澶栭儴鏁版嵁婧愬彲鑳藉欢杩熴€佺己澶辨垨鍙樻洿锛岃鑷鍒ゆ柇椋庨櫓銆?

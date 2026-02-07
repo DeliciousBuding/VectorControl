@@ -76,8 +76,8 @@ async def login(payload: AuthIn, request: Request) -> dict:
         if not allowed:
             return _too_many_response(retry_after)
         if not account_exists:
-            return JSONResponse({"detail": "账号不存在"}, status_code=404)
-        return JSONResponse({"detail": "密码错误"}, status_code=401)
+            return JSONResponse({"detail": "账号不存在，请先注册"}, status_code=404)
+        return JSONResponse({"detail": "密码错误，请重试"}, status_code=401)
 
     auth_rate_limiter.record_success(login_key)
     token = create_session(user["id"])
