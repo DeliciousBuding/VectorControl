@@ -17,9 +17,20 @@ if [[ ! -f "${ENV_FILE}" ]]; then
   exit 1
 fi
 
+# 允许命令行导出的环境变量覆盖 .env.prod。
+ENV_VC_DOMAIN="${VC_DOMAIN:-}"
+ENV_VC_EMAIL="${VC_EMAIL:-}"
+ENV_VC_ENABLE_TLS="${VC_ENABLE_TLS:-}"
+ENV_VC_SCHEME="${VC_SCHEME:-}"
+
 set -a
 source "${ENV_FILE}"
 set +a
+
+if [[ -n "${ENV_VC_DOMAIN}" ]]; then VC_DOMAIN="${ENV_VC_DOMAIN}"; fi
+if [[ -n "${ENV_VC_EMAIL}" ]]; then VC_EMAIL="${ENV_VC_EMAIL}"; fi
+if [[ -n "${ENV_VC_ENABLE_TLS}" ]]; then VC_ENABLE_TLS="${ENV_VC_ENABLE_TLS}"; fi
+if [[ -n "${ENV_VC_SCHEME}" ]]; then VC_SCHEME="${ENV_VC_SCHEME}"; fi
 
 if [[ -z "${VC_DOMAIN:-}" || -z "${VC_EMAIL:-}" ]]; then
   echo "[FAIL] VC_DOMAIN 或 VC_EMAIL 未配置。"
