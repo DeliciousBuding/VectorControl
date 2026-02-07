@@ -1,83 +1,73 @@
 # VectorControl
 
-VectorControl 鏄竴涓潰鍚戜釜浜烘姇璧勮€呯殑銆屾寔浠撳喅绛栦腑鏋€嶉」鐩€? 
-鐩爣涓嶆槸棰勬祴甯傚満锛岃€屾槸鎶婃姇璧勬祦绋嬪伐绋嬪寲涓猴細
+VectorControl 閺勵垯绔存稉顏堟桨閸氭垳閲滄禍鐑樺鐠у嫯鈧懐娈戦妴灞惧瘮娴犳挸鍠呯粵鏍﹁厬閺嬵潿鈧秹銆嶉惄顔衡偓? 
+閻╊喗鐖ｆ稉宥嗘Ц妫板嫭绁寸敮鍌氭簚閿涘矁鈧本妲搁幎濠冨鐠у嫭绁︾粙瀣紣缁嬪瀵叉稉鐚寸窗
 
-`浼板€?-> 鎸囦护 -> 鎵ц -> 澶嶇洏`
+`娴兼澘鈧?-> 閹稿洣鎶?-> 閹笛嗩攽 -> 婢跺秶娲廯
 
-椤圭洰寮鸿皟锛?- 澶氱敤鎴锋暟鎹殧绂伙紙鎸?`user_id`锛?- 鎺ュ彛濂戠害绋冲畾锛堝彧澧炲瓧娈碉紝涓嶆敼璇箟锛?- 澶辫触鍙檷绾э紙鍗曞熀閲戝け璐ヤ笉闃绘柇鍏ㄥ眬锛?- 鍙儴缃层€佸彲鍥炴粴銆佸彲楠屾敹锛圙ate-A/B/C/D锛?
-## 褰撳墠鍙戝竷鐗堟湰
-- `v1.0.0`锛坢ain 鍙戝竷鐗堬級
+妞ゅ湱娲板楦跨殶閿?- 婢舵氨鏁ら幋閿嬫殶閹诡噣娈х粋浼欑礄閹?`user_id`閿?- 閹恒儱褰涙總鎴犲缁嬪啿鐣鹃敍鍫濆涧婢х偛鐡у▓纰夌礉娑撳秵鏁肩拠顓濈疅閿?- 婢惰精瑙﹂崣顖炴缁狙嶇礄閸楁洖鐔€闁叉垵銇戠拹銉ょ瑝闂冪粯鏌囬崗銊ョ湰閿?- 閸欘垶鍎寸純灞傗偓浣稿讲閸ョ偞绮撮妴浣稿讲妤犲本鏁归敍鍦檃te-A/B/C/D閿?
+## 瑜版挸澧犻崣鎴濈閻楀牊婀?- `v1.0.0`閿涘潰ain 閸欐垵绔烽悧鍫礆
 
-## 鏋舵瀯閫熻
-- 鍓嶇锛歚React + Vite`锛屽崟椤靛伐浣滃彴锛屾牳蹇冮〉闈负棣栭〉/鑷€?浜ゆ槗/鎸佷粨/鎴戠殑銆?- 鍚庣锛歚FastAPI`锛屾寜 `router + service-like modules + storage` 鍒嗗眰銆?- 鏁版嵁搴擄細榛樿 SQLite锛堟湰鍦帮級锛岀敓浜у缓璁?PostgreSQL锛堝凡鎻愪緵 Compose 缂栨帓锛夈€?- 閰嶇疆锛歚config/*.yaml` 鐢ㄤ簬鍒濆鍖栧鍏ヤ笌澶囦唤瀵煎嚭锛屼笉浣滀负杩愯鎬佸啓鍏ョ湡婧愩€?- 閮ㄧ讲锛歚Docker Compose + Nginx + HTTPS`锛圠et鈥檚 Encrypt锛夈€?
-鏇磋缁嗙粨鏋勮锛歚docs/鏋舵瀯璇存槑.md`
+## 閺嬭埖鐎柅鐔活潔
+- 閸撳秶顏敍姝歊eact + Vite`閿涘苯宕熸い闈涗紣娴ｆ粌褰撮敍灞剧壋韫囧啴銆夐棃顫礋妫ｆ牠銆?閼奉亪鈧?娴溿倖妲?閹镐椒绮?閹存垹娈戦妴?- 閸氬海顏敍姝欶astAPI`閿涘本瀵?`router + service-like modules + storage` 閸掑棗鐪伴妴?- 閺佺増宓佹惔鎿勭窗姒涙顓?SQLite閿涘牊婀伴崷甯礆閿涘瞼鏁撴禍褍缂撶拋?PostgreSQL閿涘牆鍑￠幓鎰返 Compose 缂傛牗甯撻敍澶堚偓?- 闁板秶鐤嗛敍姝歝onfig/*.yaml` 閻劋绨崚婵嗩潗閸栨牕顕遍崗銉ょ瑢婢跺洣鍞ょ€电厧鍤敍灞肩瑝娴ｆ粈璐熸潻鎰攽閹礁鍟撻崗銉ф埂濠ф劑鈧?- 闁劎璁查敍姝欴ocker Compose + Nginx + HTTPS`閿涘湢et閳ユ獨 Encrypt閿涘鈧?
+閺囩顕涚紒鍡欑波閺嬪嫯顫嗛敍姝歞ocs/閺嬭埖鐎拠瀛樻.md`
 
-## 鐩綍缁撴瀯
-```text
+## 閻╊喖缍嶇紒鎾寸€?```text
 VectorControl/
-鈹溾攢 backend/                     # FastAPI 鍚庣
-鈹? 鈹斺攢 app/
-鈹?    鈹溾攢 main.py               # 搴旂敤瑁呴厤銆佷腑闂翠欢銆佽矾鐢辨敞鍐?鈹?    鈹溾攢 api/routers/          # 鎺ュ彛璺敱灞?鈹?    鈹溾攢 storage/              # 鏁版嵁搴撹闂笌琛ㄧ粨鏋勫垵濮嬪寲
-鈹?    鈹溾攢 estimator/            # 浼板€笺€佹寚鏍囧彛寰勩€佽仛鍚堥€昏緫
-鈹?    鈹溾攢 risk/                 # 椋庨櫓姒傝涓庤鐩栫巼
-鈹?    鈹溾攢 policy/               # 鎸囦护瑙勫垯涓庨槇鍊?鈹?    鈹溾攢 data_sources/         # 澶栭儴鏁版嵁婧愶紙瓒呮椂/鍥為€€锛?鈹?    鈹斺攢 notifier/             # 鎺ㄩ€佹墿灞曚綅
-鈹溾攢 frontend/                    # React 鍓嶇
-鈹? 鈹斺攢 src/
-鈹?    鈹溾攢 components/           # 椤甸潰缁勪欢
-鈹?    鈹溾攢 hooks/                # 閴存潈涓庝笟鍔＄姸鎬?鈹?    鈹溾攢 utils/                # 鍥捐〃銆佸彛寰勩€佹牸寮忓寲宸ュ叿
-鈹?    鈹斺攢 api.js                # 鍚屽煙 /api 璇锋眰灏佽
-鈹溾攢 config/                      # 鍒濆鍖栭厤缃紙鍩洪噾銆佹寔浠撱€佺瓥鐣ワ級
-鈹溾攢 deploy/                      # 鐢熶骇缂栨帓锛圕ompose/Nginx/Dockerfile锛?鈹溾攢 scripts/                     # Gate 楠屾敹涓庨儴缃茶剼鏈?鈹溾攢 docs/                        # 鏋舵瀯銆佸绾︺€佽璁°€侀儴缃层€佽鑼?鈹溾攢 ROADMAP.md                   # 浠诲姟娓呭崟涓庡嬀閫夎繘搴?鈹斺攢 AGENTS.md                    # 浠撳簱绾ф墽琛岃鍒?```
+閳规壕鏀?backend/                     # FastAPI 閸氬海顏?閳? 閳规柡鏀?app/
+閳?    閳规壕鏀?main.py               # 鎼存梻鏁ょ憗鍛村帳閵嗕椒鑵戦梻缈犳閵嗕浇鐭鹃悽杈ㄦ暈閸?閳?    閳规壕鏀?api/routers/          # 閹恒儱褰涚捄顖滄暠鐏?閳?    閳规壕鏀?storage/              # 閺佺増宓佹惔鎾诡問闂傤喕绗岀悰銊х波閺嬪嫬鍨垫慨瀣
+閳?    閳规壕鏀?estimator/            # 娴兼澘鈧鈧焦瀵氶弽鍥у經瀵板嫨鈧浇浠涢崥鍫モ偓鏄忕帆
+閳?    閳规壕鏀?risk/                 # 妞嬪酣娅撳鍌濐潔娑撳氦顩惄鏍芳
+閳?    閳规壕鏀?policy/               # 閹稿洣鎶ょ憴鍕灟娑撳酣妲囬崐?閳?    閳规壕鏀?data_sources/         # 婢舵牠鍎撮弫鐗堝祦濠ф劧绱欑搾鍛/閸ョ偤鈧偓閿?閳?    閳规柡鏀?notifier/             # 閹恒劑鈧焦澧跨仦鏇氱秴
+閳规壕鏀?frontend/                    # React 閸撳秶顏?閳? 閳规柡鏀?src/
+閳?    閳规壕鏀?components/           # 妞ょ敻娼扮紒鍕
+閳?    閳规壕鏀?hooks/                # 闁村瓨娼堟稉搴濈瑹閸旓紕濮搁幀?閳?    閳规壕鏀?utils/                # 閸ユ崘銆冮妴浣稿經瀵板嫨鈧焦鐗稿蹇撳瀹搞儱鍙?閳?    閳规柡鏀?api.js                # 閸氬苯鐓?/api 鐠囬攱鐪扮亸浣筋棅
+閳规壕鏀?config/                      # 閸掓繂顫愰崠鏍帳缂冾噯绱欓崺娲櫨閵嗕焦瀵旀禒鎾扁偓浣虹摜閻ｃ儻绱?閳规壕鏀?deploy/                      # 閻㈢喍楠囩紓鏍ㄥ笓閿涘湑ompose/Nginx/Dockerfile閿?閳规壕鏀?scripts/                     # Gate 妤犲本鏁规稉搴ㄥ劥缂冭尪鍓奸張?閳规壕鏀?docs/                        # 閺嬭埖鐎妴浣割殩缁撅负鈧浇顔曠拋掳鈧線鍎寸純灞傗偓浣筋潐閼?閳规壕鏀?ROADMAP.md                   # 娴犺濮熷〒鍛礋娑撳骸瀣€闁绻樻惔?閳规柡鏀?AGENTS.md                    # 娴犳挸绨辩痪褎澧界悰宀冾潐閸?```
 
-## 鍚庣鏍稿績鎺ュ彛
-- 閴存潈涓庣敤鎴凤細`/api/auth/register`銆乣/api/auth/login`銆乣/api/auth/me`銆乣/api/auth/logout`
-- 閰嶇疆涓庢寔浠擄細`/api/config`銆乣/api/holdings`銆乣/api/holdings/import_yaml`
-- 浼板€间笌椋庨櫓锛歚/api/estimate`銆乣/api/risk/overview`
-- 鍐崇瓥涓庢墽琛岋細`/api/advice`銆乣/api/actions`
-- 澶嶇洏锛歚/api/report/daily`
-- 鍋ュ悍妫€鏌ワ細`/api/health`銆乣/api/healthz`
+## 閸氬海顏弽绋跨妇閹恒儱褰?- 闁村瓨娼堟稉搴ｆ暏閹村嚖绱癭/api/auth/register`閵嗕梗/api/auth/login`閵嗕梗/api/auth/me`閵嗕梗/api/auth/logout`
+- 闁板秶鐤嗘稉搴㈠瘮娴犳搫绱癭/api/config`閵嗕梗/api/holdings`閵嗕梗/api/holdings/import_yaml`
+- 娴兼澘鈧棿绗屾搴ㄦ珦閿涙瓪/api/estimate`閵嗕梗/api/risk/overview`
+- 閸愬磭鐡ユ稉搴㈠⒔鐞涘矉绱癭/api/advice`閵嗕梗/api/actions`
+- 婢跺秶娲忛敍姝?api/report/daily`
+- 閸嬨儱鎮嶅Λ鈧弻銉窗`/api/health`閵嗕梗/api/healthz`
 
-鎺ュ彛濂戠害璇﹁锛歚docs/鎺ュ彛濂戠害.md`
+閹恒儱褰涙總鎴犲鐠囷箒顫嗛敍姝歞ocs/閹恒儱褰涙總鎴犲.md`
 
-## 鏈湴寮€鍙?### 1) 鍚姩鍚庣
+## 閺堫剙婀村鈧崣?### 1) 閸氼垰濮╅崥搴ｎ伂
 ```bash
 cd backend
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 21345
 ```
 
-### 2) 鍚姩鍓嶇
+### 2) 閸氼垰濮╅崜宥囶伂
 ```bash
 cd frontend
 npm install
 npm run dev -- --host 127.0.0.1 --port 5173
 ```
 
-### 3) 娴忚鍣ㄨ闂?- 鍓嶇锛歚http://127.0.0.1:5173`
-- 鍚庣鍋ュ悍妫€鏌ワ細`http://127.0.0.1:21345/api/health`
+### 3) 濞村繗顫嶉崳銊問闂?- 閸撳秶顏敍姝歨ttp://127.0.0.1:5173`
+- 閸氬海顏崑銉ユ倣濡偓閺屻儻绱癭http://127.0.0.1:21345/api/health`
 
-## 涓€閿剼鏈笌闂ㄧ
-- 鏈湴鑴氭湰锛歚scripts/start_backend.bat`銆乣scripts/start_frontend.bat`
-- Gate 楠屾敹锛歚scripts/check_gate_a_full.py`銆乣scripts/check_gate_b_full.py`銆乣scripts/check_gate_c_full.py`銆乣scripts/check_gate_d.py`
+## 娑撯偓闁款喛鍓奸張顑跨瑢闂傘劎顩?- 閺堫剙婀撮懘姘拱閿涙瓪scripts/start_backend.bat`閵嗕梗scripts/start_frontend.bat`
+- Gate 妤犲本鏁归敍姝歴cripts/check_gate_a_full.py`閵嗕梗scripts/check_gate_b_full.py`閵嗕梗scripts/check_gate_c_full.py`閵嗕梗scripts/check_gate_d.py`
 
-閮ㄧ讲缁嗚妭瑙侊細`docs/閮ㄧ讲涓庤繍琛?md`
+闁劎璁茬紒鍡氬Ν鐟欎緤绱癭docs/闁劎璁叉稉搴ょ箥鐞?md`
 
-## 褰撳墠鍒嗘敮绛栫暐
-- `dev`锛氭棩甯稿紑鍙戜笌闆嗘垚
-- `main`锛氬彂甯冧笌鐢熶骇
+## 瑜版挸澧犻崚鍡樻暜缁涙牜鏆?- `dev`閿涙碍妫╃敮绋跨磻閸欐垳绗岄梿鍡樺灇
+- `main`閿涙艾褰傜敮鍐х瑢閻㈢喍楠?
+鐠囷妇绮忕憴鍕瘱鐟欎緤绱癭AGENTS.md` 娑?`docs/Git瀹搞儰缍斿ù?md`
 
-璇︾粏瑙勮寖瑙侊細`AGENTS.md` 涓?`docs/Git宸ヤ綔娴?md`
+## 閺傚洦銆傜槐銏犵穿
+- 閺嬭埖鐎拠瀛樻閿涙瓪docs/閺嬭埖鐎拠瀛樻.md`
+- 閺堚偓閺傛媽绻樻惔锔肩窗`docs/閺堚偓閺傛媽绻樻惔?md`
+- 娴溠冩惂閽冩繂娴橀敍姝歞ocs/娴溠冩惂闂団偓濮瑰倷绗屾い鐢告桨閽冩繂娴?md`
+- 鐠佹崘顓哥憴鍕瘱閿涙瓪docs/鐠佹崘顓哥化鑽ょ埠娑撳簼姘︽禍鎺曨潐閼?md`
+- 閹恒儱褰涙總鎴犲閿涙瓪docs/閹恒儱褰涙總鎴犲.md`
+- 闁劎璁叉潻鎰攽閿涙瓪docs/闁劎璁叉稉搴ょ箥鐞?md`
+- 瀵偓閸欐垼顫夐懠鍐跨窗`docs/瀵偓閸欐垼顫夐懠?md`
+- Git 瀹搞儰缍斿ù渚婄窗`docs/Git瀹搞儰缍斿ù?md`
 
-## 鏂囨。绱㈠紩
-- 鏋舵瀯璇存槑锛歚docs/鏋舵瀯璇存槑.md`
-- 鏈€鏂拌繘搴︼細`docs/鏈€鏂拌繘搴?md`
-- 浜у搧钃濆浘锛歚docs/浜у搧闇€姹備笌椤甸潰钃濆浘.md`
-- 璁捐瑙勮寖锛歚docs/璁捐绯荤粺涓庝氦浜掕鑼?md`
-- 鎺ュ彛濂戠害锛歚docs/鎺ュ彛濂戠害.md`
-- 閮ㄧ讲杩愯锛歚docs/閮ㄧ讲涓庤繍琛?md`
-- 寮€鍙戣鑼冿細`docs/寮€鍙戣鑼?md`
-- Git 宸ヤ綔娴侊細`docs/Git宸ヤ綔娴?md`
-
-## 鍏嶈矗澹版槑
-- 鏈」鐩粎鐢ㄤ簬瀛︿範涓庡伐绋嬪疄璺碉紝涓嶆瀯鎴愭姇璧勫缓璁€?- 澶栭儴鏁版嵁婧愬彲鑳藉欢杩熴€佺己澶辨垨鍙樻洿锛岃鑷鍒ゆ柇椋庨櫓銆?
+## 閸忓秷鐭楁竟鐗堟
+- 閺堫剟銆嶉惄顔荤矌閻劋绨€涳缚绡勬稉搴′紣缁嬪鐤勭捄纰夌礉娑撳秵鐎幋鎰鐠у嫬缂撶拋顔衡偓?- 婢舵牠鍎撮弫鐗堝祦濠ф劕褰查懗钘夋鏉╃喆鈧胶宸辨径杈ㄥ灗閸欐ɑ娲块敍宀冾嚞閼奉亣顢戦崚銈嗘焽妞嬪酣娅撻妴?
