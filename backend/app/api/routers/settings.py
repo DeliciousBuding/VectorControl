@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from app.api.deps import get_holdings_user_id
+from app.core.network_benchmark import run_network_benchmark
 from app.storage.db import get_user_settings, upsert_user_settings
 
 router = APIRouter(prefix="/api/settings", tags=["设置"])
@@ -13,6 +14,12 @@ router = APIRouter(prefix="/api/settings", tags=["设置"])
 
 class SettingsIn(BaseModel):
     settings: dict[str, Any]
+
+
+class NetworkBenchmarkRunIn(BaseModel):
+    profile: str = "cn_fund"
+    timeout_seconds: float = 6.0
+    persist: bool = True
 
 
 @router.get("")
@@ -27,3 +34,37 @@ async def put_settings(request: Request, payload: SettingsIn) -> dict:
     user_id = get_holdings_user_id(request)
     settings = upsert_user_settings(user_id, payload.settings)
     return {"settings": settings, "user_id": user_id}
+
+
+@router.get("/network-benchmark/latest")
+async def get_network_benchmark_latest(request: Request) -> dict:
+    user_id = get_holdings_user_id(request)
+    settings = get_user_settings(user_id)
+    section = settings.get("network_benchmark", {}) if isinstance(settings, dict) else {}
+    result = section.get("last_result") if isinstance(section, dict) else None
+    return {
+        "user_id": user_id,
+        "available": isinstance(result, dict),
+        "result": result if isinstance(result, dict) else None,
+    }
+
+
+@router.post("/network-benchmark/run")
+async def post_network_benchmark_run(request: Request, payload: NetworkBenchmarkRunIn) -> dict:
+    user_id = get_holdings_user_id(request)
+    result = run_network_benchmark(payload.profile, payload.timeout_seconds)
+
+    if payload.persist:
+        upsert_user_settings(
+            user_id,
+            {
+                "network_benchmark": {
+                    "default_profile": result.get("profile", payload.profile),
+                    "timeout_seconds": result.get("timeout_seconds", payload.timeout_seconds),
+                    "last_run_at": result.get("generated_at", ""),
+                    "last_result": result,
+                }
+            },
+        )
+
+    return {"user_id": user_id, "result": result}

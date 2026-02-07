@@ -88,6 +88,14 @@ export function saveSettings(payload) {
   return apiFetch('/api/settings', { method: 'PUT', body: payload })
 }
 
+export function fetchNetworkBenchmarkLatest() {
+  return apiFetch('/api/settings/network-benchmark/latest')
+}
+
+export function runNetworkBenchmark(payload) {
+  return apiFetch('/api/settings/network-benchmark/run', { method: 'POST', body: payload })
+}
+
 export function fetchConfig() {
   return apiFetch('/api/config')
 }
