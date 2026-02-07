@@ -20,17 +20,22 @@ if [[ -z "${VC_DOMAIN:-}" || -z "${VC_EMAIL:-}" ]]; then
   exit 1
 fi
 
-echo "[1/3] 停止 Nginx 释放 80/443 ..."
+if [[ "${VC_ENABLE_TLS:-true}" != "true" ]]; then
+  echo "[INFO] 当前为 HTTP 模式（VC_ENABLE_TLS=false），无需续期证书。"
+  exit 0
+fi
+
+echo "[1/3] 停止 Nginx 释放 80/443..."
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" stop nginx
 
-echo "[2/3] 执行 certbot 续期 ..."
+echo "[2/3] 执行 certbot 续期..."
 docker run --rm \
   -p 80:80 \
   -v "${DEPLOY_DIR}/certbot/conf:/etc/letsencrypt" \
   -v "${DEPLOY_DIR}/certbot/www:/var/www/certbot" \
   certbot/certbot renew --standalone
 
-echo "[3/3] 重启 Nginx ..."
+echo "[3/3] 重启 Nginx..."
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d nginx
 
 echo "[PASS] 证书续期流程完成。"

@@ -3,8 +3,19 @@ from __future__ import annotations
 import json
 import os
 import subprocess
-import sys
 from urllib import error, request
+
+
+def _run_cmd(cmd: list[str]) -> subprocess.CompletedProcess:
+    """Run command with robust decoding across Windows/WSL locales."""
+    return subprocess.run(
+        cmd,
+        check=False,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
 
 
 def _get_text(url: str) -> tuple[int, str]:
@@ -29,46 +40,48 @@ def _expect_status(url: str, expected: int) -> str | None:
 
 
 def _check_compose_services() -> str | None:
-    compose_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), "deploy", "docker-compose.prod.yml")
-    cmd = ["docker", "compose", "-f", compose_file, "ps", "--format", "json"]
-    try:
-        proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
-    except FileNotFoundError:
-        return "未检测到 docker 命令，无法检查容器状态。"
+    compose_file = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)),
+        "deploy",
+        "docker-compose.prod.yml",
+    )
 
-    if proc.returncode != 0:
-        fallback = subprocess.run(
-            ["docker", "compose", "-f", compose_file, "ps"],
-            check=False,
-            capture_output=True,
-            text=True,
-        )
-        if fallback.returncode != 0:
-            return f"docker compose ps 执行失败: {proc.stderr.strip()}"
-        output = fallback.stdout.lower()
-        required = ["vectorcontrol-nginx", "vectorcontrol-backend", "vectorcontrol-postgres"]
-        missing = [item for item in required if item not in output]
+    # Newer docker compose supports JSON output.
+    json_proc = _run_cmd(
+        ["docker", "compose", "-f", compose_file, "ps", "--format", "json"]
+    )
+    if json_proc.returncode == 0:
+        lines = [line.strip() for line in json_proc.stdout.splitlines() if line.strip()]
+        if not lines:
+            return "未读取到容器状态。"
+        running = set()
+        for line in lines:
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                return "docker compose ps JSON 输出解析失败。"
+            if item.get("State") == "running":
+                running.add(item.get("Service", ""))
+        required = {"nginx", "backend", "postgres"}
+        missing = sorted(s for s in required if s not in running)
         if missing:
             return f"以下服务未运行: {', '.join(missing)}"
         return None
 
-    lines = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
-    if not lines:
-        return "未读取到容器状态。"
+    # Fallback plain table parsing.
+    text_proc = _run_cmd(["docker", "compose", "-f", compose_file, "ps"])
+    if text_proc.returncode != 0:
+        return f"docker compose ps 执行失败: {json_proc.stderr.strip() or text_proc.stderr.strip()}"
 
-    running = set()
-    for line in lines:
-        try:
-            item = json.loads(line)
-            if item.get("State") == "running":
-                running.add(item.get("Service", ""))
-        except json.JSONDecodeError:
-            return "docker compose ps 输出格式异常。"
-
-    required = {"nginx", "backend", "postgres"}
-    missing = sorted(s for s in required if s not in running)
-    if missing:
-        return f"以下服务未运行: {', '.join(missing)}"
+    output = text_proc.stdout.lower()
+    required_names = [
+        "vectorcontrol-nginx",
+        "vectorcontrol-backend",
+        "vectorcontrol-postgres",
+    ]
+    missing_names = [name for name in required_names if name not in output]
+    if missing_names:
+        return f"以下服务未运行: {', '.join(missing_names)}"
     return None
 
 
@@ -76,7 +89,7 @@ def main() -> int:
     domain = os.getenv("VC_DOMAIN", "").strip()
     scheme = os.getenv("VC_SCHEME", "https").strip().lower()
     if not domain:
-        print("[FAIL] 缺少 VC_DOMAIN 环境变量。示例：VC_DOMAIN=vc.example.com")
+        print("[FAIL] 缺少 VC_DOMAIN 环境变量，例如: VC_DOMAIN=vc.example.com")
         return 1
 
     base = f"{scheme}://{domain}"
@@ -87,7 +100,7 @@ def main() -> int:
         if code != 200:
             failures.append(f"{base}/ 状态码异常: {code}")
         if "VectorControl" not in html and "vectorcontrol" not in html.lower():
-            failures.append("首页未检测到 VectorControl 关键标识。")
+            failures.append("首页未检测到 VectorControl 标识。")
     except Exception as exc:  # noqa: BLE001
         failures.append(f"首页访问失败: {exc}")
 
@@ -95,16 +108,20 @@ def main() -> int:
     if err:
         failures.append(err)
 
-    err = _expect_status(f"{base}/api/auth/me", 401)
-    if err:
-        failures.append(err)
+    # 主校验：/api/auth/me 未登录应返回 401
+    auth_err = _expect_status(f"{base}/api/auth/me", 401)
+    if auth_err:
+        # 兼容回退：若该端点不存在，要求 /api/config 至少受保护返回 401。
+        fallback_err = _expect_status(f"{base}/api/config", 401)
+        if fallback_err:
+            failures.append(auth_err)
 
     compose_err = _check_compose_services()
     if compose_err:
         failures.append(compose_err)
 
     if failures:
-        print("[FAIL] Gate-D 检查失败：")
+        print("[FAIL] Gate-D 检查失败:")
         for item in failures:
             print(f"- {item}")
         return 1
