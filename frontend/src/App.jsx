@@ -366,11 +366,7 @@ function App() {
   }, [actionLogs, reportSummary, rows])
 
   const onAuthSubmit = async (payload) => {
-    try {
-      await login(payload)
-    } catch {
-      // 状态在 hooks 内由后续接口更新
-    }
+    await login(payload)
   }
 
 

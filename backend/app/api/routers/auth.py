@@ -11,6 +11,7 @@ from app.storage.db import (
     create_user,
     delete_session,
     list_holdings,
+    username_exists,
     verify_user_credentials,
 )
 
@@ -70,10 +71,13 @@ async def login(payload: AuthIn, request: Request) -> dict:
 
     user = verify_user_credentials(payload.username, payload.password)
     if not user:
+        account_exists = username_exists(payload.username)
         allowed, retry_after = auth_rate_limiter.record_failure(login_key, LOGIN_RULE)
         if not allowed:
             return _too_many_response(retry_after)
-        return JSONResponse({"detail": "用户名或密码错误"}, status_code=401)
+        if not account_exists:
+            return JSONResponse({"detail": "账号不存在"}, status_code=404)
+        return JSONResponse({"detail": "密码错误"}, status_code=401)
 
     auth_rate_limiter.record_success(login_key)
     token = create_session(user["id"])
