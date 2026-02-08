@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import uuid
 from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request
@@ -7,6 +8,8 @@ from pydantic import BaseModel, Field
 
 from app.api.deps import get_holdings_user_id
 from app.core.network_benchmark import DEFAULT_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, run_network_benchmark
+from app.notifier import NotificationPayload
+from app.notifier import telegram_sender as telegram_mod
 from app.storage.db import get_user_settings, upsert_user_settings
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -135,6 +138,104 @@ async def put_telegram_credential(request: Request, payload: TelegramCredentialI
         },
     }
 
+
+
+@router.post("/notifications/telegram/test_message")
+async def post_telegram_test_message(request: Request) -> dict:
+    # Send a fixed test message using saved telegram credentials (bot_token/chat_id).
+    # Safety: never echo bot_token in response.
+    user_id = get_holdings_user_id(request)
+    settings = get_user_settings(user_id)
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+    section = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+
+    bot_token = str(section.get("bot_token", "")).strip()
+    chat_id = str(section.get("chat_id", "")).strip()
+    if not bot_token:
+        raise HTTPException(status_code=422, detail="bot_token 未配置，请先通过凭据接口更新")
+    if not chat_id:
+        raise HTTPException(status_code=422, detail="chat_id 未配置，请先通过凭据接口更新")
+
+    trace_id = uuid.uuid4().hex[:12]
+    fixed_text = f"VectorControl Telegram 测试消息 (trace_id={trace_id})"
+
+    raw_parse_mode = str(section.get("parse_mode", "")).strip()
+    parse_mode = "HTML" if raw_parse_mode.upper() == "HTML" else ""
+    disable_web_page_preview = bool(section.get("disable_web_page_preview", True))
+
+    retry_times = telegram_mod._coerce_retry_times(section.get("retry_times", telegram_mod.DEFAULT_RETRY_TIMES))
+    timeout_seconds = telegram_mod._coerce_timeout(section.get("timeout_seconds", telegram_mod.DEFAULT_TIMEOUT_SECONDS))
+
+    payload = NotificationPayload(title="VectorControl", content=fixed_text, metadata={})
+    text = telegram_mod._build_text(payload=payload, parse_mode=parse_mode)
+
+    api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    req_payload: dict[str, Any] = {
+        "chat_id": chat_id,
+        "text": text,
+        "disable_web_page_preview": disable_web_page_preview,
+    }
+    if parse_mode:
+        req_payload["parse_mode"] = parse_mode
+
+    max_attempts = retry_times + 1
+    last_error: dict[str, Any] | None = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            status_code, resp_json = telegram_mod._http_post_json(api_url, req_payload, timeout_seconds)
+            ok = bool(resp_json.get("ok", False)) if isinstance(resp_json, dict) else False
+            if status_code == 200 and ok:
+                result = resp_json.get("result", {}) if isinstance(resp_json.get("result"), dict) else {}
+                provider_message_id = str(result.get("message_id") or "")
+                return {
+                    "user_id": user_id,
+                    "ok": True,
+                    "sent": True,
+                    "trace_id": trace_id,
+                    "attempts": attempt,
+                    "max_attempts": max_attempts,
+                    "provider_message_id": provider_message_id,
+                }
+
+            error_code = resp_json.get("error_code") if isinstance(resp_json, dict) else None
+            description = (
+                str(resp_json.get("description") or resp_json.get("message") or "").strip()
+                if isinstance(resp_json, dict)
+                else ""
+            )
+            category = "provider_error"
+            try:
+                code_int = int(error_code)
+            except Exception:
+                code_int = -1
+            if code_int == 401:
+                category = "unauthorized"
+            elif code_int == 403:
+                category = "forbidden"
+            elif code_int == 400:
+                category = "bad_request"
+            last_error = {
+                "category": category,
+                "http_status": int(status_code),
+                "error_code": error_code,
+                "description": description,
+            }
+        except TimeoutError:
+            last_error = {"category": "timeout"}
+        except Exception as exc:
+            # Avoid leaking bot_token via exception text (it can include the request URL).
+            last_error = {"category": "network_error", "message": str(exc.__class__.__name__)}
+
+    return {
+        "user_id": user_id,
+        "ok": False,
+        "sent": False,
+        "trace_id": trace_id,
+        "attempts": max_attempts,
+        "max_attempts": max_attempts,
+        "error": last_error or {"category": "unknown"},
+    }
 
 @router.get("/network-benchmark/latest")
 async def get_network_benchmark_latest(request: Request) -> dict:
