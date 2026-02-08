@@ -221,6 +221,20 @@ class AuthIsolationSmokeTest(unittest.TestCase):
                 self.assertTrue(isinstance(history_nav_body.get("items"), list))
                 self.assertIn("data_status", history_nav_body)
 
+            alias_search_resp = client.get("/api/funds/search?q=纳指&limit=10", headers=headers)
+            self.assertEqual(alias_search_resp.status_code, 200, alias_search_resp.text)
+            alias_search_body = alias_search_resp.json()
+            alias_items = alias_search_body.get("items", [])
+            self.assertTrue(isinstance(alias_items, list))
+            self.assertGreater(len(alias_items), 0)
+            self.assertTrue(
+                any(
+                    "纳指" in [str(alias) for alias in item.get("alias_hits", [])]
+                    for item in alias_items
+                    if isinstance(item, dict)
+                )
+            )
+
     def test_fund_sync_admin_job_contract(self) -> None:
         with TestClient(app) as client:
             headers = {"Authorization": f"Bearer {API_TOKEN}"}

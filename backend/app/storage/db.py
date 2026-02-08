@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import re
 import secrets
 import sqlite3
 from datetime import datetime, timedelta
@@ -71,6 +72,79 @@ def _normalize_catalog_text(value: Any) -> str:
 
 def _derive_catalog_abbr(name: str) -> str:
     return "".join(ch for ch in name.lower() if ch.isascii() and ch.isalnum())[:32]
+
+
+def _normalize_alias_text(value: Any) -> str:
+    text = _normalize_catalog_text(value).lower()
+    if not text:
+        return ""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def _split_aliases(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        values = [str(item or "").strip() for item in raw]
+    elif isinstance(raw, str):
+        values = [part.strip() for part in re.split(r"[,，;；|/、]+", raw)]
+    else:
+        values = []
+    return [value for value in values if value]
+
+
+def _derive_catalog_aliases(item: dict[str, Any], name: str, tags: list[str]) -> list[str]:
+    aliases: list[str] = []
+    seen: set[str] = set()
+
+    def _append(alias_value: str) -> None:
+        alias_text = str(alias_value or "").strip()
+        if not alias_text:
+            return
+        key = _normalize_alias_text(alias_text)
+        if not key or key in seen:
+            return
+        seen.add(key)
+        aliases.append(alias_text)
+
+    for alias_value in _split_aliases(item.get("aliases")):
+        _append(alias_value)
+
+    lower_name = str(name or "").lower()
+    tag_set = {str(tag or "").strip().lower() for tag in tags if str(tag or "").strip()}
+    if "nasdaq" in tag_set or "纳斯达克" in name:
+        for alias_value in ("纳指", "纳斯达克", "纳斯达克100", "nasdaq", "ndx"):
+            _append(alias_value)
+    if "qdii" in tag_set:
+        _append("qdii")
+    if "dividend" in tag_set or "红利" in name:
+        _append("红利")
+    if "consumer" in tag_set or "消费" in name:
+        _append("消费")
+    if "manufacturing" in tag_set or "制造" in name:
+        _append("制造")
+    if "港股" in name or "hk" in tag_set:
+        _append("港股")
+    if "科技" in name or "tech" in tag_set:
+        _append("科技")
+    if "nasdaq" in lower_name:
+        _append("纳指")
+
+    return aliases
+
+
+def _parse_alias_csv(value: Any) -> list[str]:
+    raw = str(value or "").strip()
+    if not raw:
+        return []
+    aliases: list[str] = []
+    seen: set[str] = set()
+    for part in raw.split(","):
+        item = str(part or "").strip()
+        key = _normalize_alias_text(item)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        aliases.append(item)
+    return aliases
 
 
 def _migrate_holdings(conn: sqlite3.Connection) -> None:
@@ -411,6 +485,24 @@ def init_db() -> None:
                 notify_feishu_placeholder TEXT NOT NULL DEFAULT '',
                 updated_at TEXT NOT NULL
             )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS fund_alias (
+                fund_id TEXT NOT NULL,
+                alias TEXT NOT NULL,
+                normalized_alias TEXT NOT NULL,
+                source TEXT NOT NULL DEFAULT 'catalog_sync',
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY (fund_id, normalized_alias)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_fund_alias_normalized
+            ON fund_alias (normalized_alias, fund_id)
             """
         )
         conn.execute(
@@ -2289,12 +2381,13 @@ def upsert_user_profile(user_id: str, incoming: dict[str, Any]) -> dict[str, Any
     }
 
 
-def _normalize_catalog_item(item: dict[str, Any]) -> dict[str, str] | None:
+def _normalize_catalog_item(item: dict[str, Any]) -> dict[str, Any] | None:
     fund_id = _normalize_catalog_text(item.get("fund_id"))
     name = _normalize_catalog_text(item.get("name"))
     if not fund_id or not name:
         return None
 
+    tags = _normalize_tags(item.get("tags"))
     pinyin = _normalize_catalog_text(item.get("pinyin")).lower()
     abbr = _normalize_catalog_text(item.get("abbr")).lower() or _derive_catalog_abbr(name)
     status = _normalize_catalog_text(item.get("status")).lower() or "active"
@@ -2308,6 +2401,7 @@ def _normalize_catalog_item(item: dict[str, Any]) -> dict[str, str] | None:
         "status": status,
         "notify_email_placeholder": notify_email_placeholder,
         "notify_feishu_placeholder": notify_feishu_placeholder,
+        "aliases": _derive_catalog_aliases(item=item, name=name, tags=tags),
     }
 
 
@@ -2360,8 +2454,41 @@ def upsert_fund_catalog(items: list[dict[str, Any]]) -> int:
                 for row in rows
             ],
         )
+        _replace_fund_aliases(conn=conn, rows=rows, updated_at=updated_at)
         conn.commit()
     return len(rows)
+
+
+def _replace_fund_aliases(conn: sqlite3.Connection, rows: list[dict[str, Any]], updated_at: str) -> None:
+    fund_ids = [str(row.get("fund_id") or "").strip() for row in rows if str(row.get("fund_id") or "").strip()]
+    if not fund_ids:
+        return
+
+    placeholders = ",".join("?" for _ in fund_ids)
+    conn.execute(f"DELETE FROM fund_alias WHERE fund_id IN ({placeholders})", fund_ids)
+
+    alias_rows: list[tuple[str, str, str, str, str]] = []
+    for row in rows:
+        fund_id = str(row.get("fund_id") or "").strip()
+        aliases = row.get("aliases", [])
+        if not fund_id or not isinstance(aliases, list):
+            continue
+        for alias_value in aliases:
+            alias = str(alias_value or "").strip()
+            normalized_alias = _normalize_alias_text(alias)
+            if not normalized_alias:
+                continue
+            alias_rows.append((fund_id, alias, normalized_alias, "catalog_sync", updated_at))
+
+    if alias_rows:
+        conn.executemany(
+            """
+            INSERT OR REPLACE INTO fund_alias (
+                fund_id, alias, normalized_alias, source, updated_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            alias_rows,
+        )
 
 
 def sync_fund_catalog_from_config(config: dict[str, Any]) -> int:
@@ -2380,6 +2507,8 @@ def sync_fund_catalog_from_config(config: dict[str, Any]) -> int:
                     "name": item.get("name"),
                     "pinyin": item.get("pinyin", ""),
                     "abbr": item.get("abbr", ""),
+                    "aliases": item.get("aliases", []),
+                    "tags": item.get("tags", []),
                     "status": item.get("status", "active"),
                     "notify_email_placeholder": item.get("notify_email_placeholder", ""),
                     "notify_feishu_placeholder": item.get("notify_feishu_placeholder", ""),
@@ -2398,6 +2527,8 @@ def sync_fund_catalog_from_config(config: dict[str, Any]) -> int:
                     "name": item.get("name"),
                     "pinyin": item.get("pinyin", ""),
                     "abbr": item.get("abbr", ""),
+                    "aliases": item.get("aliases", []),
+                    "tags": item.get("tags", []),
                     "status": item.get("status", "active"),
                     "notify_email_placeholder": item.get("notify_email_placeholder", ""),
                     "notify_feishu_placeholder": item.get("notify_feishu_placeholder", ""),
@@ -2409,40 +2540,86 @@ def sync_fund_catalog_from_config(config: dict[str, Any]) -> int:
 
 def list_fund_suggestions(keyword: str, limit: int = 10) -> list[dict[str, Any]]:
     clean_keyword = _normalize_catalog_text(keyword)
+    clean_keyword_normalized = _normalize_alias_text(clean_keyword)
     safe_limit = max(1, min(int(limit), 50))
 
     with connect() as conn:
         if clean_keyword:
             prefix = f"{clean_keyword}%"
             fuzzy = f"%{clean_keyword}%"
+            fuzzy_lower = f"%{clean_keyword.lower()}%"
+            fuzzy_normalized = f"%{clean_keyword_normalized or clean_keyword.lower()}%"
             rows = conn.execute(
                 """
-                SELECT fund_id, name, pinyin, abbr, status,
-                       notify_email_placeholder, notify_feishu_placeholder
-                FROM fund_catalog
-                WHERE fund_id LIKE ?
-                   OR name LIKE ?
-                   OR pinyin LIKE ?
-                   OR abbr LIKE ?
+                SELECT c.fund_id, c.name, c.pinyin, c.abbr, c.status,
+                       c.notify_email_placeholder, c.notify_feishu_placeholder,
+                       (
+                           SELECT GROUP_CONCAT(alias)
+                           FROM fund_alias fa_all
+                           WHERE fa_all.fund_id = c.fund_id
+                       ) AS aliases_csv,
+                       (
+                           SELECT GROUP_CONCAT(alias)
+                           FROM fund_alias fa_hit
+                           WHERE fa_hit.fund_id = c.fund_id
+                             AND (fa_hit.alias LIKE ? OR fa_hit.normalized_alias LIKE ?)
+                       ) AS alias_hits_csv
+                FROM fund_catalog c
+                WHERE c.fund_id LIKE ?
+                   OR c.name LIKE ?
+                   OR c.pinyin LIKE ?
+                   OR c.abbr LIKE ?
+                   OR EXISTS (
+                       SELECT 1
+                       FROM fund_alias fa_hit
+                       WHERE fa_hit.fund_id = c.fund_id
+                         AND (fa_hit.alias LIKE ? OR fa_hit.normalized_alias LIKE ?)
+                   )
                 ORDER BY
                     CASE
-                        WHEN fund_id LIKE ? THEN 0
-                        WHEN name LIKE ? THEN 1
-                        WHEN pinyin LIKE ? THEN 2
-                        ELSE 3
+                        WHEN c.fund_id LIKE ? THEN 0
+                        WHEN c.name LIKE ? THEN 1
+                        WHEN EXISTS (
+                            SELECT 1
+                            FROM fund_alias fa_hit
+                            WHERE fa_hit.fund_id = c.fund_id
+                              AND (fa_hit.alias LIKE ? OR fa_hit.normalized_alias LIKE ?)
+                        ) THEN 2
+                        WHEN c.pinyin LIKE ? THEN 3
+                        ELSE 4
                     END,
-                    fund_id ASC
+                    c.fund_id ASC
                 LIMIT ?
                 """,
-                (prefix, fuzzy, fuzzy.lower(), fuzzy.lower(), prefix, fuzzy, fuzzy.lower(), safe_limit),
+                (
+                    fuzzy,
+                    fuzzy_normalized,
+                    prefix,
+                    fuzzy,
+                    fuzzy_lower,
+                    fuzzy_lower,
+                    fuzzy,
+                    fuzzy_normalized,
+                    prefix,
+                    fuzzy,
+                    fuzzy,
+                    fuzzy_normalized,
+                    fuzzy_lower,
+                    safe_limit,
+                ),
             ).fetchall()
         else:
             rows = conn.execute(
                 """
-                SELECT fund_id, name, pinyin, abbr, status,
-                       notify_email_placeholder, notify_feishu_placeholder
-                FROM fund_catalog
-                ORDER BY fund_id ASC
+                SELECT c.fund_id, c.name, c.pinyin, c.abbr, c.status,
+                       c.notify_email_placeholder, c.notify_feishu_placeholder,
+                       (
+                           SELECT GROUP_CONCAT(alias)
+                           FROM fund_alias fa_all
+                           WHERE fa_all.fund_id = c.fund_id
+                       ) AS aliases_csv
+                FROM fund_catalog c
+                ORDER BY c.fund_id ASC
                 LIMIT ?
                 """,
                 (safe_limit,),
@@ -2457,6 +2634,8 @@ def list_fund_suggestions(keyword: str, limit: int = 10) -> list[dict[str, Any]]
             "status": str(row["status"] or "active"),
             "notify_email_placeholder": str(row["notify_email_placeholder"] or ""),
             "notify_feishu_placeholder": str(row["notify_feishu_placeholder"] or ""),
+            "aliases": _parse_alias_csv(row["aliases_csv"]),
+            "alias_hits": _parse_alias_csv(row["alias_hits_csv"]) if "alias_hits_csv" in row.keys() else [],
         }
         for row in rows
     ]
@@ -2470,10 +2649,15 @@ def get_fund_catalog_item(fund_id: str) -> dict[str, Any] | None:
     with connect() as conn:
         row = conn.execute(
             """
-            SELECT fund_id, name, pinyin, abbr, status,
-                   notify_email_placeholder, notify_feishu_placeholder, updated_at
-            FROM fund_catalog
-            WHERE fund_id = ?
+            SELECT c.fund_id, c.name, c.pinyin, c.abbr, c.status,
+                   c.notify_email_placeholder, c.notify_feishu_placeholder, c.updated_at,
+                   (
+                       SELECT GROUP_CONCAT(alias)
+                       FROM fund_alias fa_all
+                       WHERE fa_all.fund_id = c.fund_id
+                   ) AS aliases_csv
+            FROM fund_catalog c
+            WHERE c.fund_id = ?
             LIMIT 1
             """,
             (clean_fund_id,),
@@ -2490,6 +2674,7 @@ def get_fund_catalog_item(fund_id: str) -> dict[str, Any] | None:
         "status": str(row["status"] or "active"),
         "notify_email_placeholder": str(row["notify_email_placeholder"] or ""),
         "notify_feishu_placeholder": str(row["notify_feishu_placeholder"] or ""),
+        "aliases": _parse_alias_csv(row["aliases_csv"]),
         "updated_at": str(row["updated_at"] or ""),
     }
 

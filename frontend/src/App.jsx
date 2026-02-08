@@ -1517,7 +1517,7 @@ function App() {
 
           <form className="trade-form" onSubmit={(event) => event.preventDefault()}>
             <label>
-              搜索基金（代码/名称/拼音）
+              搜索基金（代码/名称/拼音/别名）
               <input
                 value={fundCenterQuery}
                 onChange={(event) => setFundCenterQuery(event.target.value)}
@@ -1534,11 +1534,15 @@ function App() {
             <div className="watch-list">
               {fundCenterItems.map((item) => {
                 const picked = String(item.fund_id || '') === String(fundCenterSelectedId || '')
+                const aliasHits = Array.isArray(item.alias_hits) ? item.alias_hits.filter(Boolean) : []
                 return (
                   <article key={`fund-center-${item.fund_id}`} className="watch-item">
                     <div>
                       <h3>{item.name || '--'}</h3>
-                      <p>{item.fund_id} · {item.status || 'active'}</p>
+                      <p>
+                        {item.fund_id} · {item.status || 'active'}
+                        {aliasHits.length > 0 ? ` · 命中别名 ${aliasHits.slice(0, 2).join('/')}` : ''}
+                      </p>
                     </div>
                     <button
                       type="button"
