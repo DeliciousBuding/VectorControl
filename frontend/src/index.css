@@ -1552,6 +1552,22 @@ button.settings-inline-btn {
   color: var(--brand-dark);
 }
 
+.diagnostic-history {
+  margin: 6px 0 10px;
+}
+
+.diagnostic-history-list {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
+.diagnostic-history-item {
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .settings-drawer footer {
   position: sticky;
   bottom: 0;

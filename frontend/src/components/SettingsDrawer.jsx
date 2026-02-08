@@ -208,6 +208,8 @@ export function SettingsDrawer({
   const [notificationsStatus, setNotificationsStatus] = useState(null)
   const [diagnosticHint, setDiagnosticHint] = useState('')
   const [diagnosticError, setDiagnosticError] = useState('')
+  const [feishuHistoryOpen, setFeishuHistoryOpen] = useState(false)
+  const [telegramHistoryOpen, setTelegramHistoryOpen] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -951,6 +953,88 @@ export function SettingsDrawer({
               ? '请先配置并保存凭据'
               : (!currentTelegramChatId ? 'chat_id 为空，请先配置并保存凭据' : (shouldUpdateTelegramCredential ? '已输入新凭据，请先保存设置' : ''))
 
+            const parseHistory = (history) => {
+              if (!Array.isArray(history)) return []
+              return history
+                .map((item) => {
+                  const raw = asPlainObject(item)
+                  if (!raw || Object.keys(raw).length === 0) return null
+                  const ok = raw.ok === true
+                  const sent = raw.sent === true
+                  return {
+                    ok,
+                    sent,
+                    success: ok && sent,
+                    traceId: String(raw.trace_id || '').trim(),
+                    time: formatDiagnosticTimestamp(raw.time),
+                    errorCategory: String(raw.error_category || '').trim()
+                  }
+                })
+                .filter(Boolean)
+            }
+
+            const renderHistory = (channelKey, history, open, setOpen) => {
+              const parsed = parseHistory(history)
+              if (parsed.length === 0) return null
+              const showCount = Math.min(parsed.length, 10)
+
+              const toggleTestId = `diagnostic-${channelKey}-history-toggle-btn`
+              return (
+                <div className="diagnostic-history">
+                  <button
+                    type="button"
+                    className="settings-inline-btn"
+                    data-testid={toggleTestId}
+                    onClick={() => setOpen((prev) => !prev)}
+                  >
+                    {open ? `收起最近记录（${showCount}）` : `展开最近记录（${showCount}）`}
+                  </button>
+
+                  {open ? (
+                    <ul className="diagnostic-history-list" data-testid={`diagnostic-${channelKey}-history-list`}>
+                      {parsed.slice(0, showCount).map((row, idx) => {
+                        const traceCopyTestId = `diagnostic-${channelKey}-history-${idx}-trace-copy-btn`
+                        return (
+                          <li key={`${row.traceId || 'trace'}-${idx}`} className="diagnostic-history-item">
+                            <span>{row.success ? '成功' : '失败'}</span>
+                            {row.time ? <span>{`｜时间: ${row.time}`}</span> : null}
+                            <span>{`｜ok: ${row.ok ? 'true' : 'false'}`}</span>
+                            <span>{`｜sent: ${row.sent ? 'true' : 'false'}`}</span>
+                            {row.traceId ? (
+                              <span>
+                                {'｜trace_id: '}<code>{row.traceId}</code>{' '}
+                                <button
+                                  type="button"
+                                  className="settings-inline-btn"
+                                  data-testid={traceCopyTestId}
+                                  onClick={async () => {
+                                    try {
+                                      const ok = await copyTextToClipboard(row.traceId)
+                                      if (ok) {
+                                        handleDiagnosticToast({ type: 'success', message: `已复制 trace_id: ${row.traceId}` })
+                                      } else {
+                                        handleDiagnosticToast({ type: 'error', message: '复制失败：浏览器不支持剪贴板' })
+                                      }
+                                    } catch (error) {
+                                      const detail = String(error?.message || '').trim()
+                                      handleDiagnosticToast({ type: 'error', message: detail ? `复制失败：${detail}` : '复制失败' })
+                                    }
+                                  }}
+                                >
+                                  复制
+                                </button>
+                              </span>
+                            ) : null}
+                            {!row.success && row.errorCategory ? <span>{`｜错误: ${row.errorCategory}`}</span> : null}
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  ) : null}
+                </div>
+              )
+            }
+
             return (
               <div>
                 <div className="settings-note">
@@ -958,10 +1042,12 @@ export function SettingsDrawer({
                     飞书：{feishuEnabled ? '已启用' : '未启用'}｜凭据：{feishuCredentialConfigured ? '已配置' : '未配置'}｜最近：
                     {renderLast(parseLast(feishuLast), 'feishu')}
                   </p>
+                  {renderHistory('feishu', feishuStatus.last_test_history, feishuHistoryOpen, setFeishuHistoryOpen)}
                   <p>
                     Telegram：{telegramEnabled ? '已启用' : '未启用'}｜凭据：{telegramCredentialConfigured ? '已配置' : '未配置'}｜最近：
                     {renderLast(parseLast(telegramLast), 'telegram')}
                   </p>
+                  {renderHistory('telegram', telegramStatus.last_test_history, telegramHistoryOpen, setTelegramHistoryOpen)}
                 </div>
 
                 <div className="settings-secret-actions">

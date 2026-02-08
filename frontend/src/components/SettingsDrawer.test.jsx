@@ -336,6 +336,65 @@ describe('SettingsDrawer', () => {
     expect(await screen.findByText(/已复制 trace_id: t123/)).toBeInTheDocument()
   })
 
+  it('通知诊断在有 last_test_history 时支持折叠展开并复制 trace_id', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true
+    })
+
+    fetchNotificationsStatus.mockResolvedValueOnce({
+      status: {
+        feishu: {
+          enabled: true,
+          credential_configured: true,
+          last_test_summary: null,
+          last_test_history: [
+            { ok: false, sent: false, trace_id: 'h1', time: '2026-02-09T00:00:01Z', error_category: 'timeout' },
+            { ok: true, sent: true, trace_id: 'h2', time: '2026-02-09T00:00:02Z' }
+          ]
+        },
+        telegram: { enabled: false, credential_configured: true, last_test_summary: null }
+      }
+    })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            feishu: { webhook_url: '<REDACTED>' },
+            telegram: { chat_id: '-1001234567890' }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByTestId('diagnostic-feishu-history-toggle-btn')).toBeInTheDocument()
+    expect(screen.queryByTestId('diagnostic-feishu-history-list')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('diagnostic-feishu-history-toggle-btn'))
+
+    const list = await screen.findByTestId('diagnostic-feishu-history-list')
+    expect(list).toBeInTheDocument()
+    expect(within(list).getByText('h1')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('diagnostic-feishu-history-0-trace-copy-btn'))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('h1')
+    })
+
+    // Toast message is a plain string, so it won't be split across nodes.
+    expect(await screen.findByText(/trace_id: h1/)).toBeInTheDocument()
+  })
+
   it('can send feishu test message and show hint', async () => {
     fetchNotificationsStatus.mockResolvedValueOnce({
       status: {
