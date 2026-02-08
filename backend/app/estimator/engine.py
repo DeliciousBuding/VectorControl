@@ -79,6 +79,13 @@ def _holding_days(start_date: str, today: date) -> int:
     return max(days, 0)
 
 
+def _is_market_closed_weekend(market_group: str, today: date) -> bool:
+    group = str(market_group or "").strip().lower()
+    if group not in {"cn_hk", "us_overseas"}:
+        return False
+    return today.weekday() >= 5
+
+
 def _snapshot_day_profit_map(snapshot: dict[str, Any] | None) -> dict[str, float]:
     if not isinstance(snapshot, dict):
         return {}
@@ -101,6 +108,98 @@ def _snapshot_day_profit_map(snapshot: dict[str, Any] | None) -> dict[str, float
             day_profit = market_value * estimate_pct / 100.0
         result[fund_id] = round(day_profit, 2)
     return result
+
+
+def _snapshot_fund_map(snapshot: dict[str, Any] | None) -> dict[str, dict[str, Any]]:
+    if not isinstance(snapshot, dict):
+        return {}
+    funds = snapshot.get("funds", [])
+    if not isinstance(funds, list):
+        return {}
+
+    mapping: dict[str, dict[str, Any]] = {}
+    for row in funds:
+        if not isinstance(row, dict):
+            continue
+        fund_id = str(row.get("fund_id", "")).strip()
+        if not fund_id:
+            continue
+        mapping[fund_id] = row
+    return mapping
+
+
+def _parse_datetime_utc(raw: str | None) -> datetime | None:
+    text = str(raw or "").strip()
+    if not text:
+        return None
+    normalized = text.replace("Z", "+00:00")
+    try:
+        dt = datetime.fromisoformat(normalized)
+    except ValueError:
+        for fmt in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M"):
+            try:
+                dt = datetime.strptime(text, fmt)
+                break
+            except ValueError:
+                dt = None
+        if dt is None:
+            return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
+def _cached_quote_age_seconds(
+    cached_row: dict[str, Any],
+    snapshot_asof: str,
+    now_utc: datetime,
+) -> float | None:
+    candidate = (
+        str(cached_row.get("quote_asof") or "").strip()
+        or str(cached_row.get("asof") or cached_row.get("as_of") or "").strip()
+        or str(snapshot_asof or "").strip()
+    )
+    dt = _parse_datetime_utc(candidate)
+    if dt is None:
+        return None
+    return max(0.0, (now_utc - dt).total_seconds())
+
+
+def _reusable_cached_quote(
+    cached_row: dict[str, Any],
+    snapshot_asof: str,
+    now_utc: datetime,
+    quote_cache_ttl_seconds: int,
+) -> dict[str, Any] | None:
+    if quote_cache_ttl_seconds <= 0:
+        return None
+    if str(cached_row.get("status", "")).strip().lower() != "ok":
+        return None
+    estimate_pct = _to_float(cached_row.get("estimate_pct"))
+    if estimate_pct is None:
+        return None
+    age_seconds = _cached_quote_age_seconds(cached_row, snapshot_asof=snapshot_asof, now_utc=now_utc)
+    if age_seconds is None or age_seconds > float(quote_cache_ttl_seconds):
+        return None
+
+    quote_asof = (
+        str(cached_row.get("quote_asof") or "").strip()
+        or str(cached_row.get("asof") or cached_row.get("as_of") or "").strip()
+        or str(snapshot_asof or "").strip()
+    )
+    source = str(cached_row.get("source") or "").strip() or "snapshot_reuse"
+    nav = _to_float(cached_row.get("nav"))
+    if nav is None:
+        nav = _to_float(cached_row.get("unit_nav"))
+
+    return {
+        "estimate_pct": estimate_pct,
+        "estimate_nav": _to_float(cached_row.get("estimate_nav")),
+        "nav": nav,
+        "source": source,
+        "asof": quote_asof,
+        "cache_age_seconds": round(age_seconds, 3),
+    }
 
 
 def _bucket_summary(bucket: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -162,12 +261,22 @@ def build_estimate(
     portfolio: dict[str, Any] | None = None,
     previous_snapshot: dict[str, Any] | None = None,
     confirmed_yesterday_profit: dict[str, float] | None = None,
+    incremental_snapshot: dict[str, Any] | None = None,
+    enable_incremental_refresh: bool = True,
+    quote_cache_ttl_seconds: int = 60,
+    now_local: datetime | None = None,
 ) -> dict[str, Any]:
     provider = provider or EastMoneyQuoteProvider()
-    now_utc = datetime.now(timezone.utc)
+    if now_local is None:
+        now_local_dt = datetime.now().astimezone()
+    elif now_local.tzinfo is None:
+        now_local_dt = now_local.replace(tzinfo=datetime.now().astimezone().tzinfo)
+    else:
+        now_local_dt = now_local.astimezone()
+    now_utc = now_local_dt.astimezone(timezone.utc)
     asof = now_utc.isoformat()
     updated_at = asof
-    today_local = datetime.now().astimezone().date()
+    today_local = now_local_dt.date()
 
     holdings = _portfolio_holdings(portfolio)
     per_fund: list[dict[str, Any]] = []
@@ -182,6 +291,20 @@ def build_estimate(
     total_market_value = sum(_market_value(item) for item in eligible_holdings)
     previous_day_profit_map = _snapshot_day_profit_map(previous_snapshot)
     confirmed_map = confirmed_yesterday_profit or {}
+    incremental_enabled = bool(enable_incremental_refresh)
+    safe_quote_cache_ttl_seconds = max(0, min(int(quote_cache_ttl_seconds), 300))
+    incremental_snapshot_asof = str(
+        (incremental_snapshot or {}).get("asof")
+        or (incremental_snapshot or {}).get("as_of")
+        or ""
+    ).strip()
+    incremental_fund_map = (
+        _snapshot_fund_map(incremental_snapshot)
+        if incremental_enabled and safe_quote_cache_ttl_seconds > 0
+        else {}
+    )
+    incremental_reused_quotes = 0
+    incremental_fetched_quotes = 0
 
     for item in eligible_holdings:
         bucket = str(item.get("bucket", "")).strip()
@@ -205,13 +328,33 @@ def build_estimate(
         )
 
         quote: dict[str, Any] | None = None
+        quote_cache_hit = False
+        quote_cache_age_seconds = 0.0
         request_error = ""
         if fund_id:
-            try:
-                quote = provider.get_fund_quote(fund_id)
-            except Exception as exc:
-                request_error = f"请求异常: {exc.__class__.__name__}"
-                quote = None
+            cached_quote = incremental_fund_map.get(fund_id)
+            reusable_quote = (
+                _reusable_cached_quote(
+                    cached_quote,
+                    snapshot_asof=incremental_snapshot_asof,
+                    now_utc=now_utc,
+                    quote_cache_ttl_seconds=safe_quote_cache_ttl_seconds,
+                )
+                if isinstance(cached_quote, dict)
+                else None
+            )
+            if reusable_quote:
+                quote = reusable_quote
+                quote_cache_hit = True
+                quote_cache_age_seconds = float(reusable_quote.get("cache_age_seconds") or 0.0)
+                incremental_reused_quotes += 1
+            else:
+                incremental_fetched_quotes += 1
+                try:
+                    quote = provider.get_fund_quote(fund_id)
+                except Exception as exc:
+                    request_error = f"请求异常: {exc.__class__.__name__}"
+                    quote = None
 
         estimate_pct = None
         source = "none"
@@ -250,6 +393,10 @@ def build_estimate(
             confirm_state = "partial"
         elif yesterday_profit_source == "confirmed":
             confirm_state = "confirmed"
+        elif _is_market_closed_weekend(market_group, today_local):
+            confirm_state = "confirmed"
+            if yesterday_profit_source == "estimated_today":
+                yesterday_profit_source = "market_closed_snapshot"
         else:
             confirm_state = "estimated"
 
@@ -269,6 +416,9 @@ def build_estimate(
             "holding_days": holding_days,
             "position_weight_pct": position_weight_pct,
             "estimate_pct": estimate_pct,
+            "estimate_nav": _to_float(quote.get("estimate_nav")) if isinstance(quote, dict) else None,
+            "unit_nav": _to_float(quote.get("nav")) if isinstance(quote, dict) else None,
+            "nav": _to_float(quote.get("nav")) if isinstance(quote, dict) else None,
             "status": status,
             "reason": reason,
             "source": source,
@@ -279,6 +429,8 @@ def build_estimate(
             "confirm_state": confirm_state,
             "tags": tags,
             "market_group": market_group,
+            "quote_cache_hit": quote_cache_hit,
+            "quote_cache_age_seconds": round(quote_cache_age_seconds, 3) if quote_cache_hit else 0.0,
         }
         per_fund.append(fund_row)
         by_bucket[bucket].append(fund_row)
@@ -295,6 +447,12 @@ def build_estimate(
         top_confirm_state = "estimated"
     else:
         top_confirm_state = "confirmed"
+    if incremental_enabled and incremental_reused_quotes > 0:
+        incremental_mode = "partial_reuse"
+    elif incremental_enabled:
+        incremental_mode = "full_refresh"
+    else:
+        incremental_mode = "full_refresh_disabled"
 
     return {
         "asof": asof,
@@ -308,4 +466,9 @@ def build_estimate(
             "ok": ok_count,
             "failed": failed_count,
         },
+        "incremental_enabled": incremental_enabled,
+        "incremental_mode": incremental_mode,
+        "incremental_quote_cache_ttl_seconds": safe_quote_cache_ttl_seconds,
+        "incremental_reused_quotes": incremental_reused_quotes,
+        "incremental_fetched_quotes": incremental_fetched_quotes,
     }

@@ -1,4 +1,4 @@
-﻿import { StatusPill } from './StatusPill.jsx'
+import { StatusPill } from './StatusPill.jsx'
 
 function formatClock(value) {
   if (!value || value === '--') return '--'
@@ -17,6 +17,10 @@ export function TopToolbar({
   coverage,
   refreshElapsedMs,
   estimateCacheHit,
+  incrementalMode,
+  incrementalReusedQuotes,
+  incrementalFetchedQuotes,
+  dataStatus,
   searchQuery,
   suggestions,
   searchLoading,
@@ -37,6 +41,18 @@ export function TopToolbar({
 
   const refreshClock = formatClock(lastRefresh)
   const asofClock = formatClock(asof)
+  const dataStatusNote = String(dataStatus?.note || '').trim()
+  const dataStatusText = dataStatus?.status === 'confirmed'
+    ? '已确认'
+    : dataStatus?.status === 'partial'
+      ? '部分可用'
+      : '估算中'
+  const incrementalTotal = Number(incrementalReusedQuotes || 0) + Number(incrementalFetchedQuotes || 0)
+  const incrementalText = incrementalMode === 'snapshot_hit'
+    ? '增量：快照直出'
+    : incrementalTotal > 0
+      ? `增量：复用 ${Number(incrementalReusedQuotes || 0)}/${incrementalTotal}`
+      : '增量：未复用'
 
   return (
     <header className="panel top-toolbar">
@@ -95,8 +111,12 @@ export function TopToolbar({
           <span>数据时点：{asofClock}</span>
           <span>刷新用时：{refreshElapsedMs > 0 ? `${refreshElapsedMs} ms` : '--'}</span>
           <span>数据来源：{estimateCacheHit ? '缓存快照' : '实时拉取'}</span>
+          <span>{incrementalText}</span>
           <span>状态：{confirmText}</span>
           <span>覆盖率：{coverage?.ok ?? 0}/{coverage?.total ?? 0}</span>
+          <span className="toolbar-data-status" title={dataStatusNote || '暂无说明'}>
+            口径：{dataStatusText}
+          </span>
         </div>
 
         <div className="toolbar-note">{marketDataHint}</div>

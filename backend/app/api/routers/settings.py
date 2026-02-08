@@ -49,6 +49,12 @@ async def get_network_benchmark_latest(request: Request) -> dict:
     }
 
 
+# 兼容早期路径：/network_benchmark/latest
+@router.get("/network_benchmark/latest", include_in_schema=False)
+async def get_network_benchmark_latest_legacy(request: Request) -> dict:
+    return await get_network_benchmark_latest(request)
+
+
 @router.post("/network-benchmark/run")
 async def post_network_benchmark_run(request: Request, payload: NetworkBenchmarkRunIn) -> dict:
     user_id = get_holdings_user_id(request)
@@ -68,3 +74,9 @@ async def post_network_benchmark_run(request: Request, payload: NetworkBenchmark
         )
 
     return {"user_id": user_id, "result": result}
+
+
+# 兼容早期路径：/network_benchmark/run
+@router.post("/network_benchmark/run", include_in_schema=False)
+async def post_network_benchmark_run_legacy(request: Request, payload: NetworkBenchmarkRunIn) -> dict:
+    return await post_network_benchmark_run(request, payload)

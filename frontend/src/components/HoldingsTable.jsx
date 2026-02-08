@@ -21,7 +21,8 @@ export function HoldingsTable({
   selectedFundId,
   onSelectFund,
   sparklineMap,
-  onSaveHolding
+  onSaveHolding,
+  onOpenAudit
 }) {
   const [editingId, setEditingId] = useState('')
   const [draft, setDraft] = useState({})
@@ -76,7 +77,7 @@ export function HoldingsTable({
           <thead>
             <tr>
               <th>{sortCell('基金', 'name')}</th>
-              <th>走势</th>
+              <th>走势（近1月）</th>
               <th className="align-right">{sortCell('持有金额', 'market_value_cny')}</th>
               <th className="align-right">持有份额</th>
               <th className="align-right">持仓占比</th>
@@ -194,9 +195,14 @@ export function HoldingsTable({
                   </td>
                   <td className="align-right">
                     {!isEditing && (
-                      <button type="button" className="text-btn" onClick={(e) => { e.stopPropagation(); beginEdit(row) }}>
-                        编辑
-                      </button>
+                      <div className="row-actions row-actions-hover" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" className="text-btn" onClick={() => beginEdit(row)}>
+                          编辑
+                        </button>
+                        <button type="button" className="text-btn neutral-text" onClick={() => onOpenAudit?.(row.fund_id)}>
+                          审计
+                        </button>
+                      </div>
                     )}
                     {isEditing && (
                       <div className="row-actions" onClick={(e) => e.stopPropagation()}>

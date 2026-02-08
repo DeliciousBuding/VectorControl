@@ -8,6 +8,9 @@
 - `dev`：唯一开发分支（单人开发与集成都在此进行）
 - `main`：唯一发布分支（仅接收可上线版本）
 - 禁止在 `main` 直接开发功能
+- 分支保护治理目标：远端仓库 `dev/main` 启用分支保护（`Docs Gate` / `Release Consistency`）。
+- 当前敏捷阶段：分支保护治理后置，不阻塞当轮 `dev` 迭代与本地测试；回补任务以 `ROADMAP.md` 为准。
+- 分支保护检查/应用脚本：`python scripts/branch_protection.py --mode check|apply --required-contexts "Docs Gate / docs-gate" --main-required-contexts "Release Consistency / verify-release"`（治理回补时执行）
 
 ## 2. 版本号规则（强制）
 
@@ -30,6 +33,37 @@
     - `新增: ...`
     - `修复: ...`
     - `优化: ...`
+    - `文档: ...`
+- 提交信息自动校验：
+  - `.githooks/commit-msg` 会执行 `python scripts/check_release_message.py <msg_file>`
+  - 发布提交（标题以 `发布:` 开头）必须通过版本号与四段内容校验
+  - 其中 `文档:` 段必须包含三类信息：`检查范围`、`更新结论`、`延后项（无则写“无”）`
+- 发布后一致性校验：
+  - `python scripts/check_main_release.py --commit HEAD --check-remote-tag --remote origin`
+  - 校验提交标题版本号、`新增/修复/优化/文档` 四段、Tag 与远端一致性
+
+## 3.1 main 文档门禁（强制）
+
+- 每次更新 `main` 前，必须完成文档全量检查与必要完善，范围至少包含：
+  - `README.md`
+  - `ROADMAP.md`
+  - `docs/架构说明.md`
+  - `docs/开发规范.md`
+  - `docs/接口契约.md`
+  - `docs/交易流水YAML导入规范.md`
+  - `docs/P0线上故障排查SOP.md`
+  - `docs/状态解释验收样例.md`
+  - `docs/最新进度.md`
+  - `docs/Git工作流.md`
+  - `docs/部署与运行.md`
+- 文档检查要求：
+  - 与本次代码改动一致，不允许“代码已变更、文档未同步”
+  - 删除或标记过期描述，避免出现多个冲突口径
+  - 保持 `UTF-8 无 BOM`
+  - 发布前执行：`python scripts/check_docs_gate.py`（含核心文档、发布模板、文档范围一致性、`.githooks/*` 与 `.github/workflows/*` 门禁文件校验）
+  - push 前执行：`.githooks/pre-push`（`python scripts/check_docs_gate.py --strict`）
+  - PR 到 `dev/main` 时执行：`.github/workflows/docs-gate.yml`
+- `main` 发布说明中必须增加 `文档:` 小节，写明本次检查与更新结论（例如：`文档: 已完成全量巡检并同步 API 与 ROADMAP`）。
 
 ## 4. main 推送后默认动作（强制）
 
@@ -37,8 +71,9 @@
   1. SSH 登录 VPS
   2. 拉取 `origin/main`
   3. 执行更新脚本
-  4. 执行 Gate-D 验收脚本
-  5. 输出访问地址和验收结果
+  4. 执行发布一致性校验脚本（`check_main_release.py`）
+  5. 执行 Gate-D 验收脚本
+  6. 输出访问地址和验收结果
 
 ## 5. VPS 测试账号与数据（强制）
 
@@ -51,11 +86,15 @@
 
 - 所有文档、注释、提交信息使用中文
 - 所有文本文件统一为 `UTF-8 无 BOM`
+- 关键文档更新时间统一写成 `更新时间：YYYY-MM-DD HH:MM:SS`，且必须为真实系统时间，不得追加说明文本
 - 改动遵循“最小闭环”，禁止顺手大改
+- 必须执行“小步快跑”提交策略：每实现 1 个小功能、1 个可验证修复或 1 组同主题文档更新，立即提交 1 次 commit；禁止长时间堆积未提交改动
+- 单个 commit 必须可解释、可回滚、可验收，提交信息需直接说明该小步闭环完成了什么
 - 提交前必须通过：
   - 前端：`npm run build`
   - 后端：`python -m compileall app`
 - 代码改动必须同步更新文档和 `ROADMAP.md`
+- 发布前统一执行：`python scripts/check_release_preflight.py`（文档门禁严格模式 + 后端 compileall + 前端 build）
 
 ## 7. Gate 约束
 

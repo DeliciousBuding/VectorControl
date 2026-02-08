@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { fetchEstimate, fetchSettings, saveSettings, updateHolding } from '../api.js'
 import { formatDateTime } from '../utils/format.js'
 import { normalizeFundRows, sortRows } from '../utils/holdings.js'
+import { toGuidedError } from '../utils/errorFeedback.js'
 
 const DEFAULT_SETTINGS = {
   display: {
@@ -64,6 +65,14 @@ export function usePortfolio({ user, sorter }) {
   const [coverage, setCoverage] = useState({ total: 0, ok: 0, failed: 0 })
   const [refreshElapsedMs, setRefreshElapsedMs] = useState(0)
   const [estimateCacheHit, setEstimateCacheHit] = useState(false)
+  const [incrementalMode, setIncrementalMode] = useState('full_refresh')
+  const [incrementalReusedQuotes, setIncrementalReusedQuotes] = useState(0)
+  const [incrementalFetchedQuotes, setIncrementalFetchedQuotes] = useState(0)
+  const [estimateDataStatus, setEstimateDataStatus] = useState({
+    status: 'estimating',
+    asof: '',
+    note: '等待估值刷新'
+  })
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [settingsReady, setSettingsReady] = useState(false)
   const loadingRef = useRef(false)
@@ -97,6 +106,18 @@ export function usePortfolio({ user, sorter }) {
         failed: Number(payload?.coverage?.failed || 0)
       })
       setEstimateCacheHit(Boolean(payload?.cache_hit))
+      setIncrementalMode(String(payload?.incremental_mode || 'full_refresh'))
+      setIncrementalReusedQuotes(Number(payload?.incremental_reused_quotes || 0))
+      setIncrementalFetchedQuotes(Number(payload?.incremental_fetched_quotes || 0))
+      setEstimateDataStatus(
+        payload?.data_status && typeof payload.data_status === 'object'
+          ? payload.data_status
+          : {
+              status: payload?.confirm_state === 'confirmed' ? 'confirmed' : 'estimating',
+              asof: payload?.asof || payload?.as_of || '',
+              note: '估值口径由后端返回'
+            }
+      )
       setLastRefresh(formatDateTime())
       setRiskOverview(payload?.risk_overview && typeof payload.risk_overview === 'object' ? payload.risk_overview : null)
 
@@ -108,7 +129,7 @@ export function usePortfolio({ user, sorter }) {
         setStatus({ type: 'success', message: auto ? '自动刷新成功' : '刷新成功' })
       }
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message || '刷新失败' })
+      setStatus({ type: 'error', message: toGuidedError(error, 'estimate_refresh', '刷新失败') })
     } finally {
       setRefreshElapsedMs(Math.max(0, Math.round(performance.now() - refreshStarted)))
       loadingRef.current = false
@@ -142,6 +163,14 @@ export function usePortfolio({ user, sorter }) {
       setCoverage({ total: 0, ok: 0, failed: 0 })
       setRefreshElapsedMs(0)
       setEstimateCacheHit(false)
+      setIncrementalMode('full_refresh')
+      setIncrementalReusedQuotes(0)
+      setIncrementalFetchedQuotes(0)
+      setEstimateDataStatus({
+        status: 'estimating',
+        asof: '',
+        note: '请先登录后再刷新估值'
+      })
       setSettingsReady(false)
       setSettings(DEFAULT_SETTINGS)
       setStatus({ type: 'info', message: '请先登录' })
@@ -178,7 +207,7 @@ export function usePortfolio({ user, sorter }) {
       await saveSettings({ settings: next })
       setStatus({ type: 'success', message: enabled ? '已开启自动刷新' : '已关闭自动刷新' })
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message || '自动刷新设置保存失败' })
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '自动刷新设置保存失败') })
     }
   }, [settings])
 
@@ -190,7 +219,7 @@ export function usePortfolio({ user, sorter }) {
       setStatus({ type: 'success', message: '设置已保存' })
       return true
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message || '设置保存失败' })
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '设置保存失败') })
       return false
     }
   }, [settings])
@@ -209,7 +238,7 @@ export function usePortfolio({ user, sorter }) {
       setStatus({ type: 'success', message: `已更新 ${fundId} 持仓` })
       return true
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message || '持仓更新失败' })
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '持仓更新失败') })
       return false
     }
   }, [])
@@ -228,6 +257,10 @@ export function usePortfolio({ user, sorter }) {
     coverage,
     refreshElapsedMs,
     estimateCacheHit,
+    incrementalMode,
+    incrementalReusedQuotes,
+    incrementalFetchedQuotes,
+    estimateDataStatus,
     settings,
     refresh,
     setAutoRefreshEnabled,

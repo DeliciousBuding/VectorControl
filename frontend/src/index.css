@@ -180,6 +180,11 @@ select {
   max-width: 860px;
 }
 
+.toolbar-data-status {
+  cursor: help;
+  border-bottom: 1px dashed var(--line);
+}
+
 .toolbar-search {
   min-width: min(100%, 460px);
   display: grid;
@@ -486,10 +491,80 @@ button:disabled {
   gap: 10px;
 }
 
+.trade-grid-single {
+  margin-top: 8px;
+  grid-template-columns: 1fr;
+}
+
 .trade-tip {
   margin: 12px 0 0;
   color: var(--muted);
   font-size: 14px;
+}
+
+.trade-lifecycle {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px;
+}
+
+.lifecycle-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.lifecycle-step {
+  border: 1px dashed #c7d5ec;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px;
+  opacity: 0.72;
+}
+
+.lifecycle-step.is-active {
+  border-style: solid;
+  border-color: #93c5fd;
+  background: #eff6ff;
+  opacity: 1;
+}
+
+.lifecycle-step.is-done {
+  border-style: solid;
+  border-color: #9dd9b3;
+  background: #f0fdf4;
+  opacity: 1;
+}
+
+.lifecycle-index {
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.lifecycle-step.is-done .lifecycle-index {
+  color: #0f766e;
+  background: #dcfce7;
+}
+
+.lifecycle-step h4 {
+  margin: 8px 0 4px;
+  font-size: 14px;
+}
+
+.lifecycle-step p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .trade-form {
@@ -809,6 +884,38 @@ button:disabled {
   font-size: 14px;
 }
 
+.data-status-banner {
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 10px 12px;
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.data-status-banner strong {
+  color: var(--text);
+}
+
+.data-status-confirmed {
+  border-color: #9dd9b3;
+  background: #f3fbf5;
+}
+
+.data-status-estimating {
+  border-color: #a8c4ef;
+  background: #f4f8ff;
+}
+
+.data-status-partial {
+  border-color: #f1c49a;
+  background: #fff8f2;
+}
+
 .holdings-section + .holdings-section {
   margin-top: 20px;
 }
@@ -980,6 +1087,21 @@ button:disabled {
   gap: 6px;
 }
 
+.row-actions-hover {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.holdings-table tr:hover .row-actions-hover,
+.holdings-table tr.row-selected .row-actions-hover,
+.holdings-table tr:focus-within .row-actions-hover {
+  opacity: 1;
+}
+
+.neutral-text {
+  color: #334155;
+}
+
 .danger-text {
   color: #b91c1c;
 }
@@ -988,9 +1110,33 @@ button:disabled {
   background: #edf4ff;
 }
 
+.audit-panel {
+  margin-top: 16px;
+}
+
+@media (max-width: 960px) {
+  .row-actions-hover {
+    opacity: 1;
+  }
+}
+
+.sparkline-box {
+  display: inline-grid;
+  justify-items: center;
+  gap: 2px;
+}
+
 .sparkline {
-  width: 100px;
-  height: 30px;
+  width: 104px;
+  height: 34px;
+}
+
+.sparkline-range {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+  letter-spacing: 0.2px;
 }
 
 .sparkline-empty {
@@ -1126,6 +1272,60 @@ button:disabled {
   color: var(--muted);
   text-align: center;
   padding: 30px;
+}
+
+.risk-status-bar {
+  margin: 12px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fbfdff, #f6f9ff);
+  padding: 10px 12px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.risk-status-item {
+  display: grid;
+  gap: 3px;
+}
+
+.risk-label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.risk-status-item strong {
+  font-size: 14px;
+}
+
+.risk-chip {
+  width: fit-content;
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.risk-chip-ok {
+  color: #0f766e;
+  background: #dcfce7;
+}
+
+.risk-chip-mid {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.risk-chip-warn {
+  color: #b91c1c;
+  background: #fee2e2;
+}
+
+.risk-jump-btn {
+  white-space: nowrap;
+  justify-self: end;
 }
 
 .risk-panel {
@@ -1337,6 +1537,7 @@ button:disabled {
   .todo-grid,
   .perf-grid,
   .trade-grid,
+  .lifecycle-steps,
   .summary-grid,
   .risk-grid,
   .metric-grid {
@@ -1357,5 +1558,13 @@ button:disabled {
 
   .plan-item {
     grid-template-columns: 1fr;
+  }
+
+  .risk-status-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .risk-jump-btn {
+    justify-self: start;
   }
 }

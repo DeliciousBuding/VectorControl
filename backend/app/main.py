@@ -5,7 +5,21 @@ import logging
 from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
 
-from app.api.routers import actions, advice, auth, config, estimate, funds, holdings, profile, report, risk, settings
+from app.api.routers import (
+    actions,
+    advice,
+    auth,
+    config,
+    estimate,
+    funds,
+    holdings,
+    profile,
+    report,
+    risk,
+    settings,
+    system,
+    transactions,
+)
 from app.core.config_loader import load_all
 from app.core.settings import ensure_api_token
 from app.storage.db import get_user_by_session_token, init_db, sync_fund_catalog_from_config
@@ -87,3 +101,5 @@ app.include_router(holdings.router)
 app.include_router(report.router)
 app.include_router(profile.router)
 app.include_router(funds.router)
+app.include_router(system.router)
+app.include_router(transactions.router)

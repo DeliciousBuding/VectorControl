@@ -41,8 +41,9 @@ async def get_daily_report(request: Request, date: str | None = None) -> dict:
     else:
         for item in actions:
             status = "已执行" if item.get("done") else "未执行"
+            occurred_at = item.get("occurred_at") or item.get("ts") or ""
             action_lines.append(
-                f"{item.get('action_key')} {item.get('amount')} {status} {item.get('ts')}"
+                f"{item.get('action_key')} {item.get('amount')} {status} {occurred_at}"
             )
 
     try:

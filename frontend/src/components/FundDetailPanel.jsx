@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { MultiLineChart } from './MultiLineChart.jsx'
 import { RANGE_OPTIONS, buildFundSeries, buildPortfolioSeries } from '../utils/chart.js'
-import { classBySign, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
+import { classBySign, formatDateTime, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
 
 function Metric({ label, main, sub, mainClass = '', subClass = '' }) {
   return (
@@ -23,7 +23,21 @@ function lastValue(data, key) {
   return Number.isFinite(target) ? target : 0
 }
 
-export function FundDetailPanel({ fund, rows, dateLabel }) {
+function statusLabel(status) {
+  const key = String(status || '').toLowerCase()
+  if (key === 'confirmed') return '已确认'
+  if (key === 'partial') return '部分可用'
+  return '估算中'
+}
+
+function statusNote(status) {
+  const key = String(status || '').toLowerCase()
+  if (key === 'confirmed') return '图表按确认口径计算，可直接用于复盘。'
+  if (key === 'partial') return '图表含缺口或混合口径，请结合交易状态核对。'
+  return '图表含估算值，收盘后可能回补。'
+}
+
+export function FundDetailPanel({ fund, rows, dateLabel, chartDataStatus }) {
   const [range, setRange] = useState('1m')
   const [showExtendedLines, setShowExtendedLines] = useState(false)
   const rangeOptions = useMemo(() => RANGE_OPTIONS.filter((item) => item.key !== 'day'), [])
@@ -31,6 +45,31 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
   const daySeries = useMemo(() => (fund ? buildFundSeries(fund, 'day') : []), [fund])
   const trendSeries = useMemo(() => (fund ? buildFundSeries(fund, range) : []), [fund, range])
   const portfolioSeries = useMemo(() => buildPortfolioSeries(rows, range), [rows, range])
+  const navSeries = useMemo(() => {
+    if (!fund || !Array.isArray(trendSeries) || trendSeries.length === 0) return []
+
+    const latestNav = Number(fund?.latest_nav || 0)
+    const shares = Number(fund?.shares || 0)
+    const costBasis = Number(fund?.cost_basis_cny || 0)
+    const costNav = shares > 0 ? costBasis / shares : 0
+    const lastPct = Number(trendSeries[trendSeries.length - 1]?.fund || 0)
+    const denominator = 1 + lastPct / 100
+    let navBase = latestNav > 0 && Math.abs(denominator) > 1e-9 ? latestNav / denominator : 0
+    if (!Number.isFinite(navBase) || navBase <= 0) {
+      navBase = latestNav > 0 ? latestNav : costNav > 0 ? costNav : 1
+    }
+    const stableCostNav = costNav > 0 ? costNav : navBase
+
+    return trendSeries.map((item) => {
+      const pct = Number(item?.fund || 0)
+      const nav = navBase * (1 + pct / 100)
+      return {
+        label: item.label,
+        nav: Number(nav.toFixed(4)),
+        costNav: Number(stableCostNav.toFixed(4))
+      }
+    })
+  }, [fund, trendSeries])
 
   if (!fund) {
     return (
@@ -48,10 +87,14 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
   const portfolioFirst = Number(portfolioSeries[0]?.value || 0)
   const portfolioLast = Number(portfolioSeries[portfolioSeries.length - 1]?.value || 0)
   const portfolioMove = portfolioLast - portfolioFirst
+  const chartStatus = String(chartDataStatus?.status || fund.confirm_state || 'estimating').toLowerCase()
+  const chartAsof = String(chartDataStatus?.asof || fund.as_of || '').trim()
+  const chartNote = String(chartDataStatus?.note || '').trim()
+  const chartStatusLine = `当前口径：${statusLabel(chartStatus)} ｜ 时点：${chartAsof ? formatDateTime(chartAsof) : '--'} ｜ ${chartNote || statusNote(chartStatus)}`
 
   const trendLines = [
     { key: 'fund', color: pickColor(lastValue(trendSeries, 'fund')), width: 2.2 },
-    { key: 'costLine', color: 'var(--chart-neutral)', width: 1.2 }
+    { key: 'zero', color: 'var(--chart-neutral)', width: 1.2 }
   ]
   if (showExtendedLines) {
     trendLines.splice(1, 0, {
@@ -111,6 +154,7 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
 
       <div className="chart-panel">
         <h4>当日波形（0% 为基准虚线，与列表小波形同口径）</h4>
+        <p className="chart-hint">{chartStatusLine}</p>
         <MultiLineChart
           data={daySeries}
           lines={[
@@ -124,19 +168,36 @@ export function FundDetailPanel({ fund, rows, dateLabel }) {
 
       <div className="chart-panel">
         <div className="chart-head">
-          <h4>业绩走势（本基金 / {benchmarkName} / 我的收益 / 成本线）</h4>
+          <h4>业绩走势（默认含 0% 基准虚线）</h4>
           <button type="button" className={showExtendedLines ? 'primary' : 'ghost'} onClick={() => setShowExtendedLines((prev) => !prev)}>
             {showExtendedLines ? '隐藏扩展线组' : '显示扩展线组'}
           </button>
         </div>
         <p className="chart-hint">
-          {showExtendedLines ? '已启用扩展：基金线 + 成本线 + 对标指数 + 我的收益' : '默认线组：基金线 + 成本虚线（P0 最小线组）'}
+          {showExtendedLines ? `已启用扩展：基金线 + 0% 基准线 + ${benchmarkName} + 我的收益` : '默认线组：基金线 + 0% 基准虚线'}
         </p>
-        <MultiLineChart data={trendSeries} lines={trendLines} dashedKeys={['costLine']} yLabel="收益率曲线" />
+        <p className="chart-hint">{chartStatusLine}</p>
+        <MultiLineChart data={trendSeries} lines={trendLines} dashedKeys={['zero']} yLabel="收益率曲线" />
+      </div>
+
+      <div className="chart-panel">
+        <h4>净值参考图（成本线虚线）</h4>
+        <p className="chart-hint">口径：基金估值轨迹与持仓成本单价对照，辅助止盈/解套判断。</p>
+        <p className="chart-hint">{chartStatusLine}</p>
+        <MultiLineChart
+          data={navSeries}
+          lines={[
+            { key: 'nav', color: pickColor(lastValue(navSeries, 'nav')), width: 2.4 },
+            { key: 'costNav', color: 'var(--chart-neutral)', width: 1.2 }
+          ]}
+          dashedKeys={['costNav']}
+          yLabel="净值参考曲线"
+        />
       </div>
 
       <div className="chart-panel">
         <h4>组合持仓波形（成本线虚线）</h4>
+        <p className="chart-hint">{chartStatusLine}</p>
         <MultiLineChart
           data={portfolioSeries}
           lines={[

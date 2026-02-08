@@ -1,0 +1,11 @@
+#!/bin/sh
+
+echo "[HOOK] pre-push: 执行文档门禁检查..."
+
+if ! python scripts/check_docs_gate.py --strict; then
+  echo "[HOOK] pre-push 阻断：文档门禁未通过，请修复后再 push。"
+  exit 1
+fi
+
+echo "[HOOK] pre-push: 文档门禁通过。"
+exit 0

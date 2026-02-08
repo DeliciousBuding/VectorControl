@@ -58,10 +58,30 @@ export async function apiFetch(path, options = {}) {
 
   if (!response.ok) {
     const message = payload?.detail || payload?.message || payload?.error || `请求失败（${response.status}）`
-    throw new Error(message)
+    const error = new Error(message)
+    error.status = response.status
+    error.path = path
+    throw error
   }
 
   return payload
+}
+
+async function apiFetchWithFallback(paths, options = {}) {
+  const candidates = Array.isArray(paths) ? paths : [paths]
+  let lastError = null
+  for (let index = 0; index < candidates.length; index += 1) {
+    const path = candidates[index]
+    try {
+      return await apiFetch(path, options)
+    } catch (error) {
+      lastError = error
+      if (error?.status !== 404 || index === candidates.length - 1) {
+        throw error
+      }
+    }
+  }
+  throw lastError || new Error('请求失败')
 }
 
 export function registerUser(payload) {
@@ -89,11 +109,21 @@ export function saveSettings(payload) {
 }
 
 export function fetchNetworkBenchmarkLatest() {
-  return apiFetch('/api/settings/network-benchmark/latest')
+  return apiFetchWithFallback([
+    '/api/settings/network-benchmark/latest',
+    '/api/settings/network_benchmark/latest'
+  ])
 }
 
 export function runNetworkBenchmark(payload) {
-  return apiFetch('/api/settings/network-benchmark/run', { method: 'POST', body: payload })
+  return apiFetchWithFallback(
+    ['/api/settings/network-benchmark/run', '/api/settings/network_benchmark/run'],
+    { method: 'POST', body: payload }
+  )
+}
+
+export function fetchSystemStatus() {
+  return apiFetch('/api/system/status')
 }
 
 export function fetchConfig() {
@@ -129,11 +159,35 @@ export function saveAction(payload) {
   return apiFetch('/api/actions', { method: 'POST', body: payload })
 }
 
+export function fetchTransactions(options = {}) {
+  const query = new URLSearchParams()
+  if (options.status) query.set('status', String(options.status))
+  if (options.from) query.set('from', String(options.from))
+  if (options.to) query.set('to', String(options.to))
+  if (options.fundId) query.set('fund_id', String(options.fundId))
+  if (options.limit !== undefined && options.limit !== null) {
+    query.set('limit', String(options.limit))
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return apiFetch(`/api/transactions${suffix}`)
+}
+
+export function syncPendingTransactions(payload = {}) {
+  return apiFetch('/api/transactions/sync_pending', { method: 'POST', body: payload })
+}
+
 export function updateHolding(fundId, payload) {
   return apiFetch(`/api/holdings/${encodeURIComponent(fundId)}`, {
     method: 'PATCH',
     body: payload
   })
+}
+
+export function fetchHoldingAudit(fundId, limit = 50) {
+  const query = new URLSearchParams({
+    limit: String(limit)
+  })
+  return apiFetch(`/api/holdings/${encodeURIComponent(String(fundId || '').trim())}/audit?${query.toString()}`)
 }
 
 export function fetchDailyReport(date = '') {
@@ -147,4 +201,31 @@ export function fetchFundSuggest(keyword, limit = 8) {
     limit: String(limit)
   })
   return apiFetch(`/api/funds/suggest?${query.toString()}`)
+}
+
+export function searchFunds(q, limit = 10) {
+  const query = new URLSearchParams({
+    q: String(q || ''),
+    limit: String(limit)
+  })
+  return apiFetch(`/api/funds/search?${query.toString()}`)
+}
+
+export function fetchFundDetail(fundId) {
+  return apiFetch(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}`)
+}
+
+export function fetchFundNavLatest(fundId) {
+  return apiFetch(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}/nav/latest`)
+}
+
+export function fetchFundNavHistory(fundId, options = {}) {
+  const query = new URLSearchParams()
+  if (options.from) query.set('from', String(options.from))
+  if (options.to) query.set('to', String(options.to))
+  if (options.limit !== undefined && options.limit !== null) {
+    query.set('limit', String(options.limit))
+  }
+  const suffix = query.toString() ? `?${query.toString()}` : ''
+  return apiFetch(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}/nav/history${suffix}`)
 }

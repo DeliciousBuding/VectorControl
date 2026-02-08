@@ -3,11 +3,12 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 import unittest
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from app.core.rate_limit import reset_auth_rate_limiter
-from app.main import app
+from app.main import API_TOKEN, app
 
 
 class AuthIsolationSmokeTest(unittest.TestCase):
@@ -28,6 +29,35 @@ class AuthIsolationSmokeTest(unittest.TestCase):
 
             invalid_resp = client.get("/api/config", headers={"Authorization": "Bearer invalid-token"})
             self.assertEqual(invalid_resp.status_code, 401, invalid_resp.text)
+
+    def test_system_status_contract(self) -> None:
+        with TestClient(app) as client:
+            suffix = uuid.uuid4().hex[:8]
+            token = self._register(client, f"sys_{suffix}", "pass_123456")
+            headers = {"Authorization": f"Bearer {token}"}
+
+            resp = client.get("/api/system/status", headers=headers)
+            self.assertEqual(resp.status_code, 200, resp.text)
+            body = resp.json()
+
+            self.assertEqual(body.get("service"), "vectorcontrol-backend")
+            self.assertIn("version", body)
+            self.assertIn("commit", body)
+            self.assertIn("server_time", body)
+            self.assertIn("python_version", body)
+
+            user = body.get("user", {})
+            self.assertEqual(bool(user.get("is_admin")), False)
+            self.assertTrue(str(user.get("user_id", "")).strip())
+            self.assertEqual(str(user.get("holdings_scope_user_id", "")), str(user.get("user_id", "")))
+
+            snapshot = body.get("snapshot", {})
+            self.assertIn("estimate_snapshot", snapshot)
+            self.assertIn("fund_catalog", snapshot)
+            self.assertIn("fund_nav_daily", snapshot)
+            self.assertIn("fund_sync_job", snapshot)
+            self.assertIn("actions_log", snapshot)
+            self.assertIn("transactions_sync_pending", snapshot)
 
     def test_user_data_isolation(self) -> None:
         with TestClient(app) as client:
@@ -71,16 +101,31 @@ class AuthIsolationSmokeTest(unittest.TestCase):
             action_a = client.post(
                 "/api/actions",
                 headers=headers_a,
-                json={"date": today, "action_key": "isolation_action", "amount": 10, "done": True},
+                json={
+                    "date": today,
+                    "occurred_at": f"{today}T09:30:00+08:00",
+                    "action_key": "isolation_action",
+                    "amount": 10,
+                    "done": True,
+                },
             )
             self.assertEqual(action_a.status_code, 200, action_a.text)
 
-            actions_a = client.get(f"/api/actions?date={today}", headers=headers_a).json().get("actions", [])
-            actions_b = client.get(f"/api/actions?date={today}", headers=headers_b).json().get("actions", [])
+            actions_a_resp = client.get(f"/api/actions?date={today}", headers=headers_a)
+            actions_b_resp = client.get(f"/api/actions?date={today}", headers=headers_b)
+            self.assertEqual(actions_a_resp.status_code, 200, actions_a_resp.text)
+            self.assertEqual(actions_b_resp.status_code, 200, actions_b_resp.text)
+            self.assertIn("data_status", actions_a_resp.json())
+            self.assertIn("data_status", actions_b_resp.json())
+            actions_a = actions_a_resp.json().get("actions", [])
+            actions_b = actions_b_resp.json().get("actions", [])
             keys_a = {row["action_key"] for row in actions_a}
             keys_b = {row["action_key"] for row in actions_b}
             self.assertIn("isolation_action", keys_a)
             self.assertNotIn("isolation_action", keys_b)
+            target_row = next((row for row in actions_a if row.get("action_key") == "isolation_action"), None)
+            self.assertIsNotNone(target_row)
+            self.assertTrue(str(target_row.get("occurred_at", "")).strip())
 
     def test_login_rate_limit(self) -> None:
         with TestClient(app) as client:
@@ -110,6 +155,10 @@ class AuthIsolationSmokeTest(unittest.TestCase):
             estimate_resp = client.get("/api/estimate", headers=headers)
             self.assertEqual(estimate_resp.status_code, 200, estimate_resp.text)
             body = estimate_resp.json()
+            self.assertIn("data_status", body)
+            self.assertIn("status", body.get("data_status", {}))
+            self.assertIn("asof", body.get("data_status", {}))
+            self.assertIn("note", body.get("data_status", {}))
 
             coverage = body.get("coverage", {})
             self.assertIn("total", coverage)
@@ -127,6 +176,85 @@ class AuthIsolationSmokeTest(unittest.TestCase):
                 self.assertIn("as_of", row)
                 self.assertIn("updated_at", row)
                 self.assertIn("confirm_state", row)
+
+    def test_fund_search_contract(self) -> None:
+        with TestClient(app) as client:
+            suffix = uuid.uuid4().hex[:8]
+            token = self._register(client, f"fund_{suffix}", "pass_123456")
+            headers = {"Authorization": f"Bearer {token}"}
+
+            suggest_resp = client.get("/api/funds/suggest?keyword=&limit=5", headers=headers)
+            self.assertEqual(suggest_resp.status_code, 200, suggest_resp.text)
+            suggest_body = suggest_resp.json()
+            suggest_items = suggest_body.get("items")
+            self.assertTrue(isinstance(suggest_items, list))
+            self.assertIn("data_status", suggest_body)
+
+            search_resp = client.get("/api/funds/search?q=&limit=5", headers=headers)
+            self.assertEqual(search_resp.status_code, 200, search_resp.text)
+            search_body = search_resp.json()
+            search_items = search_body.get("items")
+            self.assertTrue(isinstance(search_items, list))
+            self.assertIn("data_status", search_body)
+
+            if search_items:
+                target = search_items[0]
+                fund_id = target.get("fund_id")
+                detail_resp = client.get(f"/api/funds/{fund_id}", headers=headers)
+                self.assertEqual(detail_resp.status_code, 200, detail_resp.text)
+                detail_json = detail_resp.json()
+                self.assertIn("data_status", detail_json)
+                detail_body = detail_json.get("fund", {})
+                self.assertEqual(detail_body.get("fund_id"), fund_id)
+
+                latest_nav_resp = client.get(f"/api/funds/{fund_id}/nav/latest", headers=headers)
+                self.assertEqual(latest_nav_resp.status_code, 200, latest_nav_resp.text)
+                latest_nav_body = latest_nav_resp.json()
+                self.assertIn("available", latest_nav_body)
+                self.assertIn("latest", latest_nav_body)
+                self.assertIn("data_status", latest_nav_body)
+
+                history_nav_resp = client.get(f"/api/funds/{fund_id}/nav/history?limit=10", headers=headers)
+                self.assertEqual(history_nav_resp.status_code, 200, history_nav_resp.text)
+                history_nav_body = history_nav_resp.json()
+                self.assertIn("items", history_nav_body)
+                self.assertTrue(isinstance(history_nav_body.get("items"), list))
+                self.assertIn("data_status", history_nav_body)
+
+    def test_fund_sync_admin_job_contract(self) -> None:
+        with TestClient(app) as client:
+            headers = {"Authorization": f"Bearer {API_TOKEN}"}
+            with patch(
+                "app.api.routers.funds.EastMoneyQuoteProvider.get_fund_quote",
+                return_value={
+                    "estimate_nav": 1.2345,
+                    "nav": 1.22,
+                    "asof": "2026-02-07T10:30:00+08:00",
+                    "source": "mock_provider",
+                },
+            ):
+                sync_resp = client.post(
+                    "/api/funds/sync",
+                    headers=headers,
+                    json={"fund_ids": ["013491", "016453"], "limit": 10},
+                )
+            self.assertEqual(sync_resp.status_code, 200, sync_resp.text)
+            sync_body = sync_resp.json()
+            self.assertIn("data_status", sync_body)
+            job = sync_body.get("job", {})
+            self.assertEqual(job.get("status"), "done")
+            self.assertEqual(int(job.get("total_count", -1)), 2)
+
+            job_id = str(job.get("job_id", ""))
+            self.assertTrue(job_id)
+            job_resp = client.get(f"/api/funds/sync/jobs/{job_id}", headers=headers)
+            self.assertEqual(job_resp.status_code, 200, job_resp.text)
+            self.assertIn("data_status", job_resp.json())
+
+            latest_resp = client.get("/api/funds/013491/nav/latest", headers=headers)
+            self.assertEqual(latest_resp.status_code, 200, latest_resp.text)
+            latest_payload = latest_resp.json().get("latest", {})
+            self.assertEqual(str(latest_payload.get("source")), "mock_provider")
 
 
 if __name__ == "__main__":

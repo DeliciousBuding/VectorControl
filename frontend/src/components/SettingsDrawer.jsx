@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchNetworkBenchmarkLatest, runNetworkBenchmark } from '../api.js'
+import { toGuidedError } from '../utils/errorFeedback.js'
 
 const PROFILE_OPTIONS = [
   { value: 'cn_fund', label: '国内基金站点' },
@@ -12,11 +13,14 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
   const [benchmarkLoading, setBenchmarkLoading] = useState(false)
   const [benchmarkError, setBenchmarkError] = useState('')
   const [benchmarkResult, setBenchmarkResult] = useState(null)
+  const [saveError, setSaveError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     setDraft(settings)
     const profile = settings?.network_benchmark?.default_profile || 'cn_fund'
     setBenchmarkProfile(profile)
+    setSaveError('')
   }, [settings])
 
   useEffect(() => {
@@ -25,12 +29,14 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
     let active = true
     ;(async () => {
       try {
+        setBenchmarkError('')
         const payload = await fetchNetworkBenchmarkLatest()
         if (!active) return
         setBenchmarkResult(payload?.result || null)
-      } catch {
+      } catch (error) {
         if (!active) return
         setBenchmarkResult(null)
+        setBenchmarkError(toGuidedError(error, 'settings_benchmark_load', '测速记录加载失败'))
       }
     })()
 
@@ -45,6 +51,8 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
   const benchmarkSummary = benchmarkResult?.summary || null
 
   const save = async () => {
+    setSaveError('')
+    setSaving(true)
     const nextDraft = {
       ...draft,
       network_benchmark: {
@@ -54,8 +62,16 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
       }
     }
     setDraft(nextDraft)
-    await onSave(nextDraft)
-    onClose()
+    try {
+      const ok = await onSave(nextDraft)
+      if (!ok) {
+        setSaveError('设置保存失败。下一步：检查表单配置后重试；若持续失败请重新登录。')
+        return
+      }
+      onClose()
+    } finally {
+      setSaving(false)
+    }
   }
 
   const executeBenchmark = async () => {
@@ -80,7 +96,7 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
         }
       }))
     } catch (error) {
-      setBenchmarkError(error?.message || '测速执行失败')
+      setBenchmarkError(toGuidedError(error, 'settings_benchmark_run', '测速执行失败'))
     } finally {
       setBenchmarkLoading(false)
     }
@@ -258,7 +274,10 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
         </div>
 
         <footer>
-          <button type="button" className="primary" onClick={save}>保存设置</button>
+          {saveError && <p className="settings-error">{saveError}</p>}
+          <button type="button" className="primary" onClick={save} disabled={saving}>
+            {saving ? '保存中...' : '保存设置'}
+          </button>
         </footer>
       </section>
     </div>

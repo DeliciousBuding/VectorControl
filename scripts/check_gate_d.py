@@ -18,25 +18,76 @@ def _run_cmd(cmd: list[str]) -> subprocess.CompletedProcess:
     )
 
 
-def _get_text(url: str) -> tuple[int, str]:
-    req = request.Request(url)
+def _http_request(
+    url: str,
+    method: str = "GET",
+    headers: dict[str, str] | None = None,
+    body: bytes | None = None,
+) -> tuple[int, str]:
+    req = request.Request(url, method=method, headers=headers or {}, data=body)
     with request.urlopen(req, timeout=10) as resp:
         body = resp.read().decode("utf-8", errors="ignore")
         return resp.status, body
 
 
-def _expect_status(url: str, expected: int) -> str | None:
+def _get_text(url: str) -> tuple[int, str]:
+    return _http_request(url, method="GET")
+
+
+def _expect_status(
+    url: str,
+    expected: int,
+    method: str = "GET",
+    headers: dict[str, str] | None = None,
+    body: bytes | None = None,
+) -> str | None:
     try:
-        code, _ = _get_text(url)
+        code, _ = _http_request(url, method=method, headers=headers, body=body)
         if code != expected:
-            return f"{url} 状态码异常: {code} != {expected}"
+            return f"{method} {url} 状态码异常: {code} != {expected}"
         return None
     except error.HTTPError as exc:
         if exc.code == expected:
             return None
-        return f"{url} HTTP 错误: {exc.code}, 期望 {expected}"
+        return f"{method} {url} HTTP 错误: {exc.code}, 期望 {expected}"
     except Exception as exc:  # noqa: BLE001
-        return f"{url} 请求失败: {exc}"
+        return f"{method} {url} 请求失败: {exc}"
+
+
+def _resolve_benchmark_token(base: str) -> tuple[str | None, str | None]:
+    token = os.getenv("VC_BENCHMARK_TOKEN", "").strip() or os.getenv("VC_API_TOKEN", "").strip()
+    if token:
+        return token, None
+
+    username = os.getenv("VC_BENCHMARK_USERNAME", "").strip()
+    password = os.getenv("VC_BENCHMARK_PASSWORD", "").strip()
+    if not username or not password:
+        return None, None
+
+    login_body = json.dumps({"username": username, "password": password}).encode("utf-8")
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    try:
+        _, text = _http_request(
+            f"{base}/api/auth/login",
+            method="POST",
+            headers=headers,
+            body=login_body,
+        )
+    except Exception as exc:  # noqa: BLE001
+        return None, f"测速接口校验登录失败: {exc}"
+
+    try:
+        payload = json.loads(text)
+    except json.JSONDecodeError:
+        return None, "测速接口校验登录失败: /api/auth/login 返回非 JSON"
+
+    parsed_token = str(payload.get("token", "")).strip()
+    if not parsed_token:
+        return None, "测速接口校验登录失败: 登录响应缺少 token"
+    return parsed_token, None
 
 
 def _check_compose_services() -> str | None:
@@ -94,6 +145,7 @@ def main() -> int:
 
     base = f"{scheme}://{domain}"
     failures: list[str] = []
+    warnings: list[str] = []
 
     try:
         code, html = _get_text(f"{base}/")
@@ -116,6 +168,32 @@ def main() -> int:
         if fallback_err:
             failures.append(auth_err)
 
+    benchmark_token, benchmark_token_err = _resolve_benchmark_token(base)
+    if benchmark_token_err:
+        failures.append(benchmark_token_err)
+    elif benchmark_token:
+        benchmark_headers = {"Authorization": f"Bearer {benchmark_token}"}
+        benchmark_err = _expect_status(
+            f"{base}/api/settings/network-benchmark/latest",
+            200,
+            headers=benchmark_headers,
+        )
+        if benchmark_err:
+            legacy_err = _expect_status(
+                f"{base}/api/settings/network_benchmark/latest",
+                200,
+                headers=benchmark_headers,
+            )
+            if legacy_err:
+                failures.append(f"测速接口校验失败: {benchmark_err}")
+            else:
+                warnings.append("测速接口仅 legacy 路径可用，请尽快升级后端到标准路径。")
+    else:
+        warnings.append(
+            "未提供测速校验凭证，已跳过测速接口连通性校验。"
+            "可设置 VC_BENCHMARK_TOKEN 或 VC_BENCHMARK_USERNAME/VC_BENCHMARK_PASSWORD。"
+        )
+
     compose_err = _check_compose_services()
     if compose_err:
         failures.append(compose_err)
@@ -124,8 +202,16 @@ def main() -> int:
         print("[FAIL] Gate-D 检查失败:")
         for item in failures:
             print(f"- {item}")
+        if warnings:
+            print("[WARN] 额外提示:")
+            for item in warnings:
+                print(f"- {item}")
         return 1
 
+    if warnings:
+        print("[WARN] Gate-D 附加提示:")
+        for item in warnings:
+            print(f"- {item}")
     print("[PASS] Gate-D 检查通过")
     return 0
 
