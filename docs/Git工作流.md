@@ -1,25 +1,76 @@
 # Git 工作流（VectorControl）
 
 ## 1. 当前执行模式
-- 当前模式：总控单人开发（不并行分发）。
-- 主分支：`dev`（开发集成）、`main`（稳定发布）。
+- 当前模式：三 Agent 并行开发（总控 Agent + 前端 Agent1 + 后端 Agent1）。
+- 主分支：
+  - `dev`：集成分支（仅总控 Agent 合并）
+  - `main`：发布分支（仅总控 Agent 发布）
 
-## 2. 单人开发流程
-1. 在 `dev` 上实现单一主题改动（一个最小闭环）。
-2. 本地自测（后端 compile + 关键接口、前端 build）。
-3. 立即提交该小步改动（中文 commit message），禁止把多个无关功能堆到一个 commit。
-4. 同步更新文档（`README.md` + `docs/*.md` + `ROADMAP.md`）并勾选状态。
-   - 文档更新时间统一格式：`更新时间：YYYY-MM-DD HH:MM:SS`，必须为真实系统时间。
-5. `dev -> main` 前执行文档全量巡检（最少覆盖 `README.md`、`ROADMAP.md`、`docs/架构说明.md`、`docs/开发规范.md`、`docs/接口契约.md`、`docs/交易流水YAML导入规范.md`、`docs/P0线上故障排查SOP.md`、`docs/状态解释验收样例.md`、`docs/最新进度.md`、`docs/Git工作流.md`、`docs/部署与运行.md`）。
-6. 执行发布前一键预检：`python scripts/check_release_preflight.py`（默认包含文档门禁严格模式、后端 compileall、前端 build）。
-7. 通过 Gate-A/B/C/D 后再合并 `dev -> main`。
-8. push 前由 `.githooks/pre-push` 自动执行：`python scripts/check_docs_gate.py --strict`。
-9. PR 到 `dev/main` 时由 `.github/workflows/docs-gate.yml` 执行云端门禁（严格模式 + diff-base）。
-10. commit 时由 `.githooks/commit-msg` 自动执行：`python scripts/check_release_message.py`（发布提交强校验）。
+## 2. Worktree 初始化（强制）
 
-## 2.1 main 发布文档检查清单（强制）
+在 `<local>` 根目录执行：
+
+```powershell
+git -C <local>\VectorControl worktree add <local>\VectorControl-frontend-agent1 -b feat/frontend-agent1-<topic> dev
+git -C <local>\VectorControl worktree add <local>\VectorControl-backend-agent1 -b feat/backend-agent1-<topic> dev
+```
+
+目录职责：
+
+- `<local>\VectorControl`：总控 Agent（集成/发布）
+- `<local>\VectorControl-frontend-agent1`：前端 Agent1
+- `<local>\VectorControl-backend-agent1`：后端 Agent1
+
+## 3. 子 Agent 开发流程（前端/后端）
+
+1. 在自己的 worktree 和分支开发，不得改主仓。
+2. 每轮只做 1 个最小闭环（功能或修复）。
+3. 本地验证：
+   - 前端 Agent：`npm --prefix frontend run build`
+   - 后端 Agent：`python -m compileall backend/app` + 相关 pytest
+4. 更新进度文档（强制）：
+   - 前端：`docs/agent-progress/frontend_agent1_progress.md`
+   - 后端：`docs/agent-progress/backend_agent1_progress.md`
+5. 在 `docs/agent-progress/agent_comms.md` 留交接记录（已完成/待对接/阻塞）。
+6. 立即提交并推送本分支（小步快跑，单主题 commit）。
+
+## 4. 总控 Agent 集成流程
+
+1. 读取三份进度文档与通讯文档，确认可集成项。
+2. 拉取前后端分支，进行冲突处理与联调。
+3. 合并到 `dev` 前统一执行：
+   - `python scripts/check_release_preflight.py`
+   - 必要 smoke tests
+4. 同步更新：
+   - `ROADMAP.md`
+   - `docs/最新进度.md`
+   - 相关契约文档
+5. 合并入 `dev` 并推送。
+
+## 5. 进度文档写入规范（强制）
+
+- 每条记录格式建议：
+  - `时间 | Agent | 分支 | 任务 | 结果 | 下一步 | 关联提交`
+- 要求：
+  - 不允许“只改代码不写进度”
+  - 不允许“只写完成，不写阻塞和待对接”
+  - 总控 Agent 以文档为准做任务编排与冲突仲裁
+
+## 6. main 发布文档检查清单（强制）
 
 - 发布说明必须包含 `新增/修复/优化/文档` 四段，不可省略 `文档`。
+- 文档巡检覆盖清单（固定）：
+  - `README.md`
+  - `ROADMAP.md`
+  - `docs/架构说明.md`
+  - `docs/开发规范.md`
+  - `docs/接口契约.md`
+  - `docs/交易流水YAML导入规范.md`
+  - `docs/P0线上故障排查SOP.md`
+  - `docs/状态解释验收样例.md`
+  - `docs/最新进度.md`
+  - `docs/Git工作流.md`
+  - `docs/部署与运行.md`
 - `文档` 段至少写明：
   - 本次核对过的文档范围
   - 已更新的文档与核心变更点
@@ -33,7 +84,7 @@
 - `main` 推送后云端自动执行：`.github/workflows/release-consistency.yml`。
 - 发布后验收留档使用：`docs/Gate-D验收证据模板.md`。
 
-## 2.2 分支保护治理附录（当前阶段后置）
+## 7. 分支保护治理附录（当前阶段后置）
 
 说明：当前敏捷阶段该部分不作为迭代阻塞条件，仅用于后续治理回补。
 
@@ -58,7 +109,7 @@
 - `required_approving_review_count>=1`
 - `enforce_admins=true`
 
-## 2.3 敏捷开发模式（当前阶段）
+## 8. 敏捷开发模式（当前阶段）
 
 - 当前阶段采用单人敏捷节奏：分支保护治理项后置，不阻塞当轮功能闭环。
 - 当轮优先级：线上可用性故障 > 核心交易链路 > 治理回补。
@@ -69,18 +120,14 @@
   - 同步更新 `ROADMAP.md` 与 `docs/最新进度.md`
   - 通过 `python scripts/check_release_preflight.py`
 
-## 3. 合并门槛
+## 9. 合并门槛
 - Gate-A：按 `docs/部署与运行.md` 可复现。
 - Gate-B：接口契约未破坏（`docs/接口契约.md`）。
 - Gate-C：外部源失败可降级，页面不崩。
 - Gate-D：VPS 部署闭环可验收（HTTPS、容器状态、安全边界）。
 
-## 4. 提交边界
+## 10. 提交边界
 - 功能提交只改本次主题相关文件。
 - 文档提交可跨目录，但需同步更新 ROADMAP。
 - 严禁提交 `__pycache__`、数据库文件、依赖目录。
 - 合并前必须 `git status --short` 干净，避免夹带。
-
-## 5. 未来恢复并行时
-- 再启用 `backend-milestones` 与 `frontend-milestones`。
-- 先后端再前端按顺序回合并 `dev`。

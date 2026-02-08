@@ -5,12 +5,47 @@
 
 ## 1. 分支与发布（强制）
 
-- `dev`：唯一开发分支（单人开发与集成都在此进行）
+- `dev`：开发集成分支（仅总控 Agent 有权执行最终合并）
 - `main`：唯一发布分支（仅接收可上线版本）
 - 禁止在 `main` 直接开发功能
+- 多 Agent 开发时，子 Agent 只能在自己的功能分支开发并推送，不得直接改 `dev/main`
+- 分支命名规则：
+  - 前端 Agent：`feat/frontend-agent1-<topic>`
+  - 后端 Agent：`feat/backend-agent1-<topic>`
+  - 总控集成：`dev`（只由总控 Agent 执行合并、冲突处理、统一验收）
 - 分支保护治理目标：远端仓库 `dev/main` 启用分支保护（`Docs Gate` / `Release Consistency`）。
 - 当前敏捷阶段：分支保护治理后置，不阻塞当轮 `dev` 迭代与本地测试；回补任务以 `ROADMAP.md` 为准。
 - 分支保护检查/应用脚本：`python scripts/branch_protection.py --mode check|apply --required-contexts "Docs Gate / docs-gate" --main-required-contexts "Release Consistency / verify-release"`（治理回补时执行）
+
+## 1.1 多 Agent 角色（强制）
+
+- 总控 Agent：任务拆分、标准下发、集成验收、冲突仲裁、`dev/main` 发布
+- 前端 Agent1：仅负责前端与交互相关实现（`frontend/*` + 必要前端文档）
+- 后端 Agent1：仅负责后端与数据相关实现（`backend/*` + 必要后端文档）
+- 根目录角色规范文件（必须遵守）：
+  - `AGENTS_CONTROLLER.md`
+  - `AGENTS_FRONTEND_AGENT1.md`
+  - `AGENTS_BACKEND_AGENT1.md`
+
+## 1.2 Worktree 目录（强制）
+
+- 总控 Agent：`<local>\VectorControl`（主仓）
+- 前端 Agent1：`<local>\VectorControl-frontend-agent1`
+- 后端 Agent1：`<local>\VectorControl-backend-agent1`
+- 子 Agent 不得在主仓目录直接开发。
+
+## 1.3 进度与通讯（强制）
+
+- 每个 Agent 必须维护自己的进度文档：
+  - `docs/agent-progress/controller_progress.md`
+  - `docs/agent-progress/frontend_agent1_progress.md`
+  - `docs/agent-progress/backend_agent1_progress.md`
+- 跨 Agent 依赖、阻塞、交接必须写入：
+  - `docs/agent-progress/agent_comms.md`
+- 规则：
+  - 每完成 1 个小闭环并准备提交前，先更新对应进度文档。
+  - 每次 push 后，必须在 `agent_comms.md` 留一条“已完成/待对接”记录。
+  - 总控 Agent 合并前，必须先读取三份进度文档 + 通讯文档再决策。
 
 ## 2. 版本号规则（强制）
 
@@ -90,6 +125,8 @@
 - 改动遵循“最小闭环”，禁止顺手大改
 - 必须执行“小步快跑”提交策略：每实现 1 个小功能、1 个可验证修复或 1 组同主题文档更新，立即提交 1 次 commit；禁止长时间堆积未提交改动
 - 单个 commit 必须可解释、可回滚、可验收，提交信息需直接说明该小步闭环完成了什么
+- 每个 Agent 在每次 commit 前必须更新自己的进度文档；未更新进度文档视为未完成交付
+- 总控 Agent 合并前必须核对 `docs/agent-progress/*.md` 与实际代码改动一致
 - 提交前必须通过：
   - 前端：`npm run build`
   - 后端：`python -m compileall app`
