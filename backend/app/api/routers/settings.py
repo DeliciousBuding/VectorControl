@@ -391,6 +391,49 @@ async def post_feishu_test_message(request: Request) -> dict:
         "error": last_error or _test_message_error("provider_error", "unknown"),
     }
 
+
+@router.get("/notifications/status")
+async def get_notifications_status(request: Request) -> dict:
+    # Read-only, redacted diagnostics for notification channels.
+    user_id = get_holdings_user_id(request)
+    settings = get_user_settings(user_id)
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+
+    feishu = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
+    telegram = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+    email = notifications.get("email", {}) if isinstance(notifications, dict) else {}
+
+    # First version: allow last_test_summary to be null, but field must exist.
+    last_test_summary = None
+
+    feishu_webhook = str(feishu.get("webhook_url", "")).strip()
+    telegram_token = str(telegram.get("bot_token", "")).strip()
+    telegram_chat = str(telegram.get("chat_id", "")).strip()
+
+    email_host = str(email.get("smtp_host", "")).strip()
+    email_sender = str(email.get("sender", "")).strip()
+    email_recipients = str(email.get("recipients", "")).strip()
+
+    status: dict[str, Any] = {
+        "feishu": {
+            "enabled": bool(feishu.get("enabled", False)),
+            "credential_configured": bool(feishu_webhook),
+            "last_test_summary": last_test_summary,
+        },
+        "telegram": {
+            "enabled": bool(telegram.get("enabled", False)),
+            "credential_configured": bool(telegram_token and telegram_chat),
+            "last_test_summary": last_test_summary,
+        },
+        "email": {
+            "enabled": bool(email.get("enabled", False)),
+            "credential_configured": bool(email_host and email_sender and email_recipients),
+            "last_test_summary": last_test_summary,
+        },
+    }
+
+    return {"user_id": user_id, "status": status}
+
 @router.get("/network-benchmark/latest")
 async def get_network_benchmark_latest(request: Request) -> dict:
     user_id = get_holdings_user_id(request)
