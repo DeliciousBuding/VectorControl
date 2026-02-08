@@ -149,6 +149,54 @@ class SettingsNotificationsStatusSmokeTest(unittest.TestCase):
             self.assertNotIn(bot_token, dumped)
             self.assertNotIn(webhook_url, dumped)
 
+    def test_last_test_history_grows_and_is_ordered(self) -> None:
+        with TestClient(app) as client:
+            headers = self._register_headers(client, prefix="nst_hist")
+            bot_token = "DUMMY_TELEGRAM_TOKEN"
+            chat_id = "10001"
+            webhook_url = "https://open.feishu.cn/REDACTED"
+
+            put_resp = client.put(
+                "/api/settings",
+                headers=headers,
+                json={"settings": {"notifications": {"feishu": {"enabled": True}, "telegram": {"enabled": True}}}},
+            )
+            self.assertEqual(put_resp.status_code, 200, put_resp.text)
+
+            cred_fs = client.put(
+                "/api/settings/notifications/feishu/webhook",
+                headers=headers,
+                json={"webhook_url": webhook_url},
+            )
+            self.assertEqual(cred_fs.status_code, 200, cred_fs.text)
+
+            cred_tg = client.put(
+                "/api/settings/notifications/telegram/credential",
+                headers=headers,
+                json={"bot_token": bot_token, "chat_id": chat_id},
+            )
+            self.assertEqual(cred_tg.status_code, 200, cred_tg.text)
+
+            with patch("app.api.routers.settings.feishu_mod._http_post_json") as mocked_post_fs:
+                mocked_post_fs.return_value = (200, {"StatusCode": 0, "StatusMessage": "success", "data": {"message_id": "m1"}})
+                r1 = client.post("/api/settings/notifications/feishu/test_message", headers=headers).json()
+                r2 = client.post("/api/settings/notifications/feishu/test_message", headers=headers).json()
+
+            self.assertNotEqual(str(r1.get("trace_id")), str(r2.get("trace_id")))
+
+            status_resp = client.get("/api/settings/notifications/status", headers=headers)
+            self.assertEqual(status_resp.status_code, 200, status_resp.text)
+            feishu = status_resp.json().get("status", {}).get("feishu", {})
+            history = feishu.get("last_test_history")
+            self.assertIsInstance(history, list)
+            self.assertGreaterEqual(len(history), 2)
+            self.assertEqual(str(history[0].get("trace_id")), str(r2.get("trace_id")))
+            self.assertEqual(str(history[1].get("trace_id")), str(r1.get("trace_id")))
+            self.assertIn("time", history[0])
+            self.assertIn("ok", history[0])
+            self.assertIn("sent", history[0])
+            self.assertIn("error_category", history[0])
+
     def test_get_notifications_status_isolated_between_users(self) -> None:
         with TestClient(app) as client:
             headers_a = self._register_headers(client, prefix="nst_a")

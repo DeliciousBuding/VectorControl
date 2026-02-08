@@ -74,6 +74,47 @@ def _persist_last_test_summary(
     )
 
 
+def _persist_last_test_history(
+    *,
+    user_id: str,
+    channel: Literal["feishu", "telegram", "email"],
+    trace_id: str,
+    ok: bool,
+    sent: bool,
+    error_category: str | None,
+) -> None:
+    # Append-only capped history for diagnostics. Never store credentials here.
+    current = get_user_settings(user_id)
+    notifications = current.get("notifications", {}) if isinstance(current, dict) else {}
+    section = notifications.get(channel, {}) if isinstance(notifications, dict) else {}
+    existing = section.get("last_test_history") if isinstance(section, dict) else None
+    history: list[dict[str, Any]] = list(existing) if isinstance(existing, list) else []
+
+    history.insert(
+        0,
+        {
+            "time": _now_iso_seconds(),
+            "trace_id": trace_id,
+            "ok": bool(ok),
+            "sent": bool(sent),
+            "error_category": str(error_category) if error_category else None,
+        },
+    )
+    # Keep newest first and cap to 10.
+    history = history[:10]
+
+    upsert_user_settings(
+        user_id,
+        {
+            "notifications": {
+                channel: {
+                    "last_test_history": history,
+                }
+            }
+        },
+    )
+
+
 def _redact_settings_for_response(settings: dict[str, Any]) -> dict[str, Any]:
     # Only redact a small set of known credentials; keep structure stable.
     if not isinstance(settings, dict):
@@ -302,6 +343,14 @@ async def post_telegram_test_message(request: Request) -> dict:
                     sent=True,
                     error_category=None,
                 )
+                _persist_last_test_history(
+                    user_id=user_id,
+                    channel="telegram",
+                    trace_id=trace_id,
+                    ok=True,
+                    sent=True,
+                    error_category=None,
+                )
                 return {
                     "user_id": user_id,
                     "ok": True,
@@ -343,6 +392,14 @@ async def post_telegram_test_message(request: Request) -> dict:
             last_error = _test_message_error("network_error", str(exc.__class__.__name__))
 
     _persist_last_test_summary(
+        user_id=user_id,
+        channel="telegram",
+        trace_id=trace_id,
+        ok=False,
+        sent=False,
+        error_category=str((last_error or {}).get("category") or "unknown"),
+    )
+    _persist_last_test_history(
         user_id=user_id,
         channel="telegram",
         trace_id=trace_id,
@@ -407,6 +464,14 @@ async def post_feishu_test_message(request: Request) -> dict:
                     sent=True,
                     error_category=None,
                 )
+                _persist_last_test_history(
+                    user_id=user_id,
+                    channel="feishu",
+                    trace_id=trace_id,
+                    ok=True,
+                    sent=True,
+                    error_category=None,
+                )
                 return {
                     "user_id": user_id,
                     "ok": True,
@@ -447,6 +512,14 @@ async def post_feishu_test_message(request: Request) -> dict:
         sent=False,
         error_category=str((last_error or {}).get("category") or "unknown"),
     )
+    _persist_last_test_history(
+        user_id=user_id,
+        channel="feishu",
+        trace_id=trace_id,
+        ok=False,
+        sent=False,
+        error_category=str((last_error or {}).get("category") or "unknown"),
+    )
     return {
         "user_id": user_id,
         "ok": False,
@@ -475,9 +548,22 @@ async def get_notifications_status(request: Request) -> dict:
         summary = section.get("last_test_summary")
         return summary if isinstance(summary, dict) else None
 
+    def _coerce_history(section: Any) -> list[dict[str, Any]]:
+        if not isinstance(section, dict):
+            return []
+        raw = section.get("last_test_history")
+        if not isinstance(raw, list):
+            return []
+        # Only keep dict items to keep response shape stable.
+        return [item for item in raw if isinstance(item, dict)][:10]
+
     feishu_last_test_summary = _coerce_summary(feishu)
     telegram_last_test_summary = _coerce_summary(telegram)
     email_last_test_summary = _coerce_summary(email)
+
+    feishu_last_test_history = _coerce_history(feishu)
+    telegram_last_test_history = _coerce_history(telegram)
+    email_last_test_history = _coerce_history(email)
 
     feishu_webhook = str(feishu.get("webhook_url", "")).strip()
     telegram_token = str(telegram.get("bot_token", "")).strip()
@@ -492,16 +578,19 @@ async def get_notifications_status(request: Request) -> dict:
             "enabled": bool(feishu.get("enabled", False)),
             "credential_configured": bool(feishu_webhook),
             "last_test_summary": feishu_last_test_summary,
+            "last_test_history": feishu_last_test_history,
         },
         "telegram": {
             "enabled": bool(telegram.get("enabled", False)),
             "credential_configured": bool(telegram_token and telegram_chat),
             "last_test_summary": telegram_last_test_summary,
+            "last_test_history": telegram_last_test_history,
         },
         "email": {
             "enabled": bool(email.get("enabled", False)),
             "credential_configured": bool(email_host and email_sender and email_recipients),
             "last_test_summary": email_last_test_summary,
+            "last_test_history": email_last_test_history,
         },
     }
 
