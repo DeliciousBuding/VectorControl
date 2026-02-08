@@ -285,17 +285,72 @@ class AuthIsolationSmokeTest(unittest.TestCase):
             job = sync_body.get("job", {})
             self.assertEqual(job.get("status"), "done")
             self.assertEqual(int(job.get("total_count", -1)), 2)
+            self.assertGreaterEqual(int(job.get("log_count", 0)), 2)
+            self.assertTrue(isinstance(job.get("recent_logs", []), list))
 
             job_id = str(job.get("job_id", ""))
             self.assertTrue(job_id)
             job_resp = client.get(f"/api/funds/sync/jobs/{job_id}", headers=headers)
             self.assertEqual(job_resp.status_code, 200, job_resp.text)
             self.assertIn("data_status", job_resp.json())
+            fetched_job = job_resp.json().get("job", {})
+            self.assertGreaterEqual(int(fetched_job.get("log_count", 0)), 2)
+            self.assertTrue(isinstance(fetched_job.get("recent_logs", []), list))
 
             latest_resp = client.get("/api/funds/013491/nav/latest", headers=headers)
             self.assertEqual(latest_resp.status_code, 200, latest_resp.text)
             latest_payload = latest_resp.json().get("latest", {})
             self.assertEqual(str(latest_payload.get("source")), "mock_provider")
+
+    def test_fund_sync_retry_and_failure_isolation(self) -> None:
+        with TestClient(app) as client:
+            headers = {"Authorization": f"Bearer {API_TOKEN}"}
+            call_stats: dict[str, int] = {}
+
+            def fake_get_fund_quote(*args: object) -> dict | None:
+                fund_id = str(args[-1] if args else "")
+                current = int(call_stats.get(fund_id, 0)) + 1
+                call_stats[fund_id] = current
+                if fund_id == "013491":
+                    if current == 1:
+                        raise RuntimeError("temporary")
+                    return {
+                        "estimate_nav": 1.3012,
+                        "nav": 1.29,
+                        "asof": "2026-02-08T10:35:00+08:00",
+                        "source": "retry_mock_provider",
+                    }
+                return None
+
+            with patch(
+                "app.api.routers.funds.EastMoneyQuoteProvider.get_fund_quote",
+                side_effect=fake_get_fund_quote,
+            ):
+                sync_resp = client.post(
+                    "/api/funds/sync",
+                    headers=headers,
+                    json={"fund_ids": ["013491", "016453"], "limit": 10},
+                )
+
+            self.assertEqual(sync_resp.status_code, 200, sync_resp.text)
+            sync_body = sync_resp.json()
+            job = sync_body.get("job", {})
+            self.assertEqual(int(job.get("total_count", -1)), 2)
+            self.assertEqual(int(job.get("success_count", -1)), 1)
+            self.assertEqual(int(job.get("failed_count", -1)), 1)
+            self.assertIn("016453", str(job.get("error_summary", "")))
+            self.assertEqual(int(call_stats.get("013491", 0)), 2)
+            self.assertEqual(int(call_stats.get("016453", 0)), 3)
+
+            logs = [row for row in job.get("recent_logs", []) if isinstance(row, dict)]
+            success_log = next((row for row in logs if row.get("fund_id") == "013491"), None)
+            failed_log = next((row for row in logs if row.get("fund_id") == "016453"), None)
+            self.assertIsNotNone(success_log)
+            self.assertIsNotNone(failed_log)
+            self.assertEqual(success_log.get("status"), "success")
+            self.assertEqual(int(success_log.get("attempts", 0)), 2)
+            self.assertEqual(failed_log.get("status"), "failed")
+            self.assertEqual(int(failed_log.get("attempts", 0)), 3)
 
 
 if __name__ == "__main__":

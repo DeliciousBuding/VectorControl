@@ -608,6 +608,27 @@ def init_db() -> None:
         )
         conn.execute(
             """
+            CREATE TABLE IF NOT EXISTS fund_source_job_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                job_id TEXT NOT NULL,
+                fund_id TEXT NOT NULL DEFAULT '',
+                status TEXT NOT NULL,
+                attempts INTEGER NOT NULL DEFAULT 1,
+                message TEXT NOT NULL DEFAULT '',
+                source TEXT NOT NULL DEFAULT '',
+                asof TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_fund_source_job_log_job
+            ON fund_source_job_log (job_id, id DESC)
+            """
+        )
+        conn.execute(
+            """
             CREATE TABLE IF NOT EXISTS fund_transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
@@ -3042,6 +3063,87 @@ def finish_fund_source_job(
         conn.commit()
 
 
+def append_fund_source_job_log(
+    job_id: str,
+    fund_id: str,
+    status: str,
+    attempts: int,
+    message: str = "",
+    source: str = "",
+    asof: str = "",
+) -> None:
+    clean_job_id = _normalize_catalog_text(job_id)
+    if not clean_job_id:
+        return
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO fund_source_job_log (
+                job_id, fund_id, status, attempts, message, source, asof, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                clean_job_id,
+                _normalize_catalog_text(fund_id),
+                str(status or "unknown"),
+                max(1, int(attempts)),
+                str(message or ""),
+                str(source or ""),
+                str(asof or ""),
+                _now_iso(),
+            ),
+        )
+        conn.commit()
+
+
+def list_fund_source_job_logs(job_id: str, limit: int = 20) -> list[dict[str, Any]]:
+    clean_job_id = _normalize_catalog_text(job_id)
+    if not clean_job_id:
+        return []
+    safe_limit = max(1, min(int(limit), 200))
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT id, job_id, fund_id, status, attempts, message, source, asof, created_at
+            FROM fund_source_job_log
+            WHERE job_id = ?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (clean_job_id, safe_limit),
+        ).fetchall()
+    return [
+        {
+            "id": int(row["id"] or 0),
+            "job_id": str(row["job_id"] or ""),
+            "fund_id": str(row["fund_id"] or ""),
+            "status": str(row["status"] or ""),
+            "attempts": int(row["attempts"] or 0),
+            "message": str(row["message"] or ""),
+            "source": str(row["source"] or ""),
+            "asof": str(row["asof"] or ""),
+            "created_at": str(row["created_at"] or ""),
+        }
+        for row in rows
+    ]
+
+
+def count_fund_source_job_logs(job_id: str) -> int:
+    clean_job_id = _normalize_catalog_text(job_id)
+    if not clean_job_id:
+        return 0
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT COUNT(1) AS c
+            FROM fund_source_job_log
+            WHERE job_id = ?
+            """,
+            (clean_job_id,),
+        ).fetchone()
+    return int(row["c"] or 0) if row else 0
+
+
 def get_fund_source_job(job_id: str) -> dict[str, Any] | None:
     clean_job_id = _normalize_catalog_text(job_id)
     if not clean_job_id:
@@ -3072,6 +3174,8 @@ def get_fund_source_job(job_id: str) -> dict[str, Any] | None:
         "success_count": int(row["success_count"] or 0),
         "failed_count": int(row["failed_count"] or 0),
         "error_summary": str(row["error_summary"] or ""),
+        "log_count": count_fund_source_job_logs(clean_job_id),
+        "recent_logs": list_fund_source_job_logs(clean_job_id, limit=20),
     }
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 from datetime import date, datetime
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -15,6 +16,7 @@ from app.api.deps import (
 )
 from app.data_sources.eastmoney import EastMoneyQuoteProvider
 from app.storage.db import (
+    append_fund_source_job_log,
     create_fund_source_job,
     finish_fund_source_job,
     get_fund_catalog_item,
@@ -29,6 +31,10 @@ from app.storage.db import (
 )
 
 router = APIRouter(prefix="/api/funds", tags=["基金"])
+
+SYNC_QUOTE_MAX_ATTEMPTS = 3
+SYNC_QUOTE_RETRY_BACKOFF_SECONDS = 0.2
+SYNC_QUOTE_REQUEST_GAP_SECONDS = 0.05
 
 
 def _parse_date_or_none(raw: str | None, field_name: str) -> date | None:
@@ -66,6 +72,35 @@ def _normalize_sync_fund_ids(raw_ids: list[str] | None) -> list[str]:
 
 def _now_iso() -> str:
     return datetime.now().astimezone().isoformat()
+
+
+def _sleep(seconds: float) -> None:
+    if seconds > 0:
+        time.sleep(seconds)
+
+
+def _fetch_quote_with_retry(provider: EastMoneyQuoteProvider, fund_id: str) -> tuple[dict | None, int, str]:
+    last_reason = "无报价"
+    for attempt in range(1, SYNC_QUOTE_MAX_ATTEMPTS + 1):
+        try:
+            quote = provider.get_fund_quote(fund_id)
+        except Exception as exc:  # noqa: BLE001
+            last_reason = f"抓取异常: {exc.__class__.__name__}"
+            quote = None
+
+        if isinstance(quote, dict):
+            estimate_nav = quote.get("estimate_nav")
+            unit_nav = quote.get("nav")
+            if estimate_nav is not None or unit_nav is not None:
+                return quote, attempt, ""
+            last_reason = "缺少净值字段"
+        elif quote is not None:
+            last_reason = "报价格式异常"
+
+        if attempt < SYNC_QUOTE_MAX_ATTEMPTS:
+            _sleep(SYNC_QUOTE_RETRY_BACKOFF_SECONDS * attempt)
+
+    return None, SYNC_QUOTE_MAX_ATTEMPTS, last_reason
 
 
 def _data_status_for_fund_rows(rows: list[dict], note: str) -> dict:
@@ -157,40 +192,63 @@ async def post_fund_sync(request: Request, payload: FundSyncIn) -> dict:
     failed_count = 0
     errors: list[str] = []
 
-    for fund_id in fund_ids:
-        quote = None
-        try:
-            quote = provider.get_fund_quote(fund_id)
-        except Exception as exc:  # noqa: BLE001
-            if len(errors) < 20:
-                errors.append(f"{fund_id}: {exc.__class__.__name__}")
+    for index, fund_id in enumerate(fund_ids):
+        if index > 0:
+            _sleep(SYNC_QUOTE_REQUEST_GAP_SECONDS)
 
+        quote, attempts, fail_reason = _fetch_quote_with_retry(provider, fund_id)
         if not isinstance(quote, dict):
             failed_count += 1
             if len(errors) < 20:
-                errors.append(f"{fund_id}: 无报价")
+                errors.append(f"{fund_id}: {fail_reason}")
+            append_fund_source_job_log(
+                job_id=job_id,
+                fund_id=fund_id,
+                status="failed",
+                attempts=attempts,
+                message=fail_reason,
+            )
             continue
 
         estimate_nav = quote.get("estimate_nav")
         unit_nav = quote.get("nav")
-        if estimate_nav is None and unit_nav is None:
-            failed_count += 1
-            if len(errors) < 20:
-                errors.append(f"{fund_id}: 缺少净值字段")
-            continue
-
         asof = str(quote.get("asof") or datetime.now().astimezone().isoformat())
         trade_date = asof[:10] if len(asof) >= 10 else datetime.now().date().isoformat()
-        upsert_fund_nav_daily(
-            fund_id=fund_id,
-            trade_date=trade_date,
-            estimate_nav=estimate_nav,
-            unit_nav=unit_nav,
-            asof=asof,
-            source=str(quote.get("source") or "fund_sync"),
-            confirm_state="estimated",
-        )
+        try:
+            upsert_fund_nav_daily(
+                fund_id=fund_id,
+                trade_date=trade_date,
+                estimate_nav=estimate_nav,
+                unit_nav=unit_nav,
+                asof=asof,
+                source=str(quote.get("source") or "fund_sync"),
+                confirm_state="estimated",
+            )
+        except Exception as exc:  # noqa: BLE001
+            failed_count += 1
+            if len(errors) < 20:
+                errors.append(f"{fund_id}: 写入失败({exc.__class__.__name__})")
+            append_fund_source_job_log(
+                job_id=job_id,
+                fund_id=fund_id,
+                status="failed",
+                attempts=attempts,
+                message=f"写入失败: {exc.__class__.__name__}",
+                source=str(quote.get("source") or "fund_sync"),
+                asof=asof,
+            )
+            continue
+
         success_count += 1
+        append_fund_source_job_log(
+            job_id=job_id,
+            fund_id=fund_id,
+            status="success",
+            attempts=attempts,
+            message="写入成功（幂等 upsert）",
+            source=str(quote.get("source") or "fund_sync"),
+            asof=asof,
+        )
 
     error_summary = "; ".join(errors[:20])
     finish_fund_source_job(
