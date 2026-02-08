@@ -200,12 +200,24 @@ class AuthIsolationSmokeTest(unittest.TestCase):
             if search_items:
                 target = search_items[0]
                 fund_id = target.get("fund_id")
+                self.assertIn("market_group", target)
+                self.assertIn("fund_type", target)
+                self.assertIn("bucket", target)
+                self.assertIn("tags", target)
+                self.assertIn("aliases", target)
+
                 detail_resp = client.get(f"/api/funds/{fund_id}", headers=headers)
                 self.assertEqual(detail_resp.status_code, 200, detail_resp.text)
                 detail_json = detail_resp.json()
                 self.assertIn("data_status", detail_json)
                 detail_body = detail_json.get("fund", {})
                 self.assertEqual(detail_body.get("fund_id"), fund_id)
+                self.assertIn("market_group", detail_body)
+                self.assertIn("fund_type", detail_body)
+                self.assertIn("bucket", detail_body)
+                self.assertIn("tags", detail_body)
+                self.assertIn("aliases", detail_body)
+                self.assertIn("source", detail_body)
 
                 latest_nav_resp = client.get(f"/api/funds/{fund_id}/nav/latest", headers=headers)
                 self.assertEqual(latest_nav_resp.status_code, 200, latest_nav_resp.text)

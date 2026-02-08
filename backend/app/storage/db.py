@@ -334,6 +334,46 @@ def _migrate_estimate_snapshot(conn: sqlite3.Connection) -> None:
     conn.execute("ALTER TABLE estimate_snapshot_new RENAME TO estimate_snapshot")
 
 
+def _backfill_fund_master_from_catalog(conn: sqlite3.Connection) -> None:
+    fund_master_cols = _table_columns(conn, "fund_master")
+    fund_catalog_cols = _table_columns(conn, "fund_catalog")
+    if not fund_master_cols or not fund_catalog_cols:
+        return
+    if "fund_id" not in fund_master_cols or "fund_id" not in fund_catalog_cols:
+        return
+
+    rows = conn.execute(
+        """
+        SELECT fund_id, name, pinyin, abbr, status, updated_at
+        FROM fund_catalog
+        """
+    ).fetchall()
+    if not rows:
+        return
+
+    for row in rows:
+        fund_id = _normalize_catalog_text(row["fund_id"])
+        name = _normalize_catalog_text(row["name"])
+        if not fund_id or not name:
+            continue
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO fund_master (
+                fund_id, name, pinyin, abbr, market_group, fund_type, bucket,
+                tags_json, aliases_json, status, source, updated_at
+            ) VALUES (?, ?, ?, ?, '', '', '', '[]', '[]', ?, 'catalog_backfill', ?)
+            """,
+            (
+                fund_id,
+                name,
+                _normalize_catalog_text(row["pinyin"]).lower(),
+                _normalize_catalog_text(row["abbr"]).lower() or _derive_catalog_abbr(name),
+                _normalize_catalog_text(row["status"]).lower() or "active",
+                _normalize_catalog_text(row["updated_at"]) or _now_iso(),
+            ),
+        )
+
+
 def _default_user_settings() -> dict[str, Any]:
     return {
         "display": {
@@ -483,6 +523,24 @@ def init_db() -> None:
                 status TEXT NOT NULL DEFAULT 'active',
                 notify_email_placeholder TEXT NOT NULL DEFAULT '',
                 notify_feishu_placeholder TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS fund_master (
+                fund_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                pinyin TEXT NOT NULL DEFAULT '',
+                abbr TEXT NOT NULL DEFAULT '',
+                market_group TEXT NOT NULL DEFAULT '',
+                fund_type TEXT NOT NULL DEFAULT '',
+                bucket TEXT NOT NULL DEFAULT '',
+                tags_json TEXT NOT NULL DEFAULT '[]',
+                aliases_json TEXT NOT NULL DEFAULT '[]',
+                status TEXT NOT NULL DEFAULT 'active',
+                source TEXT NOT NULL DEFAULT 'config_sync',
                 updated_at TEXT NOT NULL
             )
             """
@@ -660,6 +718,22 @@ def init_db() -> None:
         )
         _ensure_columns(
             conn,
+            "fund_master",
+            {
+                "pinyin": "TEXT NOT NULL DEFAULT ''",
+                "abbr": "TEXT NOT NULL DEFAULT ''",
+                "market_group": "TEXT NOT NULL DEFAULT ''",
+                "fund_type": "TEXT NOT NULL DEFAULT ''",
+                "bucket": "TEXT NOT NULL DEFAULT ''",
+                "tags_json": "TEXT NOT NULL DEFAULT '[]'",
+                "aliases_json": "TEXT NOT NULL DEFAULT '[]'",
+                "status": "TEXT NOT NULL DEFAULT 'active'",
+                "source": "TEXT NOT NULL DEFAULT 'config_sync'",
+                "updated_at": "TEXT NOT NULL DEFAULT ''",
+            },
+        )
+        _ensure_columns(
+            conn,
             "fund_profit_confirm",
             {
                 "confirmed_at": "TEXT NOT NULL DEFAULT ''",
@@ -730,6 +804,7 @@ def init_db() -> None:
                OR (updated_at IS NULL OR updated_at = '')
             """
         )
+        _backfill_fund_master_from_catalog(conn)
         conn.commit()
 
 
@@ -2391,17 +2466,33 @@ def _normalize_catalog_item(item: dict[str, Any]) -> dict[str, Any] | None:
     pinyin = _normalize_catalog_text(item.get("pinyin")).lower()
     abbr = _normalize_catalog_text(item.get("abbr")).lower() or _derive_catalog_abbr(name)
     status = _normalize_catalog_text(item.get("status")).lower() or "active"
+    bucket = _normalize_catalog_text(item.get("bucket"))
+    market_group = _normalize_catalog_text(item.get("market_group")) or decide_market_group(
+        name=name,
+        tags=tags,
+        market=_normalize_catalog_text(item.get("market")),
+        currency=_normalize_catalog_text(item.get("currency")),
+        asset_class=_normalize_catalog_text(item.get("asset_class")),
+    )
+    fund_type = _normalize_catalog_text(item.get("fund_type") or item.get("type")).lower()
+    source = _normalize_catalog_text(item.get("source")).lower() or "config_sync"
     notify_email_placeholder = _normalize_catalog_text(item.get("notify_email_placeholder"))
     notify_feishu_placeholder = _normalize_catalog_text(item.get("notify_feishu_placeholder"))
+    aliases = _derive_catalog_aliases(item=item, name=name, tags=tags)
     return {
         "fund_id": fund_id,
         "name": name,
         "pinyin": pinyin,
         "abbr": abbr,
+        "market_group": market_group,
+        "fund_type": fund_type,
+        "bucket": bucket,
+        "tags": tags,
+        "source": source,
         "status": status,
         "notify_email_placeholder": notify_email_placeholder,
         "notify_feishu_placeholder": notify_feishu_placeholder,
-        "aliases": _derive_catalog_aliases(item=item, name=name, tags=tags),
+        "aliases": aliases,
     }
 
 
@@ -2454,6 +2545,7 @@ def upsert_fund_catalog(items: list[dict[str, Any]]) -> int:
                 for row in rows
             ],
         )
+        _upsert_fund_master(conn=conn, rows=rows, updated_at=updated_at)
         _replace_fund_aliases(conn=conn, rows=rows, updated_at=updated_at)
         conn.commit()
     return len(rows)
@@ -2489,6 +2581,48 @@ def _replace_fund_aliases(conn: sqlite3.Connection, rows: list[dict[str, Any]], 
             """,
             alias_rows,
         )
+
+
+def _upsert_fund_master(conn: sqlite3.Connection, rows: list[dict[str, Any]], updated_at: str) -> None:
+    if not rows:
+        return
+    conn.executemany(
+        """
+        INSERT INTO fund_master (
+            fund_id, name, pinyin, abbr, market_group, fund_type, bucket,
+            tags_json, aliases_json, status, source, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(fund_id) DO UPDATE SET
+            name = excluded.name,
+            pinyin = excluded.pinyin,
+            abbr = excluded.abbr,
+            market_group = excluded.market_group,
+            fund_type = excluded.fund_type,
+            bucket = excluded.bucket,
+            tags_json = excluded.tags_json,
+            aliases_json = excluded.aliases_json,
+            status = excluded.status,
+            source = excluded.source,
+            updated_at = excluded.updated_at
+        """,
+        [
+            (
+                row["fund_id"],
+                row["name"],
+                row["pinyin"],
+                row["abbr"],
+                str(row.get("market_group") or ""),
+                str(row.get("fund_type") or ""),
+                str(row.get("bucket") or ""),
+                json.dumps(_normalize_tags(row.get("tags")), ensure_ascii=False),
+                json.dumps([str(alias or "").strip() for alias in row.get("aliases", []) if str(alias or "").strip()], ensure_ascii=False),
+                row["status"],
+                str(row.get("source") or "config_sync"),
+                updated_at,
+            )
+            for row in rows
+        ],
+    )
 
 
 def sync_fund_catalog_from_config(config: dict[str, Any]) -> int:
@@ -2551,44 +2685,46 @@ def list_fund_suggestions(keyword: str, limit: int = 10) -> list[dict[str, Any]]
             fuzzy_normalized = f"%{clean_keyword_normalized or clean_keyword.lower()}%"
             rows = conn.execute(
                 """
-                SELECT c.fund_id, c.name, c.pinyin, c.abbr, c.status,
+                SELECT m.fund_id, m.name, m.pinyin, m.abbr, m.status,
                        c.notify_email_placeholder, c.notify_feishu_placeholder,
+                       m.market_group, m.fund_type, m.bucket, m.tags_json,
                        (
                            SELECT GROUP_CONCAT(alias)
                            FROM fund_alias fa_all
-                           WHERE fa_all.fund_id = c.fund_id
+                           WHERE fa_all.fund_id = m.fund_id
                        ) AS aliases_csv,
                        (
                            SELECT GROUP_CONCAT(alias)
                            FROM fund_alias fa_hit
-                           WHERE fa_hit.fund_id = c.fund_id
+                           WHERE fa_hit.fund_id = m.fund_id
                              AND (fa_hit.alias LIKE ? OR fa_hit.normalized_alias LIKE ?)
                        ) AS alias_hits_csv
-                FROM fund_catalog c
-                WHERE c.fund_id LIKE ?
-                   OR c.name LIKE ?
-                   OR c.pinyin LIKE ?
-                   OR c.abbr LIKE ?
+                FROM fund_master m
+                LEFT JOIN fund_catalog c ON c.fund_id = m.fund_id
+                WHERE m.fund_id LIKE ?
+                   OR m.name LIKE ?
+                   OR m.pinyin LIKE ?
+                   OR m.abbr LIKE ?
                    OR EXISTS (
                        SELECT 1
                        FROM fund_alias fa_hit
-                       WHERE fa_hit.fund_id = c.fund_id
+                       WHERE fa_hit.fund_id = m.fund_id
                          AND (fa_hit.alias LIKE ? OR fa_hit.normalized_alias LIKE ?)
                    )
                 ORDER BY
                     CASE
-                        WHEN c.fund_id LIKE ? THEN 0
-                        WHEN c.name LIKE ? THEN 1
+                        WHEN m.fund_id LIKE ? THEN 0
+                        WHEN m.name LIKE ? THEN 1
                         WHEN EXISTS (
                             SELECT 1
                             FROM fund_alias fa_hit
-                            WHERE fa_hit.fund_id = c.fund_id
+                            WHERE fa_hit.fund_id = m.fund_id
                               AND (fa_hit.alias LIKE ? OR fa_hit.normalized_alias LIKE ?)
                         ) THEN 2
-                        WHEN c.pinyin LIKE ? THEN 3
+                        WHEN m.pinyin LIKE ? THEN 3
                         ELSE 4
                     END,
-                    c.fund_id ASC
+                    m.fund_id ASC
                 LIMIT ?
                 """,
                 (
@@ -2611,15 +2747,17 @@ def list_fund_suggestions(keyword: str, limit: int = 10) -> list[dict[str, Any]]
         else:
             rows = conn.execute(
                 """
-                SELECT c.fund_id, c.name, c.pinyin, c.abbr, c.status,
+                SELECT m.fund_id, m.name, m.pinyin, m.abbr, m.status,
                        c.notify_email_placeholder, c.notify_feishu_placeholder,
+                       m.market_group, m.fund_type, m.bucket, m.tags_json,
                        (
                            SELECT GROUP_CONCAT(alias)
                            FROM fund_alias fa_all
-                           WHERE fa_all.fund_id = c.fund_id
+                           WHERE fa_all.fund_id = m.fund_id
                        ) AS aliases_csv
-                FROM fund_catalog c
-                ORDER BY c.fund_id ASC
+                FROM fund_master m
+                LEFT JOIN fund_catalog c ON c.fund_id = m.fund_id
+                ORDER BY m.fund_id ASC
                 LIMIT ?
                 """,
                 (safe_limit,),
@@ -2634,6 +2772,10 @@ def list_fund_suggestions(keyword: str, limit: int = 10) -> list[dict[str, Any]]
             "status": str(row["status"] or "active"),
             "notify_email_placeholder": str(row["notify_email_placeholder"] or ""),
             "notify_feishu_placeholder": str(row["notify_feishu_placeholder"] or ""),
+            "market_group": str(row["market_group"] or ""),
+            "fund_type": str(row["fund_type"] or ""),
+            "bucket": str(row["bucket"] or ""),
+            "tags": _normalize_tags(json.loads(str(row["tags_json"] or "[]")) if str(row["tags_json"] or "").strip() else []),
             "aliases": _parse_alias_csv(row["aliases_csv"]),
             "alias_hits": _parse_alias_csv(row["alias_hits_csv"]) if "alias_hits_csv" in row.keys() else [],
         }
@@ -2649,15 +2791,17 @@ def get_fund_catalog_item(fund_id: str) -> dict[str, Any] | None:
     with connect() as conn:
         row = conn.execute(
             """
-            SELECT c.fund_id, c.name, c.pinyin, c.abbr, c.status,
-                   c.notify_email_placeholder, c.notify_feishu_placeholder, c.updated_at,
+            SELECT m.fund_id, m.name, m.pinyin, m.abbr, m.status,
+                   c.notify_email_placeholder, c.notify_feishu_placeholder, m.updated_at,
+                   m.market_group, m.fund_type, m.bucket, m.tags_json, m.source,
                    (
                        SELECT GROUP_CONCAT(alias)
                        FROM fund_alias fa_all
-                       WHERE fa_all.fund_id = c.fund_id
+                       WHERE fa_all.fund_id = m.fund_id
                    ) AS aliases_csv
-            FROM fund_catalog c
-            WHERE c.fund_id = ?
+            FROM fund_master m
+            LEFT JOIN fund_catalog c ON c.fund_id = m.fund_id
+            WHERE m.fund_id = ?
             LIMIT 1
             """,
             (clean_fund_id,),
@@ -2674,7 +2818,12 @@ def get_fund_catalog_item(fund_id: str) -> dict[str, Any] | None:
         "status": str(row["status"] or "active"),
         "notify_email_placeholder": str(row["notify_email_placeholder"] or ""),
         "notify_feishu_placeholder": str(row["notify_feishu_placeholder"] or ""),
+        "market_group": str(row["market_group"] or ""),
+        "fund_type": str(row["fund_type"] or ""),
+        "bucket": str(row["bucket"] or ""),
+        "tags": _normalize_tags(json.loads(str(row["tags_json"] or "[]")) if str(row["tags_json"] or "").strip() else []),
         "aliases": _parse_alias_csv(row["aliases_csv"]),
+        "source": str(row["source"] or ""),
         "updated_at": str(row["updated_at"] or ""),
     }
 
