@@ -7,6 +7,7 @@
 安全红线：
 - Bot Token 属于最高敏感凭据，禁止写入代码仓库、`agent_comms/progress`、截图、日志与录屏。
 - 若怀疑泄露，立刻在 BotFather 旋转（revoke/rotate）token，并更新系统配置。
+- 避免把真实 token 直接粘贴到共享终端/命令历史；建议用临时环境变量或密码管理器临时取用。
 
 ## 1. 你需要准备什么
 
@@ -110,3 +111,18 @@ Invoke-RestMethod "$base/api/settings/notifications/telegram/credential" `
 - 原因：网络抖动或 Telegram 侧短时异常
 - 处理：提高 `timeout_seconds`、适度增加 `retry_times`，并观察日志里的 trace_id
 
+## 6. 安全轮换 bot_token（推荐流程）
+
+当你怀疑泄露、或需要定期轮换时，推荐按以下步骤执行：
+
+1. 在 BotFather 撤销/轮换 token（revoke/rotate）。
+2. 立即通过后端独立凭据接口更新（响应不会回显 bot_token 明文）：
+   - `PUT /api/settings/notifications/telegram/credential`
+3. 确认：
+   - `settings.notifications.telegram.enabled=true`
+   - `chat_id` 可用（参考第 2 节）
+4. 触发一次最小发送验证（建议从业务链路触发，或在本地环境进行一次可控测试）。
+
+提醒：
+- 任何真实 bot_token 禁止写入仓库、`agent_comms/progress`、截图与录屏。
+- 若你之前在终端里直接粘贴过真实 token，建议同步清理 shell 历史或更换终端会话。
