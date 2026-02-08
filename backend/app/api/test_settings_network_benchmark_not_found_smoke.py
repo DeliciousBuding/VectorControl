@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import unittest
 import uuid
@@ -17,7 +17,7 @@ class SettingsNetworkBenchmarkCompatSmokeTest(unittest.TestCase):
         token = str(resp.json()["token"])
         return {"Authorization": f"Bearer {token}"}
 
-    def test_compat_paths_do_not_return_not_found(self) -> None:
+    def test_settings_and_compat_paths_do_not_return_not_found(self) -> None:
         fake_result = {
             "profile": "cn_fund",
             "timeout_seconds": 2.5,
@@ -29,20 +29,57 @@ class SettingsNetworkBenchmarkCompatSmokeTest(unittest.TestCase):
             headers = self._register_and_headers(client)
             run_payload = {"profile": "cn_fund", "timeout_seconds": 2.5, "persist": True}
 
-            run_resp = client.post("/api/network-benchmark/run", json=run_payload, headers=headers)
-            self.assertEqual(run_resp.status_code, 200, run_resp.text)
-            self.assertEqual(str(run_resp.json().get("result", {}).get("profile")), "cn_fund")
+            run_paths = [
+                "/api/settings/network-benchmark/run",
+                "/api/settings/network_benchmark/run",
+                "/api/network-benchmark/run",
+                "/api/network_benchmark/run",
+            ]
+            for path in run_paths:
+                resp = client.post(path, json=run_payload, headers=headers)
+                self.assertEqual(resp.status_code, 200, f"{path}: {resp.text}")
+                self.assertEqual(str(resp.json().get("result", {}).get("profile")), "cn_fund")
 
-            run_resp_legacy = client.post("/api/network_benchmark/run", json=run_payload, headers=headers)
-            self.assertEqual(run_resp_legacy.status_code, 200, run_resp_legacy.text)
+            latest_paths = [
+                "/api/settings/network-benchmark/latest",
+                "/api/settings/network_benchmark/latest",
+                "/api/network-benchmark/latest",
+                "/api/network_benchmark/latest",
+            ]
+            for path in latest_paths:
+                resp = client.get(path, headers=headers)
+                self.assertEqual(resp.status_code, 200, f"{path}: {resp.text}")
+                self.assertEqual(bool(resp.json().get("available")), True)
 
-            latest_resp = client.get("/api/network-benchmark/latest", headers=headers)
-            self.assertEqual(latest_resp.status_code, 200, latest_resp.text)
-            self.assertEqual(bool(latest_resp.json().get("available")), True)
+    def test_invalid_profile_returns_422(self) -> None:
+        with TestClient(app) as client, patch("app.api.routers.settings.run_network_benchmark") as mocked:
+            headers = self._register_and_headers(client)
+            payload = {"profile": "bad_profile", "timeout_seconds": 2.5, "persist": True}
+            for path in [
+                "/api/settings/network-benchmark/run",
+                "/api/network-benchmark/run",
+                "/api/network_benchmark/run",
+            ]:
+                resp = client.post(path, json=payload, headers=headers)
+                self.assertEqual(resp.status_code, 422, f"{path}: {resp.text}")
+            mocked.assert_not_called()
 
-            latest_resp_legacy = client.get("/api/network_benchmark/latest", headers=headers)
-            self.assertEqual(latest_resp_legacy.status_code, 200, latest_resp_legacy.text)
-            self.assertEqual(bool(latest_resp_legacy.json().get("available")), True)
+    def test_invalid_timeout_returns_422(self) -> None:
+        with TestClient(app) as client, patch("app.api.routers.settings.run_network_benchmark") as mocked:
+            headers = self._register_and_headers(client)
+            payloads = [
+                {"profile": "cn_fund", "timeout_seconds": 0.1, "persist": True},
+                {"profile": "global", "timeout_seconds": 99, "persist": True},
+            ]
+            for payload in payloads:
+                for path in [
+                    "/api/settings/network-benchmark/run",
+                    "/api/network-benchmark/run",
+                    "/api/network_benchmark/run",
+                ]:
+                    resp = client.post(path, json=payload, headers=headers)
+                    self.assertEqual(resp.status_code, 422, f"{path}: {resp.text}")
+            mocked.assert_not_called()
 
 
 if __name__ == "__main__":

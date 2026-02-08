@@ -1,17 +1,18 @@
 ﻿from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.deps import get_holdings_user_id
-from app.core.network_benchmark import run_network_benchmark
+from app.core.network_benchmark import DEFAULT_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, run_network_benchmark
 from app.storage.db import get_user_settings, upsert_user_settings
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 # Compatibility routes for historical service paths like `/api/network-benchmark/*`.
 compat_router = APIRouter(prefix="/api", tags=["settings-compat"], include_in_schema=False)
+MIN_TIMEOUT_SECONDS = 0.5
 
 
 class SettingsIn(BaseModel):
@@ -19,8 +20,12 @@ class SettingsIn(BaseModel):
 
 
 class NetworkBenchmarkRunIn(BaseModel):
-    profile: str = "cn_fund"
-    timeout_seconds: float = 6.0
+    profile: Literal["cn_fund", "global"] = "cn_fund"
+    timeout_seconds: float = Field(
+        default=DEFAULT_TIMEOUT_SECONDS,
+        ge=MIN_TIMEOUT_SECONDS,
+        le=MAX_TIMEOUT_SECONDS,
+    )
     persist: bool = True
 
 
