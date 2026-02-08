@@ -15,7 +15,10 @@ const DEFAULT_SETTINGS = {
       enabled: false,
       webhook_url: '',
       advice_time: '14:50',
-      report_time: '15:10'
+      report_time: '15:10',
+      timeout_seconds: 3,
+      retry_times: 2,
+      template: 'title_content_metadata'
     },
     email: {
       enabled: false,

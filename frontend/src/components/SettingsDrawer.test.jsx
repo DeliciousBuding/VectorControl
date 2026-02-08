@@ -131,4 +131,38 @@ describe('SettingsDrawer', () => {
     expect(await screen.findByText(/测速结果格式异常/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '设置中心' })).toBeInTheDocument()
   })
+
+  it('支持编辑飞书高级参数并随保存请求提交', async () => {
+    const onSave = vi.fn().mockResolvedValue(true)
+    const onClose = vi.fn()
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{}}
+        onClose={onClose}
+        onSave={onSave}
+      />
+    )
+
+    fireEvent.change(screen.getByLabelText('飞书超时（秒）'), { target: { value: '1.5' } })
+    fireEvent.change(screen.getByLabelText('飞书重试次数'), { target: { value: '4' } })
+    fireEvent.change(screen.getByLabelText('飞书消息模板'), { target: { value: 'content_only' } })
+    fireEvent.click(screen.getByRole('button', { name: '保存设置' }))
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledTimes(1)
+    })
+
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      notifications: {
+        feishu: {
+          timeout_seconds: 1.5,
+          retry_times: 4,
+          template: 'content_only'
+        }
+      }
+    })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
 })

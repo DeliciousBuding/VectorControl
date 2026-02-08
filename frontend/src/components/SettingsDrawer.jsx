@@ -7,6 +7,11 @@ const PROFILE_OPTIONS = [
   { value: 'global', label: '国际站点' }
 ]
 
+const FEISHU_TEMPLATE_OPTIONS = [
+  { value: 'title_content_metadata', label: '标题+正文+元数据' },
+  { value: 'content_only', label: '仅正文' }
+]
+
 const DEFAULT_DRAWER_SETTINGS = {
   display: {
     auto_refresh_enabled: true,
@@ -16,7 +21,12 @@ const DEFAULT_DRAWER_SETTINGS = {
   notifications: {
     feishu: {
       enabled: false,
-      webhook_url: ''
+      webhook_url: '',
+      advice_time: '14:50',
+      report_time: '15:10',
+      timeout_seconds: 3,
+      retry_times: 2,
+      template: 'title_content_metadata'
     },
     email: {
       enabled: false,
@@ -400,6 +410,57 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
               }))}
               placeholder="填入飞书机器人 Webhook"
             />
+          </label>
+          <label>
+            <span>飞书超时（秒）</span>
+            <input
+              type="number"
+              min={0.5}
+              max={30}
+              step={0.5}
+              value={draft.notifications.feishu.timeout_seconds ?? 3}
+              onChange={(e) => updateDraft((prev) => ({
+                ...prev,
+                notifications: {
+                  ...prev.notifications,
+                  feishu: { ...prev.notifications.feishu, timeout_seconds: Number(e.target.value) || 3 }
+                }
+              }))}
+            />
+          </label>
+          <label>
+            <span>飞书重试次数</span>
+            <input
+              type="number"
+              min={0}
+              max={5}
+              step={1}
+              value={draft.notifications.feishu.retry_times ?? 2}
+              onChange={(e) => updateDraft((prev) => ({
+                ...prev,
+                notifications: {
+                  ...prev.notifications,
+                  feishu: { ...prev.notifications.feishu, retry_times: Math.max(0, Number(e.target.value) || 0) }
+                }
+              }))}
+            />
+          </label>
+          <label>
+            <span>飞书消息模板</span>
+            <select
+              value={draft.notifications.feishu.template || 'title_content_metadata'}
+              onChange={(e) => updateDraft((prev) => ({
+                ...prev,
+                notifications: {
+                  ...prev.notifications,
+                  feishu: { ...prev.notifications.feishu, template: e.target.value || 'title_content_metadata' }
+                }
+              }))}
+            >
+              {FEISHU_TEMPLATE_OPTIONS.map((item) => (
+                <option key={item.value} value={item.value}>{item.label}</option>
+              ))}
+            </select>
           </label>
         </div>
 
