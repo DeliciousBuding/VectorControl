@@ -22,7 +22,9 @@ export const HoldingsTable = memo(function HoldingsTable({
   onSelectFund,
   sparklineMap,
   onSaveHolding,
-  onOpenAudit
+  onOpenAudit,
+  onAutoFillHolding,
+  autoFillLoadingFundId
 }) {
   const [editingId, setEditingId] = useState('')
   const [draft, setDraft] = useState({})
@@ -99,6 +101,7 @@ export const HoldingsTable = memo(function HoldingsTable({
             {rows.map((row) => {
               const selected = selectedFundId === row.fund_id
               const isEditing = editingId === row.fund_id
+              const autoFilling = String(autoFillLoadingFundId || '') === String(row.fund_id)
               const weight = totalMarket > 0 ? (row.market_value_cny / totalMarket) * 100 : 0
               const startDateText = row.start_date ? String(row.start_date).slice(0, 10) : '--'
               const state = String(row.confirm_state || '')
@@ -198,6 +201,9 @@ export const HoldingsTable = memo(function HoldingsTable({
                       <div className="row-actions row-actions-hover" onClick={(e) => e.stopPropagation()}>
                         <button type="button" className="text-btn" onClick={() => beginEdit(row)}>
                           编辑
+                        </button>
+                        <button type="button" className="text-btn neutral-text" disabled={autoFilling} onClick={() => onAutoFillHolding?.(row)}>
+                          {autoFilling ? '补全中...' : '自动补全'}
                         </button>
                         <button type="button" className="text-btn neutral-text" onClick={() => onOpenAudit?.(row.fund_id)}>
                           审计

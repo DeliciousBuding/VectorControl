@@ -299,6 +299,9 @@ function App() {
   const [holdingCreateSubmitting, setHoldingCreateSubmitting] = useState(false)
   const [holdingCreateError, setHoldingCreateError] = useState('')
   const [holdingCreateResult, setHoldingCreateResult] = useState(null)
+  const [holdingAutoFillLoadingFundId, setHoldingAutoFillLoadingFundId] = useState('')
+  const [holdingAutoFillError, setHoldingAutoFillError] = useState('')
+  const [holdingAutoFillResult, setHoldingAutoFillResult] = useState(null)
   const [tradeAmount, setTradeAmount] = useState('')
   const [tradeOccurredAt, setTradeOccurredAt] = useState(() => nowForDateTimeInput())
   const [tradeDone, setTradeDone] = useState(false)
@@ -979,6 +982,63 @@ function App() {
     }
   }, [createHolding, holdingCreateForm, rows])
 
+  const handleAutoFillHolding = useCallback(async (row) => {
+    const fundId = String(row?.fund_id || '').trim()
+    if (!fundId) return
+    setHoldingAutoFillLoadingFundId(fundId)
+    setHoldingAutoFillError('')
+    setHoldingAutoFillResult(null)
+    try {
+      const payload = await fetchFundSuggest(fundId, 8)
+      const items = Array.isArray(payload?.items) ? payload.items : []
+      const matched = items.find((item) => String(item?.fund_id || '').trim() === fundId) || items[0]
+      if (!matched) {
+        throw new Error(`未查询到 ${fundId} 的基金主数据`)
+      }
+
+      const patch = {}
+      const nextName = String(matched.name || '').trim()
+      const nextGroup = String(matched.market_group || '').trim().toLowerCase()
+      const nextBucket = String(matched.bucket || '').trim()
+      const nextTags = Array.isArray(matched.tags) ? matched.tags.filter(Boolean) : []
+
+      if (nextName && nextName !== String(row.name || '').trim()) patch.name = nextName
+      if (nextGroup && nextGroup !== String(row.market_group || '').trim().toLowerCase()) patch.market_group = nextGroup
+      if (nextBucket && nextBucket !== String(row.bucket || '').trim()) patch.bucket = nextBucket
+      if (nextTags.length > 0) patch.tags = nextTags
+
+      if (Object.keys(patch).length === 0) {
+        setHoldingAutoFillResult({
+          fund_id: fundId,
+          name: row.name || '--',
+          market_group: row.market_group || 'cn_hk',
+          bucket: row.bucket || '--',
+          fields: []
+        })
+        recordMetric('持仓编辑自动补全跳过', { fund_id: fundId })
+        return
+      }
+
+      const ok = await saveHolding(fundId, patch)
+      if (!ok) {
+        throw new Error('持仓更新失败')
+      }
+      setHoldingAutoFillResult({
+        fund_id: fundId,
+        name: patch.name || row.name || '--',
+        market_group: patch.market_group || row.market_group || 'cn_hk',
+        bucket: patch.bucket || row.bucket || '--',
+        fields: Object.keys(patch)
+      })
+      recordMetric('持仓编辑自动补全成功', { fund_id: fundId, fields: Object.keys(patch).join(',') })
+    } catch (error) {
+      setHoldingAutoFillError(toGuidedError(error, 'holding_autofill', '持仓自动补全失败'))
+      recordMetric('持仓编辑自动补全失败', { fund_id: fundId })
+    } finally {
+      setHoldingAutoFillLoadingFundId('')
+    }
+  }, [saveHolding])
+
   useEffect(() => {
     if (!user) {
       setActionLogs([])
@@ -1009,6 +1069,9 @@ function App() {
       setHoldingCreateSubmitting(false)
       setHoldingCreateError('')
       setHoldingCreateResult(null)
+      setHoldingAutoFillLoadingFundId('')
+      setHoldingAutoFillError('')
+      setHoldingAutoFillResult(null)
       setHoldingCreateForm({
         fund_id: '',
         name: '',
@@ -2461,6 +2524,19 @@ function App() {
                   <p>市场：{marketGroupLabel(holdingCreateResult.market_group)} ｜ 分组：{holdingCreateResult.bucket || '--'}</p>
                 </div>
               )}
+              {holdingAutoFillError && <div className="chart-empty">{holdingAutoFillError}</div>}
+              {holdingAutoFillResult && (
+                <div className="trade-result">
+                  <strong>持仓自动补全完成</strong>
+                  <p>基金：{holdingAutoFillResult.name || '--'}（{holdingAutoFillResult.fund_id || '--'}）</p>
+                  <p>市场：{marketGroupLabel(holdingAutoFillResult.market_group)} ｜ 分组：{holdingAutoFillResult.bucket || '--'}</p>
+                  <p>
+                    {Array.isArray(holdingAutoFillResult.fields) && holdingAutoFillResult.fields.length > 0
+                      ? `已回填字段：${holdingAutoFillResult.fields.join(' / ')}`
+                      : '当前字段已是最新，无需回填'}
+                  </p>
+                </div>
+              )}
             </section>
 
             <HoldingsTable
@@ -2474,6 +2550,8 @@ function App() {
               sparklineMap={sparklineMap}
               onSaveHolding={saveHolding}
               onOpenAudit={handleOpenHoldingAudit}
+              onAutoFillHolding={handleAutoFillHolding}
+              autoFillLoadingFundId={holdingAutoFillLoadingFundId}
             />
 
             <HoldingsTable
@@ -2487,6 +2565,8 @@ function App() {
               sparklineMap={sparklineMap}
               onSaveHolding={saveHolding}
               onOpenAudit={handleOpenHoldingAudit}
+              onAutoFillHolding={handleAutoFillHolding}
+              autoFillLoadingFundId={holdingAutoFillLoadingFundId}
             />
 
             <section className="panel audit-panel">
