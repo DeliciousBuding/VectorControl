@@ -25,6 +25,7 @@ import { LoginPanel } from './components/LoginPanel.jsx'
 import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
 import { ReturnsChart } from './components/ReturnsChart.jsx'
+import { BenchmarkComparison } from './components/BenchmarkComparison.jsx'
 import { HoldingsTable } from './components/HoldingsTable.jsx'
 import { FundDetailPanel } from './components/FundDetailPanel.jsx'
 import { RiskCenter } from './components/RiskCenter.jsx'
@@ -1731,6 +1732,7 @@ function App() {
         <>
           <SummaryCards rows={rows} loading={loading} />
           <ReturnsChart user={user} />
+          <BenchmarkComparison user={user} />
           <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
           
           <section className="panel home-main">
