@@ -124,6 +124,7 @@ npm run dev -- --host 127.0.0.1 --port 5173
 - `docs/Gate-D验收证据模板.md`：上线后验收留档模板（HTTPS/回滚/巡检）
 - `docs/状态解释验收样例.md`：`data_status` 与 `/system/status` 回归样例（接口 + 页面 + 截图清单）
 - `docs/架构决策记录.md`：关键架构取舍（ADR）与长期边界共识
+- `docs/telegram/pyTelegramBotAPI文档调研与接入指南.md`：Telegram Bot 官方文档整理与接入建议（pyTelegramBotAPI）
 - `ROADMAP.md`：当前待办优先级与里程碑
 - `docs/ROADMAP完成归档.md`：已完成任务归档（历史留痕）
 
