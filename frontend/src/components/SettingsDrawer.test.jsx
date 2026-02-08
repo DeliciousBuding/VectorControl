@@ -1,11 +1,12 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsDrawer } from './SettingsDrawer.jsx'
-import { fetchNetworkBenchmarkLatest, fetchNotificationsStatus, runNetworkBenchmark } from '../api.js'
+import { fetchNetworkBenchmarkLatest, fetchNotificationsStatus, fetchSystemStatus, runNetworkBenchmark } from '../api.js'
 
 vi.mock('../api.js', () => ({
   fetchNetworkBenchmarkLatest: vi.fn(),
   fetchNotificationsStatus: vi.fn(),
+  fetchSystemStatus: vi.fn(),
   runNetworkBenchmark: vi.fn()
 }))
 
@@ -20,6 +21,7 @@ describe('SettingsDrawer', () => {
         email: { enabled: false, credential_configured: false, last_test_summary: null }
       }
     })
+    fetchSystemStatus.mockResolvedValue({})
     runNetworkBenchmark.mockResolvedValue({ result: null })
   })
 
@@ -393,6 +395,58 @@ describe('SettingsDrawer', () => {
 
     // Toast message is a plain string, so it won't be split across nodes.
     expect(await screen.findByText(/trace_id: h1/)).toBeInTheDocument()
+  })
+
+  it('通知诊断支持复制整包诊断信息（status + 版本信息）', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true
+    })
+
+    fetchSystemStatus.mockResolvedValueOnce({
+      service: 'vectorcontrol',
+      version: 'v1.2.3',
+      commit: 'abc123',
+      server_time: '2026-02-09T03:00:00Z'
+    })
+
+    fetchNotificationsStatus.mockResolvedValueOnce({
+      status: {
+        feishu: { enabled: true, credential_configured: true, last_test_summary: null },
+        telegram: { enabled: false, credential_configured: false, last_test_summary: null }
+      }
+    })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            feishu: { webhook_url: '<REDACTED>' },
+            telegram: { chat_id: '-1001234567890' }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.click(screen.getByTestId('diagnostic-copy-bundle-btn'))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledTimes(1)
+    })
+
+    const copied = String(writeText.mock.calls[0][0] || '')
+    expect(copied).toMatch(/\"notifications_status\"/)
+    expect(copied).toMatch(/\"system_status\"/)
+    expect(copied).toMatch(/\"commit\": \"abc123\"/)
+    expect(await screen.findByText(/已复制诊断信息/)).toBeInTheDocument()
   })
 
   it('can send feishu test message and show hint', async () => {

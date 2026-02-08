@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchNetworkBenchmarkLatest, fetchNotificationsStatus, runNetworkBenchmark } from '../api.js'
+import { fetchNetworkBenchmarkLatest, fetchNotificationsStatus, fetchSystemStatus, runNetworkBenchmark } from '../api.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
 import { TestMessageButton } from './TestMessageButton.jsx'
 
@@ -485,6 +485,49 @@ export function SettingsDrawer({
     const ok = document.execCommand('copy')
     document.body.removeChild(textarea)
     return ok
+  }
+
+  const handleCopyDiagnosticBundle = async () => {
+    try {
+      const statusSnapshot = notificationsStatus ? asPlainObject(notificationsStatus) : null
+      const statusErrorSnapshot = String(notificationsStatusError || '').trim()
+
+      let systemStatus = null
+      try {
+        // Best-effort: include backend version/commit if available.
+        systemStatus = await fetchSystemStatus()
+      } catch {
+        systemStatus = null
+      }
+
+      const system = asPlainObject(systemStatus)
+      const bundle = {
+        copied_at: new Date().toISOString(),
+        notifications_status: statusSnapshot,
+        ...(statusErrorSnapshot ? { notifications_status_error: statusErrorSnapshot } : {}),
+        ...(system
+          ? {
+              system_status: {
+                service: system.service || '',
+                version: system.version || '',
+                commit: system.commit || '',
+                server_time: system.server_time || ''
+              }
+            }
+          : {})
+      }
+
+      const text = JSON.stringify(bundle, null, 2)
+      const ok = await copyTextToClipboard(text)
+      if (ok) {
+        handleDiagnosticToast({ type: 'success', message: '已复制诊断信息（脱敏）' })
+      } else {
+        handleDiagnosticToast({ type: 'error', message: '复制失败：浏览器不支持剪贴板' })
+      }
+    } catch (error) {
+      const detail = String(error?.message || '').trim()
+      handleDiagnosticToast({ type: 'error', message: detail ? `复制失败：${detail}` : '复制失败' })
+    }
   }
 
   const handleDiagnosticToast = (toast) => {
@@ -1069,6 +1112,15 @@ export function SettingsDrawer({
                     onToast={handleDiagnosticToast}
                     afterSend={refreshNotificationsStatus}
                   />
+                  <button
+                    type="button"
+                    className="ghost"
+                    data-testid="diagnostic-copy-bundle-btn"
+                    disabled={notificationsStatusLoading}
+                    onClick={handleCopyDiagnosticBundle}
+                  >
+                    复制诊断信息
+                  </button>
                 </div>
 
                 {diagnosticHint ? <p className="settings-note">{diagnosticHint}</p> : null}
