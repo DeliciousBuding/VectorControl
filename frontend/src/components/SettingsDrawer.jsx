@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchNetworkBenchmarkLatest, fetchNotificationsStatus, runNetworkBenchmark } from '../api.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
+import { TestMessageButton } from './TestMessageButton.jsx'
 
 const PROFILE_OPTIONS = [
   { value: 'cn_fund', label: '国内基金站点' },
@@ -178,8 +179,7 @@ function normalizeNotificationsStatus(payload) {
   const nestedNotifications = asPlainObject(container.notifications)
   return {
     feishu: asPlainObject(container.feishu || nestedNotifications.feishu),
-    telegram: asPlainObject(container.telegram || nestedNotifications.telegram),
-    email: asPlainObject(container.email || nestedNotifications.email)
+    telegram: asPlainObject(container.telegram || nestedNotifications.telegram)
   }
 }
 
@@ -206,7 +206,6 @@ export function SettingsDrawer({
   const [notificationsStatusLoading, setNotificationsStatusLoading] = useState(false)
   const [notificationsStatusError, setNotificationsStatusError] = useState('')
   const [notificationsStatus, setNotificationsStatus] = useState(null)
-  const [diagnosticSendingChannel, setDiagnosticSendingChannel] = useState('')
   const [diagnosticHint, setDiagnosticHint] = useState('')
   const [diagnosticError, setDiagnosticError] = useState('')
   const [saveError, setSaveError] = useState('')
@@ -226,7 +225,6 @@ export function SettingsDrawer({
     setPendingTelegramChatId(telegramChatId)
     setNotificationsStatusError('')
     setNotificationsStatus(null)
-    setDiagnosticSendingChannel('')
     setDiagnosticHint('')
     setDiagnosticError('')
     setSaveError('')
@@ -457,53 +455,17 @@ export function SettingsDrawer({
     }
   }
 
-  const sendDiagnosticTestMessage = async (channel) => {
-    const channelKey = String(channel || '').trim().toLowerCase()
-    const label = channelKey === 'feishu' ? '飞书' : 'Telegram'
-    const pendingUpdate = channelKey === 'feishu' ? shouldUpdateFeishuWebhook : shouldUpdateTelegramCredential
-    const callback = channelKey === 'feishu' ? onSendFeishuTestMessage : onSendTelegramTestMessage
+  const handleDiagnosticToast = (toast) => {
+    const type = String(toast?.type || '').trim()
+    const message = String(toast?.message || '').trim()
+    if (!message) return
 
-    setDiagnosticHint('')
-    setDiagnosticError('')
-
-    if (pendingUpdate) {
-      setDiagnosticError(`已输入新凭据，请先保存设置以更新凭据后再发送测试消息。`)
-      return
-    }
-
-    if (channelKey === 'telegram' && !currentTelegramChatId) {
-      setDiagnosticError('chat_id 为空，无法发送测试消息。请先配置并保存凭据。')
-      return
-    }
-
-    if (typeof callback !== 'function') {
-      setDiagnosticError(`${label} 测试消息未接入。下一步：请检查前端回调与后端接口是否已集成。`)
-      return
-    }
-
-    setDiagnosticSendingChannel(channelKey)
-    try {
-      const payload = await callback()
-      const traceId = String(payload?.trace_id || '').trim()
-      const ok = payload?.ok === true && payload?.sent === true
-
-      if (ok) {
-        setDiagnosticHint(`${label} 测试消息已发送${traceId ? `（trace_id: ${traceId}）` : ''}`)
-      } else {
-        const category = String(payload?.error?.category || '').trim()
-        const message = String(payload?.error?.message || payload?.error?.description || '').trim()
-        const suffix = [category, message].filter(Boolean).join(' - ')
-        setDiagnosticError(
-          `${label} 测试消息发送失败${traceId ? `（trace_id: ${traceId}）` : ''}${suffix ? `：${suffix}` : ''}`
-        )
-      }
-
-      // 后端若已持久化 last_test_summary，可刷新面板展示；未持久化则忽略。
-      await refreshNotificationsStatus()
-    } catch (error) {
-      setDiagnosticError(toGuidedError(error, 'settings_save', `${label} 测试消息发送失败`))
-    } finally {
-      setDiagnosticSendingChannel('')
+    if (type === 'success') {
+      setDiagnosticHint(message)
+      setDiagnosticError('')
+    } else {
+      setDiagnosticError(message)
+      setDiagnosticHint('')
     }
   }
 
@@ -882,22 +844,15 @@ export function SettingsDrawer({
             const root = asPlainObject(notificationsStatus)
             const feishuStatus = asPlainObject(root.feishu)
             const telegramStatus = asPlainObject(root.telegram)
-            const emailStatus = asPlainObject(root.email)
 
             const feishuEnabled = feishuStatus.enabled ?? Boolean(draft.notifications.feishu.enabled)
             const telegramEnabled = telegramStatus.enabled ?? Boolean(draft.notifications.telegram.enabled)
-            const emailEnabled = emailStatus.enabled ?? Boolean(draft.notifications.email.enabled)
 
             const feishuCredentialConfigured = Boolean(feishuStatus.credential_configured) || hasFeishuWebhook
             const telegramCredentialConfigured = Boolean(telegramStatus.credential_configured) || hasTelegramCredential
-            const emailCredentialConfigured = Boolean(emailStatus.credential_configured)
-              || Boolean(String(draft.notifications.email.smtp_host || '').trim()
-                && String(draft.notifications.email.sender || '').trim()
-                && String(draft.notifications.email.recipients || '').trim())
 
             const feishuLast = feishuStatus.last_test_summary ?? null
             const telegramLast = telegramStatus.last_test_summary ?? null
-            const emailLast = emailStatus.last_test_summary ?? null
 
             const renderLast = (last) => {
               const raw = asPlainObject(last)
@@ -930,30 +885,27 @@ export function SettingsDrawer({
                 <div className="settings-note">
                   <p>飞书：{feishuEnabled ? '已启用' : '未启用'}｜凭据：{feishuCredentialConfigured ? '已配置' : '未配置'}｜最近：{renderLast(feishuLast)}</p>
                   <p>Telegram：{telegramEnabled ? '已启用' : '未启用'}｜凭据：{telegramCredentialConfigured ? '已配置' : '未配置'}｜最近：{renderLast(telegramLast)}</p>
-                  <p>邮件：{emailEnabled ? '已启用' : '未启用'}｜凭据：{emailCredentialConfigured ? '已配置' : '未配置'}｜最近：{renderLast(emailLast)}</p>
                 </div>
 
                 <div className="settings-secret-actions">
-                  <button
-                    type="button"
-                    className="ghost"
-                    data-testid="diagnostic-feishu-test-message-btn"
-                    onClick={() => sendDiagnosticTestMessage('feishu')}
-                    disabled={saving || diagnosticSendingChannel === 'feishu' || !canSendFeishu}
-                    title={!canSendFeishu ? feishuDisabledReason : ''}
-                  >
-                    {diagnosticSendingChannel === 'feishu' ? '发送中...' : '飞书 发送测试消息'}
-                  </button>
-                  <button
-                    type="button"
-                    className="ghost"
-                    data-testid="diagnostic-telegram-test-message-btn"
-                    onClick={() => sendDiagnosticTestMessage('telegram')}
-                    disabled={saving || diagnosticSendingChannel === 'telegram' || !canSendTelegram}
-                    title={!canSendTelegram ? telegramDisabledReason : ''}
-                  >
-                    {diagnosticSendingChannel === 'telegram' ? '发送中...' : 'Telegram 发送测试消息'}
-                  </button>
+                  <TestMessageButton
+                    label="飞书"
+                    dataTestId="diagnostic-feishu-test-message-btn"
+                    disabled={saving || !canSendFeishu}
+                    disabledReason={feishuDisabledReason}
+                    onSend={onSendFeishuTestMessage}
+                    onToast={handleDiagnosticToast}
+                    afterSend={refreshNotificationsStatus}
+                  />
+                  <TestMessageButton
+                    label="Telegram"
+                    dataTestId="diagnostic-telegram-test-message-btn"
+                    disabled={saving || !canSendTelegram}
+                    disabledReason={telegramDisabledReason}
+                    onSend={onSendTelegramTestMessage}
+                    onToast={handleDiagnosticToast}
+                    afterSend={refreshNotificationsStatus}
+                  />
                 </div>
 
                 {diagnosticHint ? <p className="settings-note">{diagnosticHint}</p> : null}
