@@ -21,7 +21,7 @@ class SettingsFeishuTestMessageSmokeTest(unittest.TestCase):
     def test_post_feishu_test_message_success_and_no_webhook_echo(self) -> None:
         with TestClient(app) as client:
             headers = self._register_headers(client)
-            webhook_url = "https://open.feishu.cn/open-apis/bot/v2/hook/example-secret-token"
+            webhook_url = "https://open.feishu.cn/REDACTED"
 
             cred_resp = client.put(
                 "/api/settings/notifications/feishu/webhook",
@@ -47,7 +47,7 @@ class SettingsFeishuTestMessageSmokeTest(unittest.TestCase):
     def test_post_feishu_test_message_unauthorized_is_explainable(self) -> None:
         with TestClient(app) as client:
             headers = self._register_headers(client)
-            webhook_url = "https://open.feishu.cn/open-apis/bot/v2/hook/example-secret-token"
+            webhook_url = "https://open.feishu.cn/REDACTED"
 
             cred_resp = client.put(
                 "/api/settings/notifications/feishu/webhook",

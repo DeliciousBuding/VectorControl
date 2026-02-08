@@ -21,7 +21,7 @@ class SettingsFeishuCredentialSmokeTest(unittest.TestCase):
     def test_put_feishu_webhook_credential_updates_without_plaintext_echo(self) -> None:
         with TestClient(app) as client:
             headers = self._register_headers(client)
-            webhook_url = "https://open.feishu.cn/open-apis/bot/v2/hook/example-secret-token"
+            webhook_url = "https://open.feishu.cn/REDACTED"
 
             resp = client.put(
                 "/api/settings/notifications/feishu/webhook",
@@ -67,6 +67,31 @@ class SettingsFeishuCredentialSmokeTest(unittest.TestCase):
                 json={"webhook_url": "   "},
             )
             self.assertEqual(resp.status_code, 422, resp.text)
+            self.assertIn("trace_id=", resp.text)
+
+    def test_put_feishu_webhook_credential_validates_https_and_host(self) -> None:
+        with TestClient(app) as client:
+            headers = self._register_headers(client)
+
+            bad_scheme = "http://open.feishu.cn/REDACTED"
+            resp_http = client.put(
+                "/api/settings/notifications/feishu/webhook",
+                headers=headers,
+                json={"webhook_url": bad_scheme},
+            )
+            self.assertEqual(resp_http.status_code, 422, resp_http.text)
+            self.assertIn("trace_id=", resp_http.text)
+            self.assertNotIn(bad_scheme, resp_http.text)
+
+            bad_host = "https://example.com/REDACTED"
+            resp_host = client.put(
+                "/api/settings/notifications/feishu/webhook",
+                headers=headers,
+                json={"webhook_url": bad_host},
+            )
+            self.assertEqual(resp_host.status_code, 422, resp_host.text)
+            self.assertIn("trace_id=", resp_host.text)
+            self.assertNotIn(bad_host, resp_host.text)
 
     def test_put_feishu_webhook_credential_keeps_non_secret_fields(self) -> None:
         with TestClient(app) as client:
@@ -89,7 +114,7 @@ class SettingsFeishuCredentialSmokeTest(unittest.TestCase):
             seed_resp = client.put("/api/settings", headers=headers, json=seed_payload)
             self.assertEqual(seed_resp.status_code, 200, seed_resp.text)
 
-            webhook_url = "https://open.feishu.cn/open-apis/bot/v2/hook/credential-only-update"
+            webhook_url = "https://open.feishu.cn/REDACTED_CREDENTIAL_ONLY_UPDATE"
             cred_resp = client.put(
                 "/api/settings/notifications/feishu/webhook",
                 headers=headers,
@@ -120,7 +145,7 @@ class SettingsFeishuCredentialSmokeTest(unittest.TestCase):
             headers = self._register_headers(client)
             user_id = str(client.get("/api/auth/me", headers=headers).json().get("user", {}).get("id") or "")
 
-            original = "https://open.feishu.cn/open-apis/bot/v2/hook/original-secret"
+            original = "https://open.feishu.cn/REDACTED_ORIGINAL"
             cred_resp = client.put(
                 "/api/settings/notifications/feishu/webhook",
                 headers=headers,

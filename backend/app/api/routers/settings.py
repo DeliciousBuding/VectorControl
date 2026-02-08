@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
+from urllib.parse import urlparse
 
 from app.api.deps import get_holdings_user_id
 from app.core.network_benchmark import DEFAULT_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, run_network_benchmark
@@ -205,9 +206,24 @@ async def put_settings(request: Request, payload: SettingsIn) -> dict:
 @router.put("/notifications/feishu/webhook")
 async def put_feishu_webhook_credential(request: Request, payload: FeishuWebhookCredentialIn) -> dict:
     user_id = get_holdings_user_id(request)
+    trace_id = uuid.uuid4().hex[:12]
     webhook_url = str(payload.webhook_url or "").strip()
     if not webhook_url:
-        raise HTTPException(status_code=422, detail="webhook_url 不能为空")
+        raise HTTPException(status_code=422, detail=f"webhook_url 不能为空 (reason=empty trace_id={trace_id})")
+
+    parsed = urlparse(webhook_url)
+    scheme = str(parsed.scheme or "").lower()
+    host = str(parsed.hostname or "").lower()
+    if scheme != "https":
+        raise HTTPException(
+            status_code=422,
+            detail=f"webhook_url 仅支持 https (reason=invalid_scheme trace_id={trace_id})",
+        )
+    if host != "open.feishu.cn":
+        raise HTTPException(
+            status_code=422,
+            detail=f"webhook_url host 必须为 open.feishu.cn (reason=invalid_host trace_id={trace_id})",
+        )
 
     settings = upsert_user_settings(
         user_id,

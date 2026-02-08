@@ -151,11 +151,11 @@ class FeishuSender:
                 raise RuntimeError(f"provider_error code={provider_code} message={provider_message}")
             except Exception as exc:
                 LOGGER.warning(
-                    "feishu notify failed trace_id=%s attempt=%s/%s err=%s",
+                    "feishu notify failed trace_id=%s attempt=%s/%s err_class=%s",
                     trace_id,
                     attempt,
                     max_attempts,
-                    exc,
+                    exc.__class__.__name__,
                 )
                 if attempt >= max_attempts:
                     return NotificationResult(
