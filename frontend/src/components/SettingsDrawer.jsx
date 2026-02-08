@@ -7,8 +7,70 @@ const PROFILE_OPTIONS = [
   { value: 'global', label: '国际站点' }
 ]
 
+const DEFAULT_DRAWER_SETTINGS = {
+  display: {
+    auto_refresh_enabled: true,
+    auto_refresh_seconds: 60,
+    auto_refresh_visible_only: true
+  },
+  notifications: {
+    feishu: {
+      enabled: false,
+      webhook_url: ''
+    },
+    email: {
+      enabled: false,
+      recipients: ''
+    }
+  },
+  network_benchmark: {
+    default_profile: 'cn_fund',
+    timeout_seconds: 6,
+    last_run_at: '',
+    last_result: null
+  }
+}
+
+function asPlainObject(value) {
+  return value && typeof value === 'object' && !Array.isArray(value) ? value : {}
+}
+
+function normalizeDrawerSettings(source) {
+  const root = asPlainObject(source)
+  const display = asPlainObject(root.display)
+  const notifications = asPlainObject(root.notifications)
+  const feishu = asPlainObject(notifications.feishu)
+  const email = asPlainObject(notifications.email)
+  const networkBenchmark = asPlainObject(root.network_benchmark)
+
+  return {
+    ...DEFAULT_DRAWER_SETTINGS,
+    ...root,
+    display: {
+      ...DEFAULT_DRAWER_SETTINGS.display,
+      ...display
+    },
+    notifications: {
+      ...DEFAULT_DRAWER_SETTINGS.notifications,
+      ...notifications,
+      feishu: {
+        ...DEFAULT_DRAWER_SETTINGS.notifications.feishu,
+        ...feishu
+      },
+      email: {
+        ...DEFAULT_DRAWER_SETTINGS.notifications.email,
+        ...email
+      }
+    },
+    network_benchmark: {
+      ...DEFAULT_DRAWER_SETTINGS.network_benchmark,
+      ...networkBenchmark
+    }
+  }
+}
+
 export function SettingsDrawer({ open, settings, onClose, onSave }) {
-  const [draft, setDraft] = useState(settings)
+  const [draft, setDraft] = useState(() => normalizeDrawerSettings(settings))
   const [benchmarkProfile, setBenchmarkProfile] = useState('cn_fund')
   const [benchmarkLoading, setBenchmarkLoading] = useState(false)
   const [benchmarkError, setBenchmarkError] = useState('')
@@ -17,9 +79,9 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    setDraft(settings)
-    const profile = settings?.network_benchmark?.default_profile || 'cn_fund'
-    setBenchmarkProfile(profile)
+    const normalized = normalizeDrawerSettings(settings)
+    setDraft(normalized)
+    setBenchmarkProfile(normalized.network_benchmark.default_profile || 'cn_fund')
     setSaveError('')
   }, [settings])
 
@@ -47,28 +109,45 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
 
   if (!open) return null
 
-  const timeoutSeconds = Number(draft?.network_benchmark?.timeout_seconds || 6)
+  const updateDraft = (updater) => {
+    setDraft((prev) => {
+      const safePrev = normalizeDrawerSettings(prev)
+      const next = typeof updater === 'function' ? updater(safePrev) : safePrev
+      return normalizeDrawerSettings(next)
+    })
+  }
+
+  const timeoutSeconds = Number(draft.network_benchmark.timeout_seconds || 6)
   const benchmarkSummary = benchmarkResult?.summary || null
 
   const save = async () => {
     setSaveError('')
     setSaving(true)
+
     const nextDraft = {
       ...draft,
       network_benchmark: {
-        ...(draft?.network_benchmark || {}),
+        ...draft.network_benchmark,
         default_profile: benchmarkProfile,
         timeout_seconds: timeoutSeconds
       }
     }
+
     setDraft(nextDraft)
+
     try {
+      if (typeof onSave !== 'function') {
+        setSaveError('设置保存失败。下一步：刷新页面后重试。')
+        return
+      }
       const ok = await onSave(nextDraft)
-      if (!ok) {
+      if (ok === false) {
         setSaveError('设置保存失败。下一步：检查表单配置后重试；若持续失败请重新登录。')
         return
       }
       onClose()
+    } catch (error) {
+      setSaveError(toGuidedError(error, 'settings_save', '设置保存失败'))
     } finally {
       setSaving(false)
     }
@@ -85,10 +164,10 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
       })
       const result = payload?.result || null
       setBenchmarkResult(result)
-      setDraft((prev) => ({
+      updateDraft((prev) => ({
         ...prev,
         network_benchmark: {
-          ...(prev?.network_benchmark || {}),
+          ...prev.network_benchmark,
           default_profile: benchmarkProfile,
           timeout_seconds: timeoutSeconds,
           last_run_at: result?.generated_at || '',
@@ -116,8 +195,8 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
             <span>是否开启</span>
             <input
               type="checkbox"
-              checked={Boolean(draft?.display?.auto_refresh_enabled)}
-              onChange={(e) => setDraft((prev) => ({
+              checked={Boolean(draft.display.auto_refresh_enabled)}
+              onChange={(e) => updateDraft((prev) => ({
                 ...prev,
                 display: { ...prev.display, auto_refresh_enabled: e.target.checked }
               }))}
@@ -129,8 +208,8 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
               type="number"
               min={15}
               max={600}
-              value={draft?.display?.auto_refresh_seconds ?? 60}
-              onChange={(e) => setDraft((prev) => ({
+              value={draft.display.auto_refresh_seconds ?? 60}
+              onChange={(e) => updateDraft((prev) => ({
                 ...prev,
                 display: { ...prev.display, auto_refresh_seconds: Number(e.target.value) || 60 }
               }))}
@@ -140,8 +219,8 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
             <span>页面不可见时暂停</span>
             <input
               type="checkbox"
-              checked={Boolean(draft?.display?.auto_refresh_visible_only)}
-              onChange={(e) => setDraft((prev) => ({
+              checked={Boolean(draft.display.auto_refresh_visible_only)}
+              onChange={(e) => updateDraft((prev) => ({
                 ...prev,
                 display: { ...prev.display, auto_refresh_visible_only: e.target.checked }
               }))}
@@ -166,10 +245,10 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
               min={1}
               max={12}
               value={timeoutSeconds}
-              onChange={(e) => setDraft((prev) => ({
+              onChange={(e) => updateDraft((prev) => ({
                 ...prev,
                 network_benchmark: {
-                  ...(prev?.network_benchmark || {}),
+                  ...prev.network_benchmark,
                   timeout_seconds: Number(e.target.value) || 6
                 }
               }))}
@@ -215,8 +294,8 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
             <span>启用</span>
             <input
               type="checkbox"
-              checked={Boolean(draft?.notifications?.feishu?.enabled)}
-              onChange={(e) => setDraft((prev) => ({
+              checked={Boolean(draft.notifications.feishu.enabled)}
+              onChange={(e) => updateDraft((prev) => ({
                 ...prev,
                 notifications: {
                   ...prev.notifications,
@@ -228,8 +307,8 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
           <label>
             <span>Webhook 地址</span>
             <input
-              value={draft?.notifications?.feishu?.webhook_url || ''}
-              onChange={(e) => setDraft((prev) => ({
+              value={draft.notifications.feishu.webhook_url || ''}
+              onChange={(e) => updateDraft((prev) => ({
                 ...prev,
                 notifications: {
                   ...prev.notifications,
@@ -247,8 +326,8 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
             <span>启用</span>
             <input
               type="checkbox"
-              checked={Boolean(draft?.notifications?.email?.enabled)}
-              onChange={(e) => setDraft((prev) => ({
+              checked={Boolean(draft.notifications.email.enabled)}
+              onChange={(e) => updateDraft((prev) => ({
                 ...prev,
                 notifications: {
                   ...prev.notifications,
@@ -260,8 +339,8 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
           <label>
             <span>收件人</span>
             <input
-              value={draft?.notifications?.email?.recipients || ''}
-              onChange={(e) => setDraft((prev) => ({
+              value={draft.notifications.email.recipients || ''}
+              onChange={(e) => updateDraft((prev) => ({
                 ...prev,
                 notifications: {
                   ...prev.notifications,

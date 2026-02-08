@@ -2460,9 +2460,7 @@ function App() {
         open={settingsOpen}
         settings={settings}
         onClose={() => setSettingsOpen(false)}
-        onSave={async (draft) => {
-          await saveSettingsPatch(draft)
-        }}
+        onSave={async (draft) => saveSettingsPatch(draft)}
       />
     </div>
   )
