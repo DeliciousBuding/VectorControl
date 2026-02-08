@@ -20,6 +20,26 @@ MIN_TIMEOUT_SECONDS = 0.5
 REDACTED = "<REDACTED>"
 
 
+def _test_message_error(
+    category: str,
+    message: str,
+    *,
+    http_status: int | None = None,
+    error_code: Any | None = None,
+    description: str | None = None,
+) -> dict[str, Any]:
+    # Keep a stable, cross-channel error shape for test_message endpoints.
+    msg = str(message or "").strip()
+    desc = str(description or msg).strip()
+    return {
+        "category": str(category or "").strip() or "provider_error",
+        "message": msg or desc or "unknown",
+        "http_status": int(http_status) if http_status is not None else None,
+        "error_code": error_code,
+        "description": desc or None,
+    }
+
+
 def _redact_settings_for_response(settings: dict[str, Any]) -> dict[str, Any]:
     # Only redact a small set of known credentials; keep structure stable.
     if not isinstance(settings, dict):
@@ -267,17 +287,18 @@ async def post_telegram_test_message(request: Request) -> dict:
                 category = "forbidden"
             elif code_int == 400:
                 category = "bad_request"
-            last_error = {
-                "category": category,
-                "http_status": int(status_code),
-                "error_code": error_code,
-                "description": description,
-            }
+            last_error = _test_message_error(
+                category,
+                description or category,
+                http_status=int(status_code),
+                error_code=error_code,
+                description=description or None,
+            )
         except TimeoutError:
-            last_error = {"category": "timeout"}
+            last_error = _test_message_error("timeout", "timeout")
         except Exception as exc:
             # Avoid leaking bot_token via exception text (it can include the request URL).
-            last_error = {"category": "network_error", "message": str(exc.__class__.__name__)}
+            last_error = _test_message_error("network_error", str(exc.__class__.__name__))
 
     return {
         "user_id": user_id,
@@ -286,7 +307,7 @@ async def post_telegram_test_message(request: Request) -> dict:
         "trace_id": trace_id,
         "attempts": max_attempts,
         "max_attempts": max_attempts,
-        "error": last_error or {"category": "unknown"},
+        "error": last_error or _test_message_error("provider_error", "unknown"),
     }
 
 
@@ -346,17 +367,19 @@ async def post_feishu_test_message(request: Request) -> dict:
                 category = "forbidden"
             elif int(status_code) == 400:
                 category = "bad_request"
-            last_error = {
-                "category": category,
-                "http_status": int(status_code),
-                "error_code": provider_code,
-                "description": provider_message or f"provider_code={provider_code}",
-            }
+            description = provider_message or f"provider_code={provider_code}"
+            last_error = _test_message_error(
+                category,
+                description or category,
+                http_status=int(status_code),
+                error_code=provider_code,
+                description=description,
+            )
         except TimeoutError:
-            last_error = {"category": "timeout"}
+            last_error = _test_message_error("timeout", "timeout")
         except Exception as exc:
             # Avoid leaking webhook_url via exception text.
-            last_error = {"category": "network_error", "message": str(exc.__class__.__name__)}
+            last_error = _test_message_error("network_error", str(exc.__class__.__name__))
 
     return {
         "user_id": user_id,
@@ -365,7 +388,7 @@ async def post_feishu_test_message(request: Request) -> dict:
         "trace_id": trace_id,
         "attempts": max_attempts,
         "max_attempts": max_attempts,
-        "error": last_error or {"category": "unknown"},
+        "error": last_error or _test_message_error("provider_error", "unknown"),
     }
 
 @router.get("/network-benchmark/latest")

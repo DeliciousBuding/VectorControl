@@ -70,6 +70,7 @@ class SettingsTelegramTestMessageSmokeTest(unittest.TestCase):
             self.assertEqual(bool(body.get("ok")), False)
             self.assertEqual(bool(body.get("sent")), False)
             self.assertEqual(str(body.get("error", {}).get("category")), "unauthorized")
+            self.assertTrue(str(body.get("error", {}).get("message", "")).strip())
 
     def test_post_telegram_test_message_timeout_is_explainable(self) -> None:
         with TestClient(app) as client:
@@ -94,8 +95,8 @@ class SettingsTelegramTestMessageSmokeTest(unittest.TestCase):
             body = resp.json()
             self.assertEqual(bool(body.get("ok")), False)
             self.assertEqual(str(body.get("error", {}).get("category")), "timeout")
+            self.assertTrue(str(body.get("error", {}).get("message", "")).strip())
 
 
 if __name__ == "__main__":
     unittest.main()
-

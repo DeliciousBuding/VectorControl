@@ -68,6 +68,7 @@ class SettingsFeishuTestMessageSmokeTest(unittest.TestCase):
             self.assertEqual(bool(body.get("ok")), False)
             self.assertEqual(bool(body.get("sent")), False)
             self.assertEqual(str(body.get("error", {}).get("category")), "unauthorized")
+            self.assertTrue(str(body.get("error", {}).get("message", "")).strip())
             self.assertNotIn(webhook_url, json.dumps(body, ensure_ascii=False))
 
     def test_post_feishu_test_message_missing_credential_is_422(self) -> None:
@@ -82,4 +83,3 @@ class SettingsFeishuTestMessageSmokeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
