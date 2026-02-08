@@ -261,6 +261,7 @@ def build_estimate(
     portfolio: dict[str, Any] | None = None,
     previous_snapshot: dict[str, Any] | None = None,
     confirmed_yesterday_profit: dict[str, float] | None = None,
+    transaction_summary_map: dict[str, dict[str, Any]] | None = None,
     incremental_snapshot: dict[str, Any] | None = None,
     enable_incremental_refresh: bool = True,
     quote_cache_ttl_seconds: int = 60,
@@ -291,6 +292,7 @@ def build_estimate(
     total_market_value = sum(_market_value(item) for item in eligible_holdings)
     previous_day_profit_map = _snapshot_day_profit_map(previous_snapshot)
     confirmed_map = confirmed_yesterday_profit or {}
+    per_fund_tx_summary = transaction_summary_map or {}
     incremental_enabled = bool(enable_incremental_refresh)
     safe_quote_cache_ttl_seconds = max(0, min(int(quote_cache_ttl_seconds), 300))
     incremental_snapshot_asof = str(
@@ -378,6 +380,10 @@ def build_estimate(
             reason = "缺少基金代码"
 
         day_profit_cny = round(market_value * ((_to_float(estimate_pct) or 0.0) / 100.0), 2)
+        tx_summary = per_fund_tx_summary.get(fund_id, {}) if fund_id else {}
+        tx_pending_count = int(_to_float(tx_summary.get("pending_count")) or 0)
+        tx_confirmed_count = int(_to_float(tx_summary.get("confirmed_count")) or 0)
+        has_confirmed_transactions = tx_confirmed_count > 0 and tx_pending_count <= 0
         confirmed_profit = _to_float(confirmed_map.get(fund_id)) if fund_id else None
         yesterday_profit_source = "estimated_today"
         if confirmed_profit is not None:
@@ -393,6 +399,10 @@ def build_estimate(
             confirm_state = "partial"
         elif yesterday_profit_source == "confirmed":
             confirm_state = "confirmed"
+        elif has_confirmed_transactions:
+            confirm_state = "confirmed"
+            if yesterday_profit_source == "estimated_today":
+                yesterday_profit_source = "transaction_confirmed"
         elif _is_market_closed_weekend(market_group, today_local):
             confirm_state = "confirmed"
             if yesterday_profit_source == "estimated_today":
@@ -431,6 +441,8 @@ def build_estimate(
             "market_group": market_group,
             "quote_cache_hit": quote_cache_hit,
             "quote_cache_age_seconds": round(quote_cache_age_seconds, 3) if quote_cache_hit else 0.0,
+            "transaction_pending_count": tx_pending_count,
+            "transaction_confirmed_count": tx_confirmed_count,
         }
         per_fund.append(fund_row)
         by_bucket[bucket].append(fund_row)

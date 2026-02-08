@@ -23,6 +23,7 @@ from app.storage.db import (
     list_holdings,
     list_estimate_snapshots,
     save_estimate_snapshot,
+    summarize_fund_transactions_map,
 )
 
 router = APIRouter(prefix="/api", tags=["估值"])
@@ -156,6 +157,7 @@ async def get_estimate(request: Request) -> dict:
         portfolio=portfolio,
         previous_snapshot=get_latest_estimate_snapshot_on_or_before(snapshot_user_id, yesterday),
         confirmed_yesterday_profit=get_confirmed_fund_profit_map(snapshot_user_id, yesterday),
+        transaction_summary_map=summarize_fund_transactions_map(get_holdings_user_id(request)),
         incremental_snapshot=latest_snapshot,
         enable_incremental_refresh=enable_incremental_refresh,
         quote_cache_ttl_seconds=quote_cache_ttl_seconds,

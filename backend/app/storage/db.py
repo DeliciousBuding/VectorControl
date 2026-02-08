@@ -1722,6 +1722,41 @@ def summarize_fund_transactions_by_fund(user_id: str, fund_id: str | None = None
     }
 
 
+def summarize_fund_transactions_map(user_id: str) -> dict[str, dict[str, Any]]:
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        return {}
+
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT
+                fund_id,
+                COUNT(1) AS total_count,
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS confirmed_count,
+                MAX(occurred_at) AS last_occurred_at
+            FROM fund_transactions
+            WHERE user_id = ?
+            GROUP BY fund_id
+            """,
+            (clean_user_id,),
+        ).fetchall()
+
+    result: dict[str, dict[str, Any]] = {}
+    for row in rows:
+        fund_id = _normalize_catalog_text(row["fund_id"])
+        if not fund_id:
+            continue
+        result[fund_id] = {
+            "total_count": int(row["total_count"] or 0),
+            "pending_count": int(row["pending_count"] or 0),
+            "confirmed_count": int(row["confirmed_count"] or 0),
+            "last_occurred_at": str(row["last_occurred_at"] or ""),
+        }
+    return result
+
+
 def list_pending_fund_transactions_for_sync(user_id: str, limit: int = 500) -> list[dict[str, Any]]:
     clean_user_id = str(user_id or "").strip()
     safe_limit = max(1, min(int(limit), 2000))

@@ -171,3 +171,44 @@ def test_周末休市时国内基金应标记为已更新() -> None:
     assert fund["confirm_state"] == "confirmed"
     assert fund["yesterday_profit_source"] == "market_closed_snapshot"
     assert payload["confirm_state"] == "confirmed"
+
+
+def test_交易已确认且无pending时应进入确认口径() -> None:
+    provider = StubQuoteProvider(
+        {
+            "600001": {"estimate_pct": 0.08, "source": "eastmoney", "asof": "2026-02-10 15:00"},
+        }
+    )
+    portfolio = _portfolio(
+        [
+            {
+                "fund_id": "600001",
+                "name": "基金I",
+                "bucket": "tech",
+                "market_value_cny": 300,
+                "market_group": "cn_hk",
+            },
+        ]
+    )
+
+    payload = build_estimate(
+        provider=provider,
+        portfolio=portfolio,
+        transaction_summary_map={
+            "600001": {
+                "total_count": 2,
+                "pending_count": 0,
+                "confirmed_count": 2,
+                "last_occurred_at": "2026-02-10T10:00:00+08:00",
+            }
+        },
+        now_local=datetime(2026, 2, 10, 16, 0, 0),
+    )
+    fund = payload["funds"][0]
+
+    assert fund["status"] == "ok"
+    assert fund["confirm_state"] == "confirmed"
+    assert fund["yesterday_profit_source"] == "transaction_confirmed"
+    assert fund["transaction_pending_count"] == 0
+    assert fund["transaction_confirmed_count"] == 2
+    assert payload["confirm_state"] == "confirmed"
