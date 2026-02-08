@@ -24,7 +24,13 @@ class NotifierChannelsSmokeTest(unittest.TestCase):
             self.assertEqual(resp.status_code, 200, resp.text)
             settings = resp.json().get("settings", {})
             notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+            feishu = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
             telegram = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+            self.assertEqual(bool(feishu.get("enabled")), False)
+            self.assertIn("webhook_url", feishu)
+            self.assertIn("timeout_seconds", feishu)
+            self.assertIn("retry_times", feishu)
+            self.assertIn("template", feishu)
             self.assertEqual(bool(telegram.get("enabled")), False)
             self.assertIn("bot_token", telegram)
             self.assertIn("chat_id", telegram)
