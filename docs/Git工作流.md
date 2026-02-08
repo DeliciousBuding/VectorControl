@@ -20,6 +20,7 @@ git -C <local>\VectorControl worktree add <local>\VectorControl-backend-agent1 -
 - `<local>\VectorControl`：总控 Agent（集成/发布）
 - `<local>\VectorControl-frontend-agent1`：前端 Agent1
 - `<local>\VectorControl-backend-agent1`：后端 Agent1
+- `<local>\AGENT`：跨 worktree 共享规范、进度与通讯（唯一沟通真源）
 
 ## 3. 子 Agent 开发流程（前端/后端）
 
@@ -29,14 +30,18 @@ git -C <local>\VectorControl worktree add <local>\VectorControl-backend-agent1 -
    - 前端 Agent：`npm --prefix frontend run build`
    - 后端 Agent：`python -m compileall backend/app` + 相关 pytest
 4. 更新进度文档（强制）：
-   - 前端：`docs/agent-progress/frontend_agent1_progress.md`
-   - 后端：`docs/agent-progress/backend_agent1_progress.md`
-5. 在 `docs/agent-progress/agent_comms.md` 留交接记录（已完成/待对接/阻塞）。
+   - 前端：`<local>\AGENT\frontend_agent1_progress.md`
+   - 后端：`<local>\AGENT\backend_agent1_progress.md`
+5. 在 `<local>\AGENT\agent_comms.md` 留交接记录（已完成/待对接/阻塞）。
 6. 立即提交并推送本分支（小步快跑，单主题 commit）。
 
 ## 4. 总控 Agent 集成流程
 
 1. 读取三份进度文档与通讯文档，确认可集成项。
+   - `<local>\AGENT\controller_progress.md`
+   - `<local>\AGENT\frontend_agent1_progress.md`
+   - `<local>\AGENT\backend_agent1_progress.md`
+   - `<local>\AGENT\agent_comms.md`
 2. 拉取前后端分支，进行冲突处理与联调。
 3. 合并到 `dev` 前统一执行：
    - `python scripts/check_release_preflight.py`
@@ -111,7 +116,7 @@ git -C <local>\VectorControl worktree add <local>\VectorControl-backend-agent1 -
 
 ## 8. 敏捷开发模式（当前阶段）
 
-- 当前阶段采用单人敏捷节奏：分支保护治理项后置，不阻塞当轮功能闭环。
+- 当前阶段采用多 Agent 敏捷节奏：分支保护治理项后置，不阻塞当轮功能闭环。
 - 当轮优先级：线上可用性故障 > 核心交易链路 > 治理回补。
 - 迭代节奏强制要求“小步快跑”：每完成一个小功能/小修复/小文档闭环即提交一次 commit。
 - commit 粒度要求：每个 commit 必须做到“单主题、可回滚、可验收”，避免超大提交导致回归定位困难。

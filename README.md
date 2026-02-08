@@ -51,9 +51,6 @@ VectorControl/
   config/                  # 持仓与策略配置
   ROADMAP.md               # 里程碑与任务清单
   AGENTS.md                # Agent 执行规范
-  AGENTS_CONTROLLER.md     # 总控 Agent 规范
-  AGENTS_FRONTEND_AGENT1.md# 前端 Agent1 规范
-  AGENTS_BACKEND_AGENT1.md # 后端 Agent1 规范
 ```
 
 ## 4. 核心业务闭环
@@ -121,8 +118,6 @@ npm run dev -- --host 127.0.0.1 --port 5173
 - `docs/P0线上故障排查SOP.md`：测速 `Not Found` 与设置中心白屏的标准排查、验收与复盘模板
 - `docs/部署与运行.md`：本地运行、VPS 部署、Gate-D 验收、回滚
 - `docs/Git工作流.md`：分支策略、提交流程、发布前检查清单
-- `docs/多Agent协作开发规范.md`：三 Agent 协作规则、进度写入与通讯规范
-- `docs/agent-progress/*.md`：总控/前端/后端进度与跨 Agent 通讯记录
 - `docs/设计系统与交互规范.md`：设计 Token 与交互规则
 - `docs/产品需求与页面蓝图.md`：产品目标、页面蓝图、信息架构
 - `docs/最新进度.md`：当前开发进展与验收状态
@@ -132,9 +127,10 @@ npm run dev -- --host 127.0.0.1 --port 5173
 - `docs/telegram/pyTelegramBotAPI文档调研与接入指南.md`：Telegram Bot 官方文档整理与接入建议（pyTelegramBotAPI）
 - `ROADMAP.md`：当前待办优先级与里程碑
 - `docs/ROADMAP完成归档.md`：已完成任务归档（历史留痕）
-- `AGENTS_CONTROLLER.md`：总控 Agent 启动规范与 Prompt
-- `AGENTS_FRONTEND_AGENT1.md`：前端 Agent1 启动规范与 Prompt
-- `AGENTS_BACKEND_AGENT1.md`：后端 Agent1 启动规范与 Prompt
+- `<local>\AGENT\AGENTS_CONTROLLER.md`：总控 Agent 启动规范与 Prompt（共享）
+- `<local>\AGENT\AGENTS_FRONTEND_AGENT1.md`：前端 Agent1 启动规范与 Prompt（共享）
+- `<local>\AGENT\AGENTS_BACKEND_AGENT1.md`：后端 Agent1 启动规范与 Prompt（共享）
+- `<local>\AGENT\*_progress.md` + `agent_comms.md`：多 Agent 共享进度与交接通讯
 
 ### 文档单一事实来源（SSOT）矩阵
 

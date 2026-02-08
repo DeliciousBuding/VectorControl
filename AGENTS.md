@@ -22,10 +22,10 @@
 - 总控 Agent：任务拆分、标准下发、集成验收、冲突仲裁、`dev/main` 发布
 - 前端 Agent1：仅负责前端与交互相关实现（`frontend/*` + 必要前端文档）
 - 后端 Agent1：仅负责后端与数据相关实现（`backend/*` + 必要后端文档）
-- 根目录角色规范文件（必须遵守）：
-  - `AGENTS_CONTROLLER.md`
-  - `AGENTS_FRONTEND_AGENT1.md`
-  - `AGENTS_BACKEND_AGENT1.md`
+- 共享角色规范文件（必须遵守，位于 `<local>\AGENT`）：
+  - `<local>\AGENT\AGENTS_CONTROLLER.md`
+  - `<local>\AGENT\AGENTS_FRONTEND_AGENT1.md`
+  - `<local>\AGENT\AGENTS_BACKEND_AGENT1.md`
 
 ## 1.2 Worktree 目录（强制）
 
@@ -36,12 +36,12 @@
 
 ## 1.3 进度与通讯（强制）
 
-- 每个 Agent 必须维护自己的进度文档：
-  - `docs/agent-progress/controller_progress.md`
-  - `docs/agent-progress/frontend_agent1_progress.md`
-  - `docs/agent-progress/backend_agent1_progress.md`
-- 跨 Agent 依赖、阻塞、交接必须写入：
-  - `docs/agent-progress/agent_comms.md`
+- 每个 Agent 必须维护自己的进度文档（共享目录 `<local>\AGENT`）：
+  - `<local>\AGENT\controller_progress.md`
+  - `<local>\AGENT\frontend_agent1_progress.md`
+  - `<local>\AGENT\backend_agent1_progress.md`
+- 跨 Agent 依赖、阻塞、交接必须写入共享通讯文档：
+  - `<local>\AGENT\agent_comms.md`
 - 规则：
   - 每完成 1 个小闭环并准备提交前，先更新对应进度文档。
   - 每次 push 后，必须在 `agent_comms.md` 留一条“已完成/待对接”记录。
@@ -126,7 +126,7 @@
 - 必须执行“小步快跑”提交策略：每实现 1 个小功能、1 个可验证修复或 1 组同主题文档更新，立即提交 1 次 commit；禁止长时间堆积未提交改动
 - 单个 commit 必须可解释、可回滚、可验收，提交信息需直接说明该小步闭环完成了什么
 - 每个 Agent 在每次 commit 前必须更新自己的进度文档；未更新进度文档视为未完成交付
-- 总控 Agent 合并前必须核对 `docs/agent-progress/*.md` 与实际代码改动一致
+- 总控 Agent 合并前必须核对 `<local>\AGENT\*.md` 与实际代码改动一致
 - 提交前必须通过：
   - 前端：`npm run build`
   - 后端：`python -m compileall app`
