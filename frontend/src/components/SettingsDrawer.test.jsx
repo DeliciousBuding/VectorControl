@@ -1,10 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsDrawer } from './SettingsDrawer.jsx'
-import { fetchNetworkBenchmarkLatest, runNetworkBenchmark } from '../api.js'
+import { fetchNetworkBenchmarkLatest, fetchNotificationsStatus, runNetworkBenchmark } from '../api.js'
 
 vi.mock('../api.js', () => ({
   fetchNetworkBenchmarkLatest: vi.fn(),
+  fetchNotificationsStatus: vi.fn(),
   runNetworkBenchmark: vi.fn()
 }))
 
@@ -12,6 +13,13 @@ describe('SettingsDrawer', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     fetchNetworkBenchmarkLatest.mockResolvedValue({ result: null })
+    fetchNotificationsStatus.mockResolvedValue({
+      status: {
+        feishu: { enabled: false, credential_configured: false, last_test_summary: null },
+        telegram: { enabled: false, credential_configured: false, last_test_summary: null },
+        email: { enabled: false, credential_configured: false, last_test_summary: null }
+      }
+    })
     runNetworkBenchmark.mockResolvedValue({ result: null })
   })
 
@@ -256,6 +264,112 @@ describe('SettingsDrawer', () => {
     expect(onSave.mock.calls[0][0]?.notifications?.feishu?.webhook_url).toBeUndefined()
   })
 
+  it('通知诊断在 last_test_summary 为空时显示未测试/无记录', async () => {
+    fetchNotificationsStatus.mockResolvedValueOnce({
+      status: {
+        feishu: { enabled: false, credential_configured: true, last_test_summary: null },
+        telegram: { enabled: false, credential_configured: true, last_test_summary: null },
+        email: { enabled: false, credential_configured: true, last_test_summary: null }
+      }
+    })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{ notifications: { telegram: { chat_id: '-1001234567890' } } }}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getAllByText(/未测试\/无记录/).length).toBeGreaterThanOrEqual(3)
+  })
+
+  it('can send feishu test message and show hint', async () => {
+    fetchNotificationsStatus.mockResolvedValueOnce({
+      status: {
+        feishu: { enabled: true, credential_configured: true, last_test_summary: null },
+        telegram: { enabled: false, credential_configured: false, last_test_summary: null },
+        email: { enabled: false, credential_configured: false, last_test_summary: null }
+      }
+    })
+
+    const onSendFeishuTestMessage = vi.fn().mockResolvedValue({
+      ok: true,
+      sent: true,
+      trace_id: 'f123'
+    })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            feishu: { webhook_url: '<REDACTED>' }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+        onSendFeishuTestMessage={onSendFeishuTestMessage}
+      />
+    )
+
+    await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.click(screen.getByTestId('diagnostic-feishu-test-message-btn'))
+
+    await waitFor(() => {
+      expect(onSendFeishuTestMessage).toHaveBeenCalledTimes(1)
+    })
+
+    expect(await screen.findByText(/飞书 测试消息已发送/)).toBeInTheDocument()
+    expect(screen.getByText(/trace_id: f123/)).toBeInTheDocument()
+  })
+
+  it('disables feishu test message when webhook is pending update', async () => {
+    fetchNotificationsStatus.mockResolvedValueOnce({
+      status: {
+        feishu: { enabled: true, credential_configured: true, last_test_summary: null },
+        telegram: { enabled: false, credential_configured: false, last_test_summary: null },
+        email: { enabled: false, credential_configured: false, last_test_summary: null }
+      }
+    })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            feishu: { webhook_url: '<REDACTED>' }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+        onUpdateFeishuWebhook={vi.fn().mockResolvedValue(true)}
+        onSendFeishuTestMessage={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByTestId('diagnostic-feishu-test-message-btn')).not.toBeDisabled()
+
+    fireEvent.click(screen.getByTestId('feishu-webhook-edit'))
+    fireEvent.change(screen.getByTestId('feishu-webhook-input'), {
+      target: { value: 'https://open.feishu.cn/open-apis/bot/v2/hook/new-token-5678' }
+    })
+
+    expect(screen.getByTestId('diagnostic-feishu-test-message-btn')).toBeDisabled()
+  })
+
   it('telegram credential preview never leaks token and updates only through explicit action', async () => {
     const onSave = vi.fn().mockResolvedValue(true)
     const onUpdateTelegramCredential = vi.fn().mockResolvedValue(true)
@@ -348,6 +462,14 @@ describe('SettingsDrawer', () => {
   })
 
   it('can send telegram test message and show hint', async () => {
+    fetchNotificationsStatus.mockResolvedValueOnce({
+      status: {
+        feishu: { enabled: false, credential_configured: false, last_test_summary: null },
+        telegram: { enabled: true, credential_configured: true, last_test_summary: null },
+        email: { enabled: false, credential_configured: false, last_test_summary: null }
+      }
+    })
+
     const onSendTelegramTestMessage = vi.fn().mockResolvedValue({
       ok: true,
       sent: true,
@@ -371,7 +493,11 @@ describe('SettingsDrawer', () => {
       />
     )
 
-    fireEvent.click(screen.getByTestId('telegram-test-message-btn'))
+    await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.click(screen.getByTestId('diagnostic-telegram-test-message-btn'))
 
     await waitFor(() => {
       expect(onSendTelegramTestMessage).toHaveBeenCalledTimes(1)
@@ -382,6 +508,14 @@ describe('SettingsDrawer', () => {
   })
 
   it('disables telegram test message when credential is pending update', async () => {
+    fetchNotificationsStatus.mockResolvedValueOnce({
+      status: {
+        feishu: { enabled: false, credential_configured: false, last_test_summary: null },
+        telegram: { enabled: true, credential_configured: true, last_test_summary: null },
+        email: { enabled: false, credential_configured: false, last_test_summary: null }
+      }
+    })
+
     const onSendTelegramTestMessage = vi.fn().mockResolvedValue(true)
 
     render(
@@ -402,7 +536,11 @@ describe('SettingsDrawer', () => {
       />
     )
 
-    expect(screen.getByTestId('telegram-test-message-btn')).not.toBeDisabled()
+    await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByTestId('diagnostic-telegram-test-message-btn')).not.toBeDisabled()
 
     const telegramGroup = screen.getByRole('heading', { name: 'Telegram 机器人（预留）' }).closest('.settings-group')
     expect(telegramGroup).toBeTruthy()
@@ -410,6 +548,6 @@ describe('SettingsDrawer', () => {
 
     fireEvent.change(await screen.findByPlaceholderText(/bot_token/), { target: { value: 'telegram-token-5678' } })
 
-    expect(screen.getByTestId('telegram-test-message-btn')).toBeDisabled()
+    expect(screen.getByTestId('diagnostic-telegram-test-message-btn')).toBeDisabled()
   })
 })

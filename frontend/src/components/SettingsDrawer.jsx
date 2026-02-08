@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchNetworkBenchmarkLatest, runNetworkBenchmark } from '../api.js'
+import { fetchNetworkBenchmarkLatest, fetchNotificationsStatus, runNetworkBenchmark } from '../api.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
 
 const PROFILE_OPTIONS = [
@@ -171,6 +171,18 @@ function maskWebhookUrl(webhookUrl) {
   return `${raw.slice(0, 6)}...${raw.slice(-4)}`
 }
 
+function normalizeNotificationsStatus(payload) {
+  const root = asPlainObject(payload)
+  const candidates = root.status || root.channels || root.notifications || root
+  const container = asPlainObject(candidates)
+  const nestedNotifications = asPlainObject(container.notifications)
+  return {
+    feishu: asPlainObject(container.feishu || nestedNotifications.feishu),
+    telegram: asPlainObject(container.telegram || nestedNotifications.telegram),
+    email: asPlainObject(container.email || nestedNotifications.email)
+  }
+}
+
 export function SettingsDrawer({
   open,
   settings,
@@ -178,6 +190,7 @@ export function SettingsDrawer({
   onSave,
   onUpdateFeishuWebhook,
   onUpdateTelegramCredential,
+  onSendFeishuTestMessage,
   onSendTelegramTestMessage
 }) {
   const [draft, setDraft] = useState(() => normalizeDrawerSettings(settings))
@@ -190,9 +203,12 @@ export function SettingsDrawer({
   const [editingTelegramCredential, setEditingTelegramCredential] = useState(false)
   const [pendingTelegramBotToken, setPendingTelegramBotToken] = useState('')
   const [pendingTelegramChatId, setPendingTelegramChatId] = useState('')
-  const [telegramTestLoading, setTelegramTestLoading] = useState(false)
-  const [telegramTestError, setTelegramTestError] = useState('')
-  const [telegramTestHint, setTelegramTestHint] = useState('')
+  const [notificationsStatusLoading, setNotificationsStatusLoading] = useState(false)
+  const [notificationsStatusError, setNotificationsStatusError] = useState('')
+  const [notificationsStatus, setNotificationsStatus] = useState(null)
+  const [diagnosticSendingChannel, setDiagnosticSendingChannel] = useState('')
+  const [diagnosticHint, setDiagnosticHint] = useState('')
+  const [diagnosticError, setDiagnosticError] = useState('')
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -208,9 +224,11 @@ export function SettingsDrawer({
     setEditingTelegramCredential(!telegramBotToken)
     setPendingTelegramBotToken('')
     setPendingTelegramChatId(telegramChatId)
-    setTelegramTestLoading(false)
-    setTelegramTestError('')
-    setTelegramTestHint('')
+    setNotificationsStatusError('')
+    setNotificationsStatus(null)
+    setDiagnosticSendingChannel('')
+    setDiagnosticHint('')
+    setDiagnosticError('')
     setSaveError('')
   }, [settings])
 
@@ -229,6 +247,32 @@ export function SettingsDrawer({
         if (!active) return
         setBenchmarkResult(null)
         setBenchmarkError(toGuidedError(error, 'settings_benchmark_load', '测速记录加载失败'))
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+
+    let active = true
+    setNotificationsStatusLoading(true)
+    setNotificationsStatusError('')
+    ;(async () => {
+      try {
+        const payload = await fetchNotificationsStatus()
+        if (!active) return
+        setNotificationsStatus(normalizeNotificationsStatus(payload))
+      } catch (error) {
+        if (!active) return
+        setNotificationsStatus(null)
+        setNotificationsStatusError(toGuidedError(error, 'notifications_status_load', '通知诊断加载失败'))
+      } finally {
+        if (!active) return
+        setNotificationsStatusLoading(false)
       }
     })()
 
@@ -402,45 +446,64 @@ export function SettingsDrawer({
     }
   }
 
-  const sendTelegramTest = async () => {
-    setTelegramTestError('')
-    setTelegramTestHint('')
-
-    if (shouldUpdateTelegramCredential) {
-      setTelegramTestError('已输入新凭据，请先保存设置以更新凭据后再发送测试消息。')
-      return
-    }
-
-    if (!currentTelegramChatId) {
-      setTelegramTestError('chat_id 为空，无法发送测试消息。请先配置并保存凭据。')
-      return
-    }
-
-    if (typeof onSendTelegramTestMessage !== 'function') {
-      setTelegramTestError('Telegram 测试消息未接入。下一步：请检查前端回调与后端接口是否已集成。')
-      return
-    }
-
-    setTelegramTestLoading(true)
+  const refreshNotificationsStatus = async () => {
     try {
-      const payload = await onSendTelegramTestMessage()
+      const payload = await fetchNotificationsStatus()
+      setNotificationsStatus(normalizeNotificationsStatus(payload))
+      setNotificationsStatusError('')
+    } catch (error) {
+      setNotificationsStatus(null)
+      setNotificationsStatusError(toGuidedError(error, 'notifications_status_load', '通知诊断加载失败'))
+    }
+  }
+
+  const sendDiagnosticTestMessage = async (channel) => {
+    const channelKey = String(channel || '').trim().toLowerCase()
+    const label = channelKey === 'feishu' ? '飞书' : 'Telegram'
+    const pendingUpdate = channelKey === 'feishu' ? shouldUpdateFeishuWebhook : shouldUpdateTelegramCredential
+    const callback = channelKey === 'feishu' ? onSendFeishuTestMessage : onSendTelegramTestMessage
+
+    setDiagnosticHint('')
+    setDiagnosticError('')
+
+    if (pendingUpdate) {
+      setDiagnosticError(`已输入新凭据，请先保存设置以更新凭据后再发送测试消息。`)
+      return
+    }
+
+    if (channelKey === 'telegram' && !currentTelegramChatId) {
+      setDiagnosticError('chat_id 为空，无法发送测试消息。请先配置并保存凭据。')
+      return
+    }
+
+    if (typeof callback !== 'function') {
+      setDiagnosticError(`${label} 测试消息未接入。下一步：请检查前端回调与后端接口是否已集成。`)
+      return
+    }
+
+    setDiagnosticSendingChannel(channelKey)
+    try {
+      const payload = await callback()
       const traceId = String(payload?.trace_id || '').trim()
       const ok = payload?.ok === true && payload?.sent === true
 
       if (ok) {
-        setTelegramTestHint(`Telegram 测试消息已发送${traceId ? `（trace_id: ${traceId}）` : ''}`)
+        setDiagnosticHint(`${label} 测试消息已发送${traceId ? `（trace_id: ${traceId}）` : ''}`)
       } else {
         const category = String(payload?.error?.category || '').trim()
-        const description = String(payload?.error?.description || payload?.error?.message || '').trim()
-        const suffix = [category, description].filter(Boolean).join(' - ')
-        setTelegramTestError(
-          `Telegram 测试消息发送失败${traceId ? `（trace_id: ${traceId}）` : ''}${suffix ? `：${suffix}` : ''}`
+        const message = String(payload?.error?.message || payload?.error?.description || '').trim()
+        const suffix = [category, message].filter(Boolean).join(' - ')
+        setDiagnosticError(
+          `${label} 测试消息发送失败${traceId ? `（trace_id: ${traceId}）` : ''}${suffix ? `：${suffix}` : ''}`
         )
       }
+
+      // 后端若已持久化 last_test_summary，可刷新面板展示；未持久化则忽略。
+      await refreshNotificationsStatus()
     } catch (error) {
-      setTelegramTestError(toGuidedError(error, 'settings_save', 'Telegram 测试消息发送失败'))
+      setDiagnosticError(toGuidedError(error, 'settings_save', `${label} 测试消息发送失败`))
     } finally {
-      setTelegramTestLoading(false)
+      setDiagnosticSendingChannel('')
     }
   }
 
@@ -804,20 +867,100 @@ export function SettingsDrawer({
             )}
           </div>
 
-          <div className="settings-secret-actions">
-            <button
-              type="button"
-              className="ghost"
-              data-testid="telegram-test-message-btn"
-              onClick={sendTelegramTest}
-              disabled={telegramTestLoading || saving || shouldUpdateTelegramCredential || !currentTelegramChatId}
-            >
-              {telegramTestLoading ? '发送中...' : '发送测试消息'}
-            </button>
-            <p className="settings-note">将使用已保存的 Telegram 凭据发送固定测试文案。</p>
-          </div>
-          {telegramTestHint && <p className="settings-note">{telegramTestHint}</p>}
-          {telegramTestError && <p className="settings-error">{telegramTestError}</p>}
+        </div>
+
+        <div className="settings-group">
+          <h4>通知诊断</h4>
+          {notificationsStatusLoading ? (
+            <p className="settings-note">加载中...</p>
+          ) : null}
+          {notificationsStatusError ? (
+            <p className="settings-error">{notificationsStatusError}</p>
+          ) : null}
+
+          {(() => {
+            const root = asPlainObject(notificationsStatus)
+            const feishuStatus = asPlainObject(root.feishu)
+            const telegramStatus = asPlainObject(root.telegram)
+            const emailStatus = asPlainObject(root.email)
+
+            const feishuEnabled = feishuStatus.enabled ?? Boolean(draft.notifications.feishu.enabled)
+            const telegramEnabled = telegramStatus.enabled ?? Boolean(draft.notifications.telegram.enabled)
+            const emailEnabled = emailStatus.enabled ?? Boolean(draft.notifications.email.enabled)
+
+            const feishuCredentialConfigured = Boolean(feishuStatus.credential_configured) || hasFeishuWebhook
+            const telegramCredentialConfigured = Boolean(telegramStatus.credential_configured) || hasTelegramCredential
+            const emailCredentialConfigured = Boolean(emailStatus.credential_configured)
+              || Boolean(String(draft.notifications.email.smtp_host || '').trim()
+                && String(draft.notifications.email.sender || '').trim()
+                && String(draft.notifications.email.recipients || '').trim())
+
+            const feishuLast = feishuStatus.last_test_summary ?? null
+            const telegramLast = telegramStatus.last_test_summary ?? null
+            const emailLast = emailStatus.last_test_summary ?? null
+
+            const renderLast = (last) => {
+              const raw = asPlainObject(last)
+              if (!raw || Object.keys(raw).length === 0) return '未测试/无记录'
+              const ok = raw.ok === true && raw.sent === true
+              const traceId = String(raw.trace_id || '').trim()
+              const time = String(raw.time || '').trim()
+              const errorCategory = String(raw.error_category || '').trim()
+              const parts = [
+                ok ? '成功' : '失败',
+                traceId ? `trace_id: ${traceId}` : '',
+                time ? `时间: ${time}` : '',
+                !ok && errorCategory ? `错误: ${errorCategory}` : ''
+              ].filter(Boolean)
+              return parts.length > 0 ? parts.join('｜') : '未测试/无记录'
+            }
+
+            const canSendFeishu = feishuCredentialConfigured && !shouldUpdateFeishuWebhook
+            const canSendTelegram = telegramCredentialConfigured && Boolean(currentTelegramChatId) && !shouldUpdateTelegramCredential
+
+            const feishuDisabledReason = !feishuCredentialConfigured
+              ? '请先配置并保存凭据'
+              : (shouldUpdateFeishuWebhook ? '已输入新凭据，请先保存设置' : '')
+            const telegramDisabledReason = !telegramCredentialConfigured
+              ? '请先配置并保存凭据'
+              : (!currentTelegramChatId ? 'chat_id 为空，请先配置并保存凭据' : (shouldUpdateTelegramCredential ? '已输入新凭据，请先保存设置' : ''))
+
+            return (
+              <div>
+                <div className="settings-note">
+                  <p>飞书：{feishuEnabled ? '已启用' : '未启用'}｜凭据：{feishuCredentialConfigured ? '已配置' : '未配置'}｜最近：{renderLast(feishuLast)}</p>
+                  <p>Telegram：{telegramEnabled ? '已启用' : '未启用'}｜凭据：{telegramCredentialConfigured ? '已配置' : '未配置'}｜最近：{renderLast(telegramLast)}</p>
+                  <p>邮件：{emailEnabled ? '已启用' : '未启用'}｜凭据：{emailCredentialConfigured ? '已配置' : '未配置'}｜最近：{renderLast(emailLast)}</p>
+                </div>
+
+                <div className="settings-secret-actions">
+                  <button
+                    type="button"
+                    className="ghost"
+                    data-testid="diagnostic-feishu-test-message-btn"
+                    onClick={() => sendDiagnosticTestMessage('feishu')}
+                    disabled={saving || diagnosticSendingChannel === 'feishu' || !canSendFeishu}
+                    title={!canSendFeishu ? feishuDisabledReason : ''}
+                  >
+                    {diagnosticSendingChannel === 'feishu' ? '发送中...' : '飞书 发送测试消息'}
+                  </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    data-testid="diagnostic-telegram-test-message-btn"
+                    onClick={() => sendDiagnosticTestMessage('telegram')}
+                    disabled={saving || diagnosticSendingChannel === 'telegram' || !canSendTelegram}
+                    title={!canSendTelegram ? telegramDisabledReason : ''}
+                  >
+                    {diagnosticSendingChannel === 'telegram' ? '发送中...' : 'Telegram 发送测试消息'}
+                  </button>
+                </div>
+
+                {diagnosticHint ? <p className="settings-note">{diagnosticHint}</p> : null}
+                {diagnosticError ? <p className="settings-error">{diagnosticError}</p> : null}
+              </div>
+            )
+          })()}
         </div>
 
         <div className="settings-group">
