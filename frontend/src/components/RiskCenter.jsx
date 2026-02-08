@@ -1,4 +1,6 @@
-export function RiskCenter({ risk }) {
+import { memo } from 'react'
+
+export const RiskCenter = memo(function RiskCenter({ risk }) {
   return (
     <section className="panel risk-panel">
       <div className="section-head">
@@ -53,4 +55,4 @@ export function RiskCenter({ risk }) {
       )}
     </section>
   )
-}
+})

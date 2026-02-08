@@ -25,7 +25,9 @@ class HoldingsCrudSmokeTest(unittest.TestCase):
 
             list_resp = client.get("/api/holdings", headers=headers)
             self.assertEqual(list_resp.status_code, 200, list_resp.text)
-            self.assertIn("count", list_resp.json())
+            list_body = list_resp.json()
+            self.assertIn("count", list_body)
+            self.assertIn("data_status", list_body)
 
             create_payload = {
                 "fund_id": "000001",
@@ -40,7 +42,9 @@ class HoldingsCrudSmokeTest(unittest.TestCase):
             }
             create_resp = client.post("/api/holdings", json=create_payload, headers=headers)
             self.assertEqual(create_resp.status_code, 200, create_resp.text)
-            self.assertEqual(create_resp.json()["holding"]["fund_id"], "000001")
+            create_body = create_resp.json()
+            self.assertEqual(create_body["holding"]["fund_id"], "000001")
+            self.assertIn("data_status", create_body)
 
             patch_resp = client.patch(
                 "/api/holdings/000001",
@@ -48,11 +52,29 @@ class HoldingsCrudSmokeTest(unittest.TestCase):
                 headers=headers,
             )
             self.assertEqual(patch_resp.status_code, 200, patch_resp.text)
-            self.assertAlmostEqual(float(patch_resp.json()["holding"]["market_value_cny"]), 130.0, places=4)
+            patch_body = patch_resp.json()
+            self.assertAlmostEqual(float(patch_body["holding"]["market_value_cny"]), 130.0, places=4)
+            self.assertIn("data_status", patch_body)
+
+            audit_after_patch = client.get("/api/holdings/000001/audit?limit=20", headers=headers)
+            self.assertEqual(audit_after_patch.status_code, 200, audit_after_patch.text)
+            audit_body = audit_after_patch.json()
+            self.assertIn("items", audit_body)
+            self.assertGreaterEqual(len(audit_body["items"]), 2)
+            patch_actions = {str(item.get("action")) for item in audit_body["items"]}
+            self.assertIn("patch", patch_actions)
 
             archive_resp = client.post("/api/holdings/000001/archive", headers=headers)
             self.assertEqual(archive_resp.status_code, 200, archive_resp.text)
-            self.assertTrue(bool(archive_resp.json()["holding"]["archived"]))
+            archive_body = archive_resp.json()
+            self.assertTrue(bool(archive_body["holding"]["archived"]))
+            self.assertIn("data_status", archive_body)
+
+            audit_after_archive = client.get("/api/holdings/000001/audit?limit=20", headers=headers)
+            self.assertEqual(audit_after_archive.status_code, 200, audit_after_archive.text)
+            audit_archive_body = audit_after_archive.json()
+            archive_actions = {str(item.get("action")) for item in audit_archive_body.get("items", [])}
+            self.assertIn("archive", archive_actions)
 
             active_list_resp = client.get("/api/holdings", headers=headers)
             self.assertEqual(active_list_resp.status_code, 200, active_list_resp.text)
@@ -68,4 +90,3 @@ class HoldingsCrudSmokeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

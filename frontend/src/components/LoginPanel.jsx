@@ -1,15 +1,5 @@
 import { useMemo, useState } from 'react'
-
-function normalizeAuthMessage(raw) {
-  const message = String(raw || '').trim()
-  if (!message) return '登录失败，请稍后重试'
-  if (message.includes('账号不存在')) return '账号不存在，请先注册'
-  if (message.includes('密码错误')) return '密码错误，请重新输入'
-  if (message.includes('用户名或密码错误')) return '账号或密码错误，请重新输入'
-  if (message.includes('用户名已存在')) return '账号已存在，请直接登录'
-  if (message.includes('请求过于频繁')) return message
-  return message
-}
+import { toGuidedError } from '../utils/errorFeedback.js'
 
 export function LoginPanel({ loading, onSubmit }) {
   const [mode, setMode] = useState('login')
@@ -51,7 +41,7 @@ export function LoginPanel({ loading, onSubmit }) {
       setPassword('')
       setSuccessText(mode === 'login' ? '登录成功' : '注册成功，已自动登录')
     } catch (error) {
-      setErrorText(normalizeAuthMessage(error?.message))
+      setErrorText(toGuidedError(error, mode === 'login' ? 'auth_login' : 'auth_register', '登录失败'))
     }
   }
 

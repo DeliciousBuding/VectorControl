@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { SortToggle } from './SortToggle.jsx'
 import { SparklineMini } from './SparklineMini.jsx'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
@@ -12,7 +12,7 @@ function DualValue({ top, bottom, topClass = '', bottomClass = '' }) {
   )
 }
 
-export function HoldingsTable({
+export const HoldingsTable = memo(function HoldingsTable({
   title,
   rows,
   dateLabel,
@@ -21,7 +21,10 @@ export function HoldingsTable({
   selectedFundId,
   onSelectFund,
   sparklineMap,
-  onSaveHolding
+  onSaveHolding,
+  onOpenAudit,
+  onAutoFillHolding,
+  autoFillLoadingFundId
 }) {
   const [editingId, setEditingId] = useState('')
   const [draft, setDraft] = useState({})
@@ -76,7 +79,7 @@ export function HoldingsTable({
           <thead>
             <tr>
               <th>{sortCell('基金', 'name')}</th>
-              <th>走势</th>
+              <th>走势（近1月）</th>
               <th className="align-right">{sortCell('持有金额', 'market_value_cny')}</th>
               <th className="align-right">持有份额</th>
               <th className="align-right">持仓占比</th>
@@ -98,6 +101,7 @@ export function HoldingsTable({
             {rows.map((row) => {
               const selected = selectedFundId === row.fund_id
               const isEditing = editingId === row.fund_id
+              const autoFilling = String(autoFillLoadingFundId || '') === String(row.fund_id)
               const weight = totalMarket > 0 ? (row.market_value_cny / totalMarket) * 100 : 0
               const startDateText = row.start_date ? String(row.start_date).slice(0, 10) : '--'
               const state = String(row.confirm_state || '')
@@ -194,9 +198,17 @@ export function HoldingsTable({
                   </td>
                   <td className="align-right">
                     {!isEditing && (
-                      <button type="button" className="text-btn" onClick={(e) => { e.stopPropagation(); beginEdit(row) }}>
-                        编辑
-                      </button>
+                      <div className="row-actions row-actions-hover" onClick={(e) => e.stopPropagation()}>
+                        <button type="button" className="text-btn" onClick={() => beginEdit(row)}>
+                          编辑
+                        </button>
+                        <button type="button" className="text-btn neutral-text" disabled={autoFilling} onClick={() => onAutoFillHolding?.(row)}>
+                          {autoFilling ? '补全中...' : '自动补全'}
+                        </button>
+                        <button type="button" className="text-btn neutral-text" onClick={() => onOpenAudit?.(row.fund_id)}>
+                          审计
+                        </button>
+                      </div>
                     )}
                     {isEditing && (
                       <div className="row-actions" onClick={(e) => e.stopPropagation()}>
@@ -213,4 +225,4 @@ export function HoldingsTable({
       </div>
     </section>
   )
-}
+})

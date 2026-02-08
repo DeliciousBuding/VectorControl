@@ -5,7 +5,14 @@ from time import perf_counter
 
 from fastapi import APIRouter, Request
 
-from app.api.deps import get_config, get_holdings_user_id, get_snapshot_user_id, is_admin
+from app.api.deps import (
+    build_data_status,
+    get_config,
+    get_holdings_user_id,
+    get_snapshot_user_id,
+    is_admin,
+    map_confirm_state_to_data_status,
+)
 from app.core.settings import get_env
 from app.estimator.engine import build_estimate
 from app.risk.engine import build_risk_overview
@@ -16,6 +23,7 @@ from app.storage.db import (
     list_holdings,
     list_estimate_snapshots,
     save_estimate_snapshot,
+    summarize_fund_transactions_map,
 )
 
 router = APIRouter(prefix="/api", tags=["估值"])
@@ -37,6 +45,15 @@ def _estimate_cache_ttl_seconds() -> int:
         value = int(raw)
     except ValueError:
         value = 20
+    return max(0, min(value, 300))
+
+
+def _incremental_quote_cache_ttl_seconds() -> int:
+    raw = (get_env("VC_ESTIMATE_INCREMENTAL_QUOTE_CACHE_SECONDS", "90") or "90").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        value = 90
     return max(0, min(value, 300))
 
 
@@ -74,6 +91,30 @@ def _attach_risk_overview(payload: dict, snapshot_user_id: str) -> None:
     payload["risk_overview"] = risk
 
 
+def _attach_data_status(payload: dict) -> None:
+    if not isinstance(payload, dict):
+        return
+    if isinstance(payload.get("data_status"), dict):
+        return
+
+    coverage = payload.get("coverage", {}) if isinstance(payload.get("coverage"), dict) else {}
+    failed = int(coverage.get("failed", 0) or 0)
+    ok = int(coverage.get("ok", 0) or 0)
+    total = int(coverage.get("total", ok + failed) or 0)
+    confirm_state = str(payload.get("confirm_state") or "")
+    asof = str(payload.get("asof") or payload.get("as_of") or "")
+    status = map_confirm_state_to_data_status(confirm_state, failed_count=failed)
+
+    if status == "confirmed":
+        note = "收益口径为已确认净值"
+    elif status == "partial":
+        note = f"估值覆盖 {ok}/{total}，含 {failed} 只基金异常"
+    else:
+        note = "当前为估算口径，收盘后可能更新为确认值"
+
+    payload["data_status"] = build_data_status(status=status, asof=asof, note=note)
+
+
 @router.get("/estimate")
 async def get_estimate(request: Request) -> dict:
     request_started = perf_counter()
@@ -87,17 +128,27 @@ async def get_estimate(request: Request) -> dict:
     snapshot_user_id = get_snapshot_user_id(request)
     prefer_cached = _to_bool(request.query_params.get("prefer_cached"), default=True)
     force_refresh = _to_bool(request.query_params.get("force_refresh"), default=False)
+    enable_incremental_refresh = _to_bool(request.query_params.get("incremental"), default=True) and not force_refresh
     cache_ttl_seconds = _estimate_cache_ttl_seconds()
+    quote_cache_ttl_seconds = _incremental_quote_cache_ttl_seconds()
+    latest_snapshot = get_latest_estimate_snapshot(snapshot_user_id)
 
     if cache_ttl_seconds > 0 and prefer_cached and not force_refresh:
-        latest_snapshot = get_latest_estimate_snapshot(snapshot_user_id)
         snapshot_age_seconds = _snapshot_age_seconds(latest_snapshot)
         if latest_snapshot and snapshot_age_seconds is not None and snapshot_age_seconds <= cache_ttl_seconds:
             payload = dict(latest_snapshot)
             _attach_risk_overview(payload, snapshot_user_id)
             payload["cache_hit"] = True
             payload["cache_age_seconds"] = round(snapshot_age_seconds, 3)
+            funds = payload.get("funds", [])
+            fund_count = len(funds) if isinstance(funds, list) else 0
+            payload.setdefault("incremental_enabled", bool(enable_incremental_refresh))
+            payload.setdefault("incremental_mode", "snapshot_hit")
+            payload.setdefault("incremental_quote_cache_ttl_seconds", quote_cache_ttl_seconds)
+            payload.setdefault("incremental_reused_quotes", fund_count)
+            payload.setdefault("incremental_fetched_quotes", 0)
             payload["server_elapsed_ms"] = int((perf_counter() - request_started) * 1000)
+            _attach_data_status(payload)
             return payload
 
     yesterday = _yesterday_str()
@@ -106,11 +157,16 @@ async def get_estimate(request: Request) -> dict:
         portfolio=portfolio,
         previous_snapshot=get_latest_estimate_snapshot_on_or_before(snapshot_user_id, yesterday),
         confirmed_yesterday_profit=get_confirmed_fund_profit_map(snapshot_user_id, yesterday),
+        transaction_summary_map=summarize_fund_transactions_map(get_holdings_user_id(request)),
+        incremental_snapshot=latest_snapshot,
+        enable_incremental_refresh=enable_incremental_refresh,
+        quote_cache_ttl_seconds=quote_cache_ttl_seconds,
     )
     payload["cache_hit"] = False
     payload["cache_age_seconds"] = 0
     payload["build_elapsed_ms"] = int((perf_counter() - estimate_started) * 1000)
     _attach_risk_overview(payload, snapshot_user_id)
     payload["server_elapsed_ms"] = int((perf_counter() - request_started) * 1000)
+    _attach_data_status(payload)
     save_estimate_snapshot(snapshot_user_id, payload["asof"], payload)
     return payload

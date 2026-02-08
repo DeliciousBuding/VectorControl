@@ -1,6 +1,7 @@
+import { memo, useMemo } from 'react'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
 
-export function SummaryCards({ rows = [], loading = false }) {
+export const SummaryCards = memo(function SummaryCards({ rows = [], loading = false }) {
   if (loading && rows.length === 0) {
     return (
       <section className="summary-grid">
@@ -15,11 +16,20 @@ export function SummaryCards({ rows = [], loading = false }) {
     )
   }
 
-  const totalMarket = rows.reduce((sum, item) => sum + Number(item.market_value_cny || 0), 0)
-  const totalCost = rows.reduce((sum, item) => sum + Number(item.cost_basis_cny || 0), 0)
-  const totalHolding = rows.reduce((sum, item) => sum + Number(item.holding_profit_cny || 0), 0)
-  const totalDay = rows.reduce((sum, item) => sum + Number(item.day_profit_cny || 0), 0)
-  const holdingRate = totalCost > 0 ? (totalHolding / totalCost) * 100 : 0
+  const { totalMarket, totalCost, totalHolding, totalDay, holdingRate } = useMemo(() => {
+    const nextTotalMarket = rows.reduce((sum, item) => sum + Number(item.market_value_cny || 0), 0)
+    const nextTotalCost = rows.reduce((sum, item) => sum + Number(item.cost_basis_cny || 0), 0)
+    const nextTotalHolding = rows.reduce((sum, item) => sum + Number(item.holding_profit_cny || 0), 0)
+    const nextTotalDay = rows.reduce((sum, item) => sum + Number(item.day_profit_cny || 0), 0)
+    const nextHoldingRate = nextTotalCost > 0 ? (nextTotalHolding / nextTotalCost) * 100 : 0
+    return {
+      totalMarket: nextTotalMarket,
+      totalCost: nextTotalCost,
+      totalHolding: nextTotalHolding,
+      totalDay: nextTotalDay,
+      holdingRate: nextHoldingRate
+    }
+  }, [rows])
 
   return (
     <section className="summary-grid">
@@ -42,4 +52,4 @@ export function SummaryCards({ rows = [], loading = false }) {
       </article>
     </section>
   )
-}
+})

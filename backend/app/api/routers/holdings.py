@@ -8,12 +8,13 @@ from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field
 from starlette.responses import JSONResponse
 
-from app.api.deps import get_config, get_holdings_user_id
+from app.api.deps import build_data_status, get_config, get_holdings_user_id, get_user_id, get_username
 from app.storage.db import (
     archive_holding,
     create_or_replace_holding,
     export_holdings_as_portfolio,
     import_holdings_from_portfolio,
+    list_holding_audit_logs,
     list_holdings,
     update_holding_fields,
 )
@@ -60,6 +61,11 @@ async def get_holdings(
         "holdings": holdings,
         "count": len(holdings),
         "include_archived": include_archived,
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=datetime.now().astimezone().isoformat(),
+            note="持仓来自本地数据库真源",
+        ),
     }
 
 
@@ -79,6 +85,11 @@ async def import_yaml(request: Request, payload: ImportYamlIn) -> dict[str, Any]
     return {
         "result": result,
         "imported_at": datetime.now().astimezone().isoformat(),
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=datetime.now().astimezone().isoformat(),
+            note="导入已写入数据库",
+        ),
     }
 
 
@@ -95,33 +106,101 @@ async def export_yaml(
         "yaml": yaml_text,
         "include_archived": include_archived,
         "exported_at": datetime.now().astimezone().isoformat(),
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=datetime.now().astimezone().isoformat(),
+            note="导出基于当前数据库快照",
+        ),
     }
 
 
 @router.post("")
 async def create_holding(request: Request, payload: HoldingCreateIn) -> dict[str, Any]:
     user_id = get_holdings_user_id(request)
+    actor_user_id = get_user_id(request)
+    actor_username = get_username(request)
     try:
-        holding = create_or_replace_holding(user_id=user_id, item=payload.model_dump(exclude_none=True))
+        holding = create_or_replace_holding(
+            user_id=user_id,
+            item=payload.model_dump(exclude_none=True),
+            actor_user_id=actor_user_id,
+            actor_username=actor_username,
+        )
     except ValueError as exc:
         return JSONResponse({"detail": str(exc)}, status_code=400)
-    return {"holding": holding}
+    return {
+        "holding": holding,
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=datetime.now().astimezone().isoformat(),
+            note="持仓已写入数据库",
+        ),
+    }
 
 
 @router.patch("/{fund_id}")
 async def patch_holding(request: Request, fund_id: str, payload: HoldingUpdateIn) -> dict[str, Any]:
     user_id = get_holdings_user_id(request)
+    actor_user_id = get_user_id(request)
+    actor_username = get_username(request)
     updates = payload.model_dump(exclude_none=True)
-    updated = update_holding_fields(user_id=user_id, fund_id=fund_id, updates=updates)
+    updated = update_holding_fields(
+        user_id=user_id,
+        fund_id=fund_id,
+        updates=updates,
+        actor_user_id=actor_user_id,
+        actor_username=actor_username,
+    )
     if not updated:
         return JSONResponse({"detail": "未找到可更新的持仓，或本次未提交有效字段"}, status_code=400)
-    return {"holding": updated}
+    return {
+        "holding": updated,
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=datetime.now().astimezone().isoformat(),
+            note="持仓已更新到数据库",
+        ),
+    }
 
 
 @router.post("/{fund_id}/archive")
 async def archive(request: Request, fund_id: str) -> dict[str, Any]:
     user_id = get_holdings_user_id(request)
-    archived = archive_holding(user_id=user_id, fund_id=fund_id)
+    actor_user_id = get_user_id(request)
+    actor_username = get_username(request)
+    archived = archive_holding(
+        user_id=user_id,
+        fund_id=fund_id,
+        actor_user_id=actor_user_id,
+        actor_username=actor_username,
+    )
     if not archived:
         return JSONResponse({"detail": "未找到可归档的持仓"}, status_code=404)
-    return {"holding": archived}
+    return {
+        "holding": archived,
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=datetime.now().astimezone().isoformat(),
+            note="持仓已归档到数据库",
+        ),
+    }
+
+
+@router.get("/{fund_id}/audit")
+async def get_holding_audit(
+    request: Request,
+    fund_id: str,
+    limit: int = Query(default=50, ge=1, le=500, description="返回审计记录条数"),
+) -> dict[str, Any]:
+    user_id = get_holdings_user_id(request)
+    items = list_holding_audit_logs(user_id=user_id, fund_id=fund_id, limit=limit)
+    return {
+        "fund_id": fund_id,
+        "count": len(items),
+        "items": items,
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=datetime.now().astimezone().isoformat(),
+            note="审计记录来自 audit_logs，可用于回放持仓变更",
+        ),
+    }

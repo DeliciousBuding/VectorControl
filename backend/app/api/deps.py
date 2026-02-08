@@ -33,3 +33,23 @@ def get_holdings_user_id(request: Request) -> str:
 
 def get_snapshot_user_id(request: Request) -> str:
     return "admin" if is_admin(request) else get_user_id(request)
+
+
+def map_confirm_state_to_data_status(confirm_state: str | None, failed_count: int = 0) -> str:
+    text = str(confirm_state or "").strip().lower()
+    if text == "confirmed":
+        return "confirmed"
+    if text == "partial" or int(failed_count or 0) > 0:
+        return "partial"
+    return "estimating"
+
+
+def build_data_status(status: str, asof: str | None = None, note: str | None = None) -> dict[str, str]:
+    clean_status = str(status or "").strip().lower()
+    if clean_status not in {"confirmed", "estimating", "partial"}:
+        clean_status = "estimating"
+    return {
+        "status": clean_status,
+        "asof": str(asof or "").strip(),
+        "note": str(note or "").strip(),
+    }

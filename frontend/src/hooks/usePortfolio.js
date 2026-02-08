@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchEstimate, fetchSettings, saveSettings, updateHolding } from '../api.js'
+import {
+  createHolding as createHoldingApi,
+  fetchEstimate,
+  fetchSettings,
+  saveSettings,
+  sendFeishuTestMessage as sendFeishuTestMessageApi,
+  sendTelegramTestMessage as sendTelegramTestMessageApi,
+  updateFeishuWebhookCredential as updateFeishuWebhookCredentialApi,
+  updateTelegramCredential as updateTelegramCredentialApi,
+  updateHolding
+} from '../api.js'
 import { formatDateTime } from '../utils/format.js'
 import { normalizeFundRows, sortRows } from '../utils/holdings.js'
+import { toGuidedError } from '../utils/errorFeedback.js'
 
 const DEFAULT_SETTINGS = {
   display: {
@@ -14,7 +25,19 @@ const DEFAULT_SETTINGS = {
       enabled: false,
       webhook_url: '',
       advice_time: '14:50',
-      report_time: '15:10'
+      report_time: '15:10',
+      timeout_seconds: 3,
+      retry_times: 2,
+      template: 'title_content_metadata'
+    },
+    telegram: {
+      enabled: false,
+      bot_token: '',
+      chat_id: '',
+      parse_mode: '',
+      disable_web_page_preview: true,
+      timeout_seconds: 3,
+      retry_times: 2
     },
     email: {
       enabled: false,
@@ -64,6 +87,14 @@ export function usePortfolio({ user, sorter }) {
   const [coverage, setCoverage] = useState({ total: 0, ok: 0, failed: 0 })
   const [refreshElapsedMs, setRefreshElapsedMs] = useState(0)
   const [estimateCacheHit, setEstimateCacheHit] = useState(false)
+  const [incrementalMode, setIncrementalMode] = useState('full_refresh')
+  const [incrementalReusedQuotes, setIncrementalReusedQuotes] = useState(0)
+  const [incrementalFetchedQuotes, setIncrementalFetchedQuotes] = useState(0)
+  const [estimateDataStatus, setEstimateDataStatus] = useState({
+    status: 'estimating',
+    asof: '',
+    note: '等待估值刷新'
+  })
   const [settings, setSettings] = useState(DEFAULT_SETTINGS)
   const [settingsReady, setSettingsReady] = useState(false)
   const loadingRef = useRef(false)
@@ -97,6 +128,18 @@ export function usePortfolio({ user, sorter }) {
         failed: Number(payload?.coverage?.failed || 0)
       })
       setEstimateCacheHit(Boolean(payload?.cache_hit))
+      setIncrementalMode(String(payload?.incremental_mode || 'full_refresh'))
+      setIncrementalReusedQuotes(Number(payload?.incremental_reused_quotes || 0))
+      setIncrementalFetchedQuotes(Number(payload?.incremental_fetched_quotes || 0))
+      setEstimateDataStatus(
+        payload?.data_status && typeof payload.data_status === 'object'
+          ? payload.data_status
+          : {
+              status: payload?.confirm_state === 'confirmed' ? 'confirmed' : 'estimating',
+              asof: payload?.asof || payload?.as_of || '',
+              note: '估值口径由后端返回'
+            }
+      )
       setLastRefresh(formatDateTime())
       setRiskOverview(payload?.risk_overview && typeof payload.risk_overview === 'object' ? payload.risk_overview : null)
 
@@ -108,7 +151,7 @@ export function usePortfolio({ user, sorter }) {
         setStatus({ type: 'success', message: auto ? '自动刷新成功' : '刷新成功' })
       }
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message || '刷新失败' })
+      setStatus({ type: 'error', message: toGuidedError(error, 'estimate_refresh', '刷新失败') })
     } finally {
       setRefreshElapsedMs(Math.max(0, Math.round(performance.now() - refreshStarted)))
       loadingRef.current = false
@@ -142,6 +185,14 @@ export function usePortfolio({ user, sorter }) {
       setCoverage({ total: 0, ok: 0, failed: 0 })
       setRefreshElapsedMs(0)
       setEstimateCacheHit(false)
+      setIncrementalMode('full_refresh')
+      setIncrementalReusedQuotes(0)
+      setIncrementalFetchedQuotes(0)
+      setEstimateDataStatus({
+        status: 'estimating',
+        asof: '',
+        note: '请先登录后再刷新估值'
+      })
       setSettingsReady(false)
       setSettings(DEFAULT_SETTINGS)
       setStatus({ type: 'info', message: '请先登录' })
@@ -178,7 +229,7 @@ export function usePortfolio({ user, sorter }) {
       await saveSettings({ settings: next })
       setStatus({ type: 'success', message: enabled ? '已开启自动刷新' : '已关闭自动刷新' })
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message || '自动刷新设置保存失败' })
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '自动刷新设置保存失败') })
     }
   }, [settings])
 
@@ -190,10 +241,116 @@ export function usePortfolio({ user, sorter }) {
       setStatus({ type: 'success', message: '设置已保存' })
       return true
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message || '设置保存失败' })
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '设置保存失败') })
       return false
     }
   }, [settings])
+
+  const updateFeishuWebhookCredential = useCallback(async (webhookUrl) => {
+    const nextWebhook = String(webhookUrl || '').trim()
+    if (!nextWebhook) {
+      setStatus({ type: 'error', message: '飞书 webhook 不能为空' })
+      return false
+    }
+
+    try {
+      await updateFeishuWebhookCredentialApi({ webhook_url: nextWebhook })
+      setSettings((prev) => mergeDeep(prev, {
+        notifications: {
+          feishu: {
+            webhook_url: nextWebhook
+          }
+        }
+      }))
+      setStatus({ type: 'success', message: '飞书 webhook 已更新' })
+      return true
+    } catch (error) {
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '飞书 webhook 更新失败') })
+      return false
+    }
+  }, [])
+
+  const updateTelegramCredential = useCallback(async (botToken, chatId) => {
+    const nextBotToken = String(botToken || '').trim()
+    const nextChatId = String(chatId || '').trim()
+    if (!nextBotToken || !nextChatId) {
+      setStatus({ type: 'error', message: 'Telegram 凭据缺失：bot_token 与 chat_id 均不能为空' })
+      return false
+    }
+
+    try {
+      await updateTelegramCredentialApi({ bot_token: nextBotToken, chat_id: nextChatId })
+      setSettings((prev) => mergeDeep(prev, {
+        notifications: {
+          telegram: {
+            bot_token: nextBotToken,
+            chat_id: nextChatId
+          }
+        }
+      }))
+      setStatus({ type: 'success', message: 'Telegram 凭据已更新' })
+      return true
+    } catch (error) {
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', 'Telegram 凭据更新失败') })
+      return false
+    }
+  }, [])
+
+  const sendTelegramTestMessage = useCallback(async () => {
+    try {
+      const payload = await sendTelegramTestMessageApi()
+      const traceId = String(payload?.trace_id || '').trim()
+      const ok = payload?.ok === true && payload?.sent === true
+
+      if (ok) {
+        setStatus({
+          type: 'success',
+          message: `Telegram 测试消息已发送${traceId ? `（trace_id: ${traceId}）` : ''}`
+        })
+      } else {
+        const category = String(payload?.error?.category || '').trim()
+        const description = String(payload?.error?.description || payload?.error?.message || '').trim()
+        const suffix = [category, description].filter(Boolean).join(' - ')
+        setStatus({
+          type: 'error',
+          message: `Telegram 测试消息发送失败${traceId ? `（trace_id: ${traceId}）` : ''}${suffix ? `：${suffix}` : ''}`
+        })
+      }
+
+      return payload || null
+    } catch (error) {
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', 'Telegram 测试消息发送失败') })
+      return null
+    }
+  }, [])
+
+  const sendFeishuTestMessage = useCallback(async () => {
+    try {
+      const payload = await sendFeishuTestMessageApi()
+      const traceId = String(payload?.trace_id || '').trim()
+      const ok = payload?.ok === true && payload?.sent === true
+
+      if (ok) {
+        setStatus({
+          type: 'success',
+          message: `飞书 测试消息已发送${traceId ? `（trace_id: ${traceId}）` : ''}`
+        })
+      } else {
+        const category = String(payload?.error?.category || '').trim()
+        const description = String(payload?.error?.description || payload?.error?.message || '').trim()
+        const suffix = [category, description].filter(Boolean).join(' - ')
+        setStatus({
+          type: 'error',
+          message: `飞书 测试消息发送失败${traceId ? `（trace_id: ${traceId}）` : ''}${suffix ? `：${suffix}` : ''}`
+        })
+      }
+
+      return payload || null
+    } catch (error) {
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '飞书 测试消息发送失败') })
+      return null
+    }
+  }, [])
 
   const saveHolding = useCallback(async (fundId, payload) => {
     try {
@@ -209,8 +366,34 @@ export function usePortfolio({ user, sorter }) {
       setStatus({ type: 'success', message: `已更新 ${fundId} 持仓` })
       return true
     } catch (error) {
-      setStatus({ type: 'error', message: error?.message || '持仓更新失败' })
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '持仓更新失败') })
       return false
+    }
+  }, [])
+
+  const createHolding = useCallback(async (payload) => {
+    try {
+      const response = await createHoldingApi(payload)
+      const created = response?.holding
+      if (!created) {
+        throw new Error('后端未返回新增后的持仓')
+      }
+      const normalized = normalizeFundRows([created])[0]
+      if (!normalized) {
+        throw new Error('新增持仓数据格式异常')
+      }
+      setRows((prev) => {
+        const index = prev.findIndex((item) => item.fund_id === normalized.fund_id)
+        if (index < 0) {
+          return [normalized, ...prev]
+        }
+        return prev.map((item) => (item.fund_id === normalized.fund_id ? { ...item, ...normalized } : item))
+      })
+      setStatus({ type: 'success', message: `已新增/覆盖 ${normalized.fund_id} 持仓` })
+      return normalized
+    } catch (error) {
+      setStatus({ type: 'error', message: toGuidedError(error, 'holding_create', '新增持仓失败') })
+      return null
     }
   }, [])
 
@@ -228,10 +411,19 @@ export function usePortfolio({ user, sorter }) {
     coverage,
     refreshElapsedMs,
     estimateCacheHit,
+    incrementalMode,
+    incrementalReusedQuotes,
+    incrementalFetchedQuotes,
+    estimateDataStatus,
     settings,
     refresh,
     setAutoRefreshEnabled,
     saveSettingsPatch,
-    saveHolding
+    updateFeishuWebhookCredential,
+    updateTelegramCredential,
+    sendFeishuTestMessage,
+    sendTelegramTestMessage,
+    saveHolding,
+    createHolding
   }
 }
