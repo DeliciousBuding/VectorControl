@@ -157,7 +157,7 @@ function maskWebhookUrl(webhookUrl) {
   return `${raw.slice(0, 6)}...${raw.slice(-4)}`
 }
 
-export function SettingsDrawer({ open, settings, onClose, onSave }) {
+export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishuWebhook }) {
   const [draft, setDraft] = useState(() => normalizeDrawerSettings(settings))
   const [benchmarkProfile, setBenchmarkProfile] = useState('cn_fund')
   const [benchmarkLoading, setBenchmarkLoading] = useState(false)
@@ -213,8 +213,12 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
 
   const timeoutSeconds = Number(draft.network_benchmark.timeout_seconds || 6)
   const currentFeishuWebhook = String(draft.notifications.feishu.webhook_url || '').trim()
+  const requestedFeishuWebhook = String(pendingFeishuWebhook || '').trim()
   const hasFeishuWebhook = currentFeishuWebhook.length > 0
   const showFeishuWebhookInput = editingFeishuWebhook || !hasFeishuWebhook
+  const shouldUpdateFeishuWebhook = showFeishuWebhookInput
+    && requestedFeishuWebhook.length > 0
+    && requestedFeishuWebhook !== currentFeishuWebhook
   const maskedFeishuWebhook = maskWebhookUrl(currentFeishuWebhook)
   const benchmarkSummary = benchmarkResult?.summary || null
   const hasBenchmarkRows = Array.isArray(benchmarkResult?.results) && benchmarkResult.results.length > 0
@@ -223,8 +227,8 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
     setSaveError('')
     setSaving(true)
 
-    const nextFeishuWebhook = showFeishuWebhookInput
-      ? (String(pendingFeishuWebhook || '').trim() || currentFeishuWebhook)
+    const nextFeishuWebhook = shouldUpdateFeishuWebhook
+      ? requestedFeishuWebhook
       : currentFeishuWebhook
 
     const nextDraft = {
@@ -243,14 +247,37 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
       }
     }
 
+    const nextDraftWithoutWebhook = {
+      ...nextDraft,
+      notifications: {
+        ...nextDraft.notifications,
+        feishu: {
+          ...nextDraft.notifications.feishu
+        }
+      }
+    }
+    delete nextDraftWithoutWebhook.notifications.feishu.webhook_url
+
     setDraft(nextDraft)
 
     try {
+      if (shouldUpdateFeishuWebhook) {
+        if (typeof onUpdateFeishuWebhook !== 'function') {
+          setSaveError('飞书 webhook 更新失败。下一步：稍后重试或联系管理员检查后端接口。')
+          return
+        }
+        const updated = await onUpdateFeishuWebhook(requestedFeishuWebhook)
+        if (updated === false) {
+          setSaveError('飞书 webhook 更新失败。下一步：检查新凭据格式后重试。')
+          return
+        }
+      }
+
       if (typeof onSave !== 'function') {
         setSaveError('设置保存失败。下一步：刷新页面后重试。')
         return
       }
-      const ok = await onSave(nextDraft)
+      const ok = await onSave(nextDraftWithoutWebhook)
       if (ok === false) {
         setSaveError('设置保存失败。下一步：检查表单配置后重试；若持续失败请重新登录。')
         return

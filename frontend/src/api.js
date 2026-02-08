@@ -128,6 +128,10 @@ export function saveSettings(payload) {
   return apiFetch('/api/settings', { method: 'PUT', body: payload })
 }
 
+export function updateFeishuWebhookCredential(payload) {
+  return apiFetch('/api/settings/notifications/feishu/webhook', { method: 'PUT', body: payload })
+}
+
 export function fetchNetworkBenchmarkLatest() {
   return apiFetchWithFallback([
     '/api/settings/network-benchmark/latest',

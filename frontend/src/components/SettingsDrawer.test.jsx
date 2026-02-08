@@ -168,6 +168,7 @@ describe('SettingsDrawer', () => {
 
   it('default masks existing webhook and updates only through explicit action', async () => {
     const onSave = vi.fn().mockResolvedValue(true)
+    const onUpdateFeishuWebhook = vi.fn().mockResolvedValue(true)
     const currentWebhook = 'https://open.feishu.cn/open-apis/bot/v2/hook/current-token-1234'
     const nextWebhook = 'https://open.feishu.cn/open-apis/bot/v2/hook/new-token-5678'
 
@@ -183,6 +184,7 @@ describe('SettingsDrawer', () => {
         }}
         onClose={vi.fn()}
         onSave={onSave}
+        onUpdateFeishuWebhook={onUpdateFeishuWebhook}
       />
     )
 
@@ -199,17 +201,23 @@ describe('SettingsDrawer', () => {
       expect(onSave).toHaveBeenCalledTimes(1)
     })
 
+    expect(onUpdateFeishuWebhook).toHaveBeenCalledTimes(1)
+    expect(onUpdateFeishuWebhook).toHaveBeenCalledWith(nextWebhook)
     expect(onSave.mock.calls[0][0]).toMatchObject({
       notifications: {
         feishu: {
-          webhook_url: nextWebhook
+          timeout_seconds: 3,
+          retry_times: 2,
+          template: 'title_content_metadata'
         }
       }
     })
+    expect(onSave.mock.calls[0][0]?.notifications?.feishu?.webhook_url).toBeUndefined()
   })
 
   it('blank webhook update keeps existing credential unchanged', async () => {
     const onSave = vi.fn().mockResolvedValue(true)
+    const onUpdateFeishuWebhook = vi.fn().mockResolvedValue(true)
     const currentWebhook = 'https://open.feishu.cn/open-apis/bot/v2/hook/current-token-1234'
 
     render(
@@ -224,6 +232,7 @@ describe('SettingsDrawer', () => {
         }}
         onClose={vi.fn()}
         onSave={onSave}
+        onUpdateFeishuWebhook={onUpdateFeishuWebhook}
       />
     )
 
@@ -234,12 +243,16 @@ describe('SettingsDrawer', () => {
       expect(onSave).toHaveBeenCalledTimes(1)
     })
 
+    expect(onUpdateFeishuWebhook).not.toHaveBeenCalled()
     expect(onSave.mock.calls[0][0]).toMatchObject({
       notifications: {
         feishu: {
-          webhook_url: currentWebhook
+          timeout_seconds: 3,
+          retry_times: 2,
+          template: 'title_content_metadata'
         }
       }
     })
+    expect(onSave.mock.calls[0][0]?.notifications?.feishu?.webhook_url).toBeUndefined()
   })
 })

@@ -354,6 +354,7 @@ function App() {
     refresh,
     setAutoRefreshEnabled,
     saveSettingsPatch,
+    updateFeishuWebhookCredential,
     saveHolding,
     createHolding
   } = usePortfolio({ user, sorter: sortState })
@@ -2878,6 +2879,7 @@ function App() {
         settings={settings}
         onClose={() => setSettingsOpen(false)}
         onSave={async (draft) => saveSettingsPatch(draft)}
+        onUpdateFeishuWebhook={async (webhookUrl) => updateFeishuWebhookCredential(webhookUrl)}
       />
     </div>
   )

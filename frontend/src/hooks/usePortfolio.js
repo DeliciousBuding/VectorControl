@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { createHolding as createHoldingApi, fetchEstimate, fetchSettings, saveSettings, updateHolding } from '../api.js'
+import {
+  createHolding as createHoldingApi,
+  fetchEstimate,
+  fetchSettings,
+  saveSettings,
+  updateFeishuWebhookCredential as updateFeishuWebhookCredentialApi,
+  updateHolding
+} from '../api.js'
 import { formatDateTime } from '../utils/format.js'
 import { normalizeFundRows, sortRows } from '../utils/holdings.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
@@ -227,6 +234,30 @@ export function usePortfolio({ user, sorter }) {
     }
   }, [settings])
 
+  const updateFeishuWebhookCredential = useCallback(async (webhookUrl) => {
+    const nextWebhook = String(webhookUrl || '').trim()
+    if (!nextWebhook) {
+      setStatus({ type: 'error', message: '飞书 webhook 不能为空' })
+      return false
+    }
+
+    try {
+      await updateFeishuWebhookCredentialApi({ webhook_url: nextWebhook })
+      setSettings((prev) => mergeDeep(prev, {
+        notifications: {
+          feishu: {
+            webhook_url: nextWebhook
+          }
+        }
+      }))
+      setStatus({ type: 'success', message: '飞书 webhook 已更新' })
+      return true
+    } catch (error) {
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '飞书 webhook 更新失败') })
+      return false
+    }
+  }, [])
+
   const saveHolding = useCallback(async (fundId, payload) => {
     try {
       const response = await updateHolding(fundId, payload)
@@ -294,6 +325,7 @@ export function usePortfolio({ user, sorter }) {
     refresh,
     setAutoRefreshEnabled,
     saveSettingsPatch,
+    updateFeishuWebhookCredential,
     saveHolding,
     createHolding
   }
