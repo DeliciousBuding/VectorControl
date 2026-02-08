@@ -398,6 +398,13 @@ def _default_user_settings() -> dict[str, Any]:
                 "advice_time": "14:50",
                 "report_time": "15:10",
             },
+            "telegram": {
+                "enabled": False,
+                "bot_token": "",
+                "chat_id": "",
+                "parse_mode": "Markdown",
+                "disable_web_page_preview": True,
+            },
             "email": {
                 "enabled": False,
                 "smtp_host": "",
