@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { MultiLineChart } from './MultiLineChart.jsx'
 import { RANGE_OPTIONS, buildFundSeries, buildPortfolioSeries } from '../utils/chart.js'
 import { classBySign, formatDateTime, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
@@ -37,7 +37,7 @@ function statusNote(status) {
   return '图表含估算值，收盘后可能回补。'
 }
 
-export function FundDetailPanel({ fund, rows, dateLabel, chartDataStatus }) {
+export const FundDetailPanel = memo(function FundDetailPanel({ fund, rows, dateLabel, chartDataStatus }) {
   const [range, setRange] = useState('1m')
   const [showExtendedLines, setShowExtendedLines] = useState(false)
   const rangeOptions = useMemo(() => RANGE_OPTIONS.filter((item) => item.key !== 'day'), [])
@@ -210,4 +210,4 @@ export function FundDetailPanel({ fund, rows, dateLabel, chartDataStatus }) {
       </div>
     </section>
   )
-}
+})

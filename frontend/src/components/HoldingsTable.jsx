@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { SortToggle } from './SortToggle.jsx'
 import { SparklineMini } from './SparklineMini.jsx'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
@@ -12,7 +12,7 @@ function DualValue({ top, bottom, topClass = '', bottomClass = '' }) {
   )
 }
 
-export function HoldingsTable({
+export const HoldingsTable = memo(function HoldingsTable({
   title,
   rows,
   dateLabel,
@@ -219,4 +219,4 @@ export function HoldingsTable({
       </div>
     </section>
   )
-}
+})

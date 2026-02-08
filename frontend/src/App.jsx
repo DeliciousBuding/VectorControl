@@ -463,6 +463,10 @@ function App() {
     setActiveTab('trade')
   }, [])
 
+  const handleSortByKey = useCallback((key) => {
+    setSortState((prev) => cycleSortState(prev, key))
+  }, [])
+
   const handleTabChange = (tabKey) => {
     setActiveTab(tabKey)
     if (tabKey !== 'watch' && window.location.pathname.startsWith('/funds/')) {
@@ -503,7 +507,7 @@ function App() {
     }
   }
 
-  const handleOpenHoldingAudit = async (fundId) => {
+  const handleOpenHoldingAudit = useCallback(async (fundId) => {
     const cleanFundId = String(fundId || '').trim()
     if (!cleanFundId) return
     setHoldingAuditFundId(cleanFundId)
@@ -520,7 +524,7 @@ function App() {
     } finally {
       setHoldingAuditLoading(false)
     }
-  }
+  }, [])
 
   const handleJumpToRiskCenter = () => {
     const node = riskCenterRef.current
@@ -2212,7 +2216,7 @@ function App() {
               rows={domestic}
               dateLabel={dateLabel}
               sortState={sortState}
-              onSort={(key) => setSortState((prev) => cycleSortState(prev, key))}
+              onSort={handleSortByKey}
               selectedFundId={currentFund?.fund_id || ''}
               onSelectFund={setSelectedFundId}
               sparklineMap={sparklineMap}
@@ -2225,7 +2229,7 @@ function App() {
               rows={overseas}
               dateLabel={dateLabel}
               sortState={sortState}
-              onSort={(key) => setSortState((prev) => cycleSortState(prev, key))}
+              onSort={handleSortByKey}
               selectedFundId={currentFund?.fund_id || ''}
               onSelectFund={setSelectedFundId}
               sparklineMap={sparklineMap}
