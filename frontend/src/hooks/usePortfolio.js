@@ -4,6 +4,7 @@ import {
   fetchEstimate,
   fetchSettings,
   saveSettings,
+  sendFeishuTestMessage as sendFeishuTestMessageApi,
   sendTelegramTestMessage as sendTelegramTestMessageApi,
   updateFeishuWebhookCredential as updateFeishuWebhookCredentialApi,
   updateTelegramCredential as updateTelegramCredentialApi,
@@ -323,6 +324,34 @@ export function usePortfolio({ user, sorter }) {
     }
   }, [])
 
+  const sendFeishuTestMessage = useCallback(async () => {
+    try {
+      const payload = await sendFeishuTestMessageApi()
+      const traceId = String(payload?.trace_id || '').trim()
+      const ok = payload?.ok === true && payload?.sent === true
+
+      if (ok) {
+        setStatus({
+          type: 'success',
+          message: `飞书 测试消息已发送${traceId ? `（trace_id: ${traceId}）` : ''}`
+        })
+      } else {
+        const category = String(payload?.error?.category || '').trim()
+        const description = String(payload?.error?.description || payload?.error?.message || '').trim()
+        const suffix = [category, description].filter(Boolean).join(' - ')
+        setStatus({
+          type: 'error',
+          message: `飞书 测试消息发送失败${traceId ? `（trace_id: ${traceId}）` : ''}${suffix ? `：${suffix}` : ''}`
+        })
+      }
+
+      return payload || null
+    } catch (error) {
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', '飞书 测试消息发送失败') })
+      return null
+    }
+  }, [])
+
   const saveHolding = useCallback(async (fundId, payload) => {
     try {
       const response = await updateHolding(fundId, payload)
@@ -392,6 +421,7 @@ export function usePortfolio({ user, sorter }) {
     saveSettingsPatch,
     updateFeishuWebhookCredential,
     updateTelegramCredential,
+    sendFeishuTestMessage,
     sendTelegramTestMessage,
     saveHolding,
     createHolding

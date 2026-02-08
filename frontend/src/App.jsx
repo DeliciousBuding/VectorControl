@@ -356,6 +356,7 @@ function App() {
     saveSettingsPatch,
     updateFeishuWebhookCredential,
     updateTelegramCredential,
+    sendFeishuTestMessage,
     sendTelegramTestMessage,
     saveHolding,
     createHolding
@@ -2883,6 +2884,7 @@ function App() {
         onSave={async (draft) => saveSettingsPatch(draft)}
         onUpdateFeishuWebhook={async (webhookUrl) => updateFeishuWebhookCredential(webhookUrl)}
         onUpdateTelegramCredential={async (botToken, chatId) => updateTelegramCredential(botToken, chatId)}
+        onSendFeishuTestMessage={async () => sendFeishuTestMessage()}
         onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
       />
     </div>

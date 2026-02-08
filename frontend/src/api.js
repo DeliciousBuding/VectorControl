@@ -140,6 +140,14 @@ export function sendTelegramTestMessage() {
   return apiFetch('/api/settings/notifications/telegram/test_message', { method: 'POST' })
 }
 
+export function sendFeishuTestMessage() {
+  return apiFetch('/api/settings/notifications/feishu/test_message', { method: 'POST' })
+}
+
+export function fetchNotificationsStatus() {
+  return apiFetch('/api/settings/notifications/status')
+}
+
 export function fetchNetworkBenchmarkLatest() {
   return apiFetchWithFallback([
     '/api/settings/network-benchmark/latest',
