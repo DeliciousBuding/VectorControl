@@ -26,6 +26,7 @@ import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
 import { ReturnsChart } from './components/ReturnsChart.jsx'
 import { BenchmarkComparison } from './components/BenchmarkComparison.jsx'
+import { SIPPlanManager } from './components/SIPPlanManager.jsx'
 import { HoldingsTable } from './components/HoldingsTable.jsx'
 import { FundDetailPanel } from './components/FundDetailPanel.jsx'
 import { RiskCenter } from './components/RiskCenter.jsx'
@@ -2057,6 +2058,10 @@ function App() {
             </div>
           )}
           <p className="trade-tip">已打通买入/定投/赎回/转换入口，提交后写入执行记录并在下方列表回显。</p>
+
+          <div className="sip-plans-section">
+            <SIPPlanManager user={user} />
+          </div>
 
           <section className="trade-lifecycle">
             <div className="section-head trade-head">
