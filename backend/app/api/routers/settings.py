@@ -16,6 +16,55 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 # Compatibility routes for historical service paths like `/api/network-benchmark/*`.
 compat_router = APIRouter(prefix="/api", tags=["settings-compat"], include_in_schema=False)
 MIN_TIMEOUT_SECONDS = 0.5
+REDACTED = "<REDACTED>"
+
+
+def _redact_settings_for_response(settings: dict[str, Any]) -> dict[str, Any]:
+    # Only redact a small set of known credentials; keep structure stable.
+    if not isinstance(settings, dict):
+        return {}
+    result: dict[str, Any] = dict(settings)
+    notifications = result.get("notifications")
+    if not isinstance(notifications, dict):
+        return result
+
+    notif_out: dict[str, Any] = dict(notifications)
+
+    feishu = notif_out.get("feishu")
+    if isinstance(feishu, dict):
+        feishu_out: dict[str, Any] = dict(feishu)
+        if str(feishu_out.get("webhook_url", "")).strip():
+            feishu_out["webhook_url"] = REDACTED
+        notif_out["feishu"] = feishu_out
+
+    telegram = notif_out.get("telegram")
+    if isinstance(telegram, dict):
+        telegram_out: dict[str, Any] = dict(telegram)
+        if str(telegram_out.get("bot_token", "")).strip():
+            telegram_out["bot_token"] = REDACTED
+        notif_out["telegram"] = telegram_out
+
+    result["notifications"] = notif_out
+    return result
+
+
+def _strip_redacted_credentials_incoming(settings: dict[str, Any]) -> dict[str, Any]:
+    # If client sends back redacted placeholder, ignore it to avoid overwriting stored credentials.
+    if not isinstance(settings, dict):
+        return {}
+    notifications = settings.get("notifications")
+    if not isinstance(notifications, dict):
+        return settings
+
+    feishu = notifications.get("feishu")
+    if isinstance(feishu, dict) and feishu.get("webhook_url") == REDACTED:
+        feishu.pop("webhook_url", None)
+
+    telegram = notifications.get("telegram")
+    if isinstance(telegram, dict) and telegram.get("bot_token") == REDACTED:
+        telegram.pop("bot_token", None)
+
+    return settings
 
 
 class SettingsIn(BaseModel):
@@ -44,15 +93,17 @@ class NetworkBenchmarkRunIn(BaseModel):
 @router.get("")
 async def get_settings(request: Request) -> dict:
     user_id = get_holdings_user_id(request)
-    settings = get_user_settings(user_id)
+    settings = _redact_settings_for_response(get_user_settings(user_id))
     return {"settings": settings, "user_id": user_id}
 
 
 @router.put("")
 async def put_settings(request: Request, payload: SettingsIn) -> dict:
     user_id = get_holdings_user_id(request)
-    settings = upsert_user_settings(user_id, payload.settings)
-    return {"settings": settings, "user_id": user_id}
+    incoming = payload.settings if isinstance(payload.settings, dict) else {}
+    incoming = _strip_redacted_credentials_incoming(incoming)
+    stored = upsert_user_settings(user_id, incoming)
+    return {"settings": _redact_settings_for_response(stored), "user_id": user_id}
 
 
 @router.put("/notifications/feishu/webhook")
