@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.api.deps import get_holdings_user_id
 from app.core.network_benchmark import DEFAULT_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, run_network_benchmark
 from app.notifier import NotificationPayload
+from app.notifier import feishu_sender as feishu_mod
 from app.notifier import telegram_sender as telegram_mod
 from app.storage.db import get_user_settings, upsert_user_settings
 
@@ -276,6 +277,85 @@ async def post_telegram_test_message(request: Request) -> dict:
             last_error = {"category": "timeout"}
         except Exception as exc:
             # Avoid leaking bot_token via exception text (it can include the request URL).
+            last_error = {"category": "network_error", "message": str(exc.__class__.__name__)}
+
+    return {
+        "user_id": user_id,
+        "ok": False,
+        "sent": False,
+        "trace_id": trace_id,
+        "attempts": max_attempts,
+        "max_attempts": max_attempts,
+        "error": last_error or {"category": "unknown"},
+    }
+
+
+@router.post("/notifications/feishu/test_message")
+async def post_feishu_test_message(request: Request) -> dict:
+    # Send a fixed test message using saved feishu webhook_url.
+    # Safety: never echo webhook_url in response.
+    user_id = get_holdings_user_id(request)
+    settings = get_user_settings(user_id)
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+    section = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
+
+    webhook_url = str(section.get("webhook_url", "")).strip()
+    if not webhook_url:
+        raise HTTPException(status_code=422, detail="webhook_url 未配置，请先通过凭据接口更新")
+
+    trace_id = uuid.uuid4().hex[:12]
+    fixed_text = f"VectorControl 飞书 测试消息 (trace_id={trace_id})"
+    payload = NotificationPayload(title="VectorControl", content=fixed_text, metadata={})
+    text = feishu_mod.FeishuSender._build_text(payload=payload, template=str(section.get("template", "title_content_metadata")))
+
+    req_payload: dict[str, Any] = {
+        "msg_type": "text",
+        "content": {"text": text},
+    }
+
+    retry_times = feishu_mod.FeishuSender._coerce_retry_times(section.get("retry_times", feishu_mod.DEFAULT_RETRY_TIMES))
+    timeout_seconds = feishu_mod.FeishuSender._coerce_timeout(section.get("timeout_seconds", feishu_mod.DEFAULT_TIMEOUT_SECONDS))
+    max_attempts = retry_times + 1
+    last_error: dict[str, Any] | None = None
+
+    for attempt in range(1, max_attempts + 1):
+        try:
+            status_code, resp_json = feishu_mod._http_post_json(webhook_url, req_payload, timeout_seconds)
+            provider_code = int(resp_json.get("StatusCode", resp_json.get("code", -1))) if isinstance(resp_json, dict) else -1
+            if status_code == 200 and provider_code == 0:
+                provider_message_id = str(
+                    resp_json.get("message_id")
+                    or (resp_json.get("data") or {}).get("message_id")
+                    or trace_id
+                )
+                return {
+                    "user_id": user_id,
+                    "ok": True,
+                    "sent": True,
+                    "trace_id": trace_id,
+                    "attempts": attempt,
+                    "max_attempts": max_attempts,
+                    "provider_message_id": provider_message_id,
+                }
+
+            provider_message = str(resp_json.get("StatusMessage") or resp_json.get("msg") or "").strip() if isinstance(resp_json, dict) else ""
+            category = "provider_error"
+            if int(status_code) == 401:
+                category = "unauthorized"
+            elif int(status_code) == 403:
+                category = "forbidden"
+            elif int(status_code) == 400:
+                category = "bad_request"
+            last_error = {
+                "category": category,
+                "http_status": int(status_code),
+                "error_code": provider_code,
+                "description": provider_message or f"provider_code={provider_code}",
+            }
+        except TimeoutError:
+            last_error = {"category": "timeout"}
+        except Exception as exc:
+            # Avoid leaking webhook_url via exception text.
             last_error = {"category": "network_error", "message": str(exc.__class__.__name__)}
 
     return {

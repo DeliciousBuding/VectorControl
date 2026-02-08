@@ -5,6 +5,7 @@ import logging
 import uuid
 from typing import Any
 from urllib import request
+from urllib.error import HTTPError
 
 from .base import NotificationPayload, NotificationResult
 
@@ -23,9 +24,14 @@ def _http_post_json(url: str, payload: dict[str, Any], timeout_seconds: float) -
         method="POST",
         headers={"Content-Type": "application/json; charset=utf-8"},
     )
-    with request.urlopen(req, timeout=timeout_seconds) as resp:
-        status_code = int(getattr(resp, "status", 200))
-        raw = resp.read().decode("utf-8", errors="replace")
+    try:
+        with request.urlopen(req, timeout=timeout_seconds) as resp:
+            status_code = int(getattr(resp, "status", 200))
+            raw = resp.read().decode("utf-8", errors="replace")
+    except HTTPError as exc:
+        # Keep response body for diagnostics without raising; caller decides category.
+        status_code = int(getattr(exc, "code", 0) or 0)
+        raw = exc.read().decode("utf-8", errors="replace")
     try:
         parsed = json.loads(raw) if raw else {}
     except Exception:
