@@ -255,4 +255,95 @@ describe('SettingsDrawer', () => {
     })
     expect(onSave.mock.calls[0][0]?.notifications?.feishu?.webhook_url).toBeUndefined()
   })
+
+  it('telegram credential preview never leaks token and updates only through explicit action', async () => {
+    const onSave = vi.fn().mockResolvedValue(true)
+    const onUpdateTelegramCredential = vi.fn().mockResolvedValue(true)
+    const onClose = vi.fn()
+
+    const currentBotToken = 'telegram-token-1234'
+    const currentChatId = '-1001234567890'
+    const nextBotToken = 'telegram-token-5678'
+    const nextChatId = '-1009998887776'
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            telegram: {
+              bot_token: currentBotToken,
+              chat_id: currentChatId
+            }
+          }
+        }}
+        onClose={onClose}
+        onSave={onSave}
+        onUpdateTelegramCredential={onUpdateTelegramCredential}
+      />
+    )
+
+    const preview = await screen.findByText(new RegExp(`chat_id=${currentChatId}`))
+    expect(preview.textContent || '').not.toContain(currentBotToken)
+    expect(screen.queryByPlaceholderText(/bot_token/)).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '更新凭据' }))
+    fireEvent.change(screen.getByPlaceholderText(/bot_token/), { target: { value: nextBotToken } })
+    fireEvent.change(screen.getByPlaceholderText(/chat_id/), { target: { value: nextChatId } })
+    fireEvent.click(screen.getByTestId('settings-save-btn'))
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledTimes(1)
+    })
+
+    expect(onUpdateTelegramCredential).toHaveBeenCalledTimes(1)
+    expect(onUpdateTelegramCredential).toHaveBeenCalledWith(nextBotToken, nextChatId)
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      notifications: {
+        telegram: {
+          timeout_seconds: 3,
+          retry_times: 2
+        }
+      }
+    })
+    expect(onSave.mock.calls[0][0]?.notifications?.telegram?.bot_token).toBeUndefined()
+    expect(onSave.mock.calls[0][0]?.notifications?.telegram?.chat_id).toBeUndefined()
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('blank telegram credential update keeps existing credential unchanged', async () => {
+    const onSave = vi.fn().mockResolvedValue(true)
+    const onUpdateTelegramCredential = vi.fn().mockResolvedValue(true)
+
+    const currentBotToken = 'telegram-token-1234'
+    const currentChatId = '-1001234567890'
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            telegram: {
+              bot_token: currentBotToken,
+              chat_id: currentChatId
+            }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={onSave}
+        onUpdateTelegramCredential={onUpdateTelegramCredential}
+      />
+    )
+
+    fireEvent.click(screen.getByRole('button', { name: '更新凭据' }))
+    fireEvent.click(screen.getByTestId('settings-save-btn'))
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledTimes(1)
+    })
+
+    expect(onUpdateTelegramCredential).not.toHaveBeenCalled()
+    expect(onSave.mock.calls[0][0]?.notifications?.telegram?.bot_token).toBeUndefined()
+    expect(onSave.mock.calls[0][0]?.notifications?.telegram?.chat_id).toBeUndefined()
+  })
 })

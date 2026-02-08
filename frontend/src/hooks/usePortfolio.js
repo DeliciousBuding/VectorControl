@@ -5,6 +5,7 @@ import {
   fetchSettings,
   saveSettings,
   updateFeishuWebhookCredential as updateFeishuWebhookCredentialApi,
+  updateTelegramCredential as updateTelegramCredentialApi,
   updateHolding
 } from '../api.js'
 import { formatDateTime } from '../utils/format.js'
@@ -26,6 +27,15 @@ const DEFAULT_SETTINGS = {
       timeout_seconds: 3,
       retry_times: 2,
       template: 'title_content_metadata'
+    },
+    telegram: {
+      enabled: false,
+      bot_token: '',
+      chat_id: '',
+      parse_mode: '',
+      disable_web_page_preview: true,
+      timeout_seconds: 3,
+      retry_times: 2
     },
     email: {
       enabled: false,
@@ -258,6 +268,32 @@ export function usePortfolio({ user, sorter }) {
     }
   }, [])
 
+  const updateTelegramCredential = useCallback(async (botToken, chatId) => {
+    const nextBotToken = String(botToken || '').trim()
+    const nextChatId = String(chatId || '').trim()
+    if (!nextBotToken || !nextChatId) {
+      setStatus({ type: 'error', message: 'Telegram 凭据缺失：bot_token 与 chat_id 均不能为空' })
+      return false
+    }
+
+    try {
+      await updateTelegramCredentialApi({ bot_token: nextBotToken, chat_id: nextChatId })
+      setSettings((prev) => mergeDeep(prev, {
+        notifications: {
+          telegram: {
+            bot_token: nextBotToken,
+            chat_id: nextChatId
+          }
+        }
+      }))
+      setStatus({ type: 'success', message: 'Telegram 凭据已更新' })
+      return true
+    } catch (error) {
+      setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', 'Telegram 凭据更新失败') })
+      return false
+    }
+  }, [])
+
   const saveHolding = useCallback(async (fundId, payload) => {
     try {
       const response = await updateHolding(fundId, payload)
@@ -326,6 +362,7 @@ export function usePortfolio({ user, sorter }) {
     setAutoRefreshEnabled,
     saveSettingsPatch,
     updateFeishuWebhookCredential,
+    updateTelegramCredential,
     saveHolding,
     createHolding
   }

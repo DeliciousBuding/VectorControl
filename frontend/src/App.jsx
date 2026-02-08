@@ -355,6 +355,7 @@ function App() {
     setAutoRefreshEnabled,
     saveSettingsPatch,
     updateFeishuWebhookCredential,
+    updateTelegramCredential,
     saveHolding,
     createHolding
   } = usePortfolio({ user, sorter: sortState })
@@ -2880,6 +2881,7 @@ function App() {
         onClose={() => setSettingsOpen(false)}
         onSave={async (draft) => saveSettingsPatch(draft)}
         onUpdateFeishuWebhook={async (webhookUrl) => updateFeishuWebhookCredential(webhookUrl)}
+        onUpdateTelegramCredential={async (botToken, chatId) => updateTelegramCredential(botToken, chatId)}
       />
     </div>
   )

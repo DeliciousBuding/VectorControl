@@ -28,6 +28,15 @@ const DEFAULT_DRAWER_SETTINGS = {
       retry_times: 2,
       template: 'title_content_metadata'
     },
+    telegram: {
+      enabled: false,
+      bot_token: '',
+      chat_id: '',
+      parse_mode: '',
+      disable_web_page_preview: true,
+      timeout_seconds: 3,
+      retry_times: 2
+    },
     email: {
       enabled: false,
       recipients: ''
@@ -50,6 +59,7 @@ function normalizeDrawerSettings(source) {
   const display = asPlainObject(root.display)
   const notifications = asPlainObject(root.notifications)
   const feishu = asPlainObject(notifications.feishu)
+  const telegram = asPlainObject(notifications.telegram)
   const email = asPlainObject(notifications.email)
   const networkBenchmark = asPlainObject(root.network_benchmark)
 
@@ -66,6 +76,10 @@ function normalizeDrawerSettings(source) {
       feishu: {
         ...DEFAULT_DRAWER_SETTINGS.notifications.feishu,
         ...feishu
+      },
+      telegram: {
+        ...DEFAULT_DRAWER_SETTINGS.notifications.telegram,
+        ...telegram
       },
       email: {
         ...DEFAULT_DRAWER_SETTINGS.notifications.email,
@@ -157,7 +171,7 @@ function maskWebhookUrl(webhookUrl) {
   return `${raw.slice(0, 6)}...${raw.slice(-4)}`
 }
 
-export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishuWebhook }) {
+export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishuWebhook, onUpdateTelegramCredential }) {
   const [draft, setDraft] = useState(() => normalizeDrawerSettings(settings))
   const [benchmarkProfile, setBenchmarkProfile] = useState('cn_fund')
   const [benchmarkLoading, setBenchmarkLoading] = useState(false)
@@ -165,16 +179,24 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
   const [benchmarkResult, setBenchmarkResult] = useState(null)
   const [editingFeishuWebhook, setEditingFeishuWebhook] = useState(false)
   const [pendingFeishuWebhook, setPendingFeishuWebhook] = useState('')
+  const [editingTelegramCredential, setEditingTelegramCredential] = useState(false)
+  const [pendingTelegramBotToken, setPendingTelegramBotToken] = useState('')
+  const [pendingTelegramChatId, setPendingTelegramChatId] = useState('')
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const normalized = normalizeDrawerSettings(settings)
     const webhook = String(normalized.notifications?.feishu?.webhook_url || '').trim()
+    const telegramBotToken = String(normalized.notifications?.telegram?.bot_token || '').trim()
+    const telegramChatId = String(normalized.notifications?.telegram?.chat_id || '').trim()
     setDraft(normalized)
     setBenchmarkProfile(normalized.network_benchmark.default_profile || 'cn_fund')
     setEditingFeishuWebhook(!webhook)
     setPendingFeishuWebhook('')
+    setEditingTelegramCredential(!telegramBotToken)
+    setPendingTelegramBotToken('')
+    setPendingTelegramChatId(telegramChatId)
     setSaveError('')
   }, [settings])
 
@@ -220,6 +242,20 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
     && requestedFeishuWebhook.length > 0
     && requestedFeishuWebhook !== currentFeishuWebhook
   const maskedFeishuWebhook = maskWebhookUrl(currentFeishuWebhook)
+
+  const currentTelegramBotToken = String(draft.notifications.telegram.bot_token || '').trim()
+  const currentTelegramChatId = String(draft.notifications.telegram.chat_id || '').trim()
+  const requestedTelegramBotToken = String(pendingTelegramBotToken || '').trim()
+  const requestedTelegramChatId = String(pendingTelegramChatId || '').trim()
+  const hasTelegramCredential = currentTelegramBotToken.length > 0 && currentTelegramChatId.length > 0
+  const showTelegramCredentialInput = editingTelegramCredential || !hasTelegramCredential
+  const shouldUpdateTelegramCredential = showTelegramCredentialInput
+    && requestedTelegramBotToken.length > 0
+    && requestedTelegramChatId.length > 0
+    && (requestedTelegramBotToken !== currentTelegramBotToken || requestedTelegramChatId !== currentTelegramChatId)
+  const telegramMode = String(draft.notifications.telegram.parse_mode || '').trim().toUpperCase() === 'HTML'
+    ? 'HTML（安全转义）'
+    : '纯文本'
   const benchmarkSummary = benchmarkResult?.summary || null
   const hasBenchmarkRows = Array.isArray(benchmarkResult?.results) && benchmarkResult.results.length > 0
 
@@ -231,6 +267,13 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
       ? requestedFeishuWebhook
       : currentFeishuWebhook
 
+    const nextTelegramBotToken = shouldUpdateTelegramCredential
+      ? requestedTelegramBotToken
+      : currentTelegramBotToken
+    const nextTelegramChatId = shouldUpdateTelegramCredential
+      ? requestedTelegramChatId
+      : currentTelegramChatId
+
     const nextDraft = {
       ...draft,
       notifications: {
@@ -238,6 +281,11 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
         feishu: {
           ...draft.notifications.feishu,
           webhook_url: nextFeishuWebhook
+        },
+        telegram: {
+          ...draft.notifications.telegram,
+          bot_token: nextTelegramBotToken,
+          chat_id: nextTelegramChatId
         }
       },
       network_benchmark: {
@@ -247,16 +295,21 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
       }
     }
 
-    const nextDraftWithoutWebhook = {
+    const nextDraftWithoutSecrets = {
       ...nextDraft,
       notifications: {
         ...nextDraft.notifications,
         feishu: {
           ...nextDraft.notifications.feishu
+        },
+        telegram: {
+          ...nextDraft.notifications.telegram
         }
       }
     }
-    delete nextDraftWithoutWebhook.notifications.feishu.webhook_url
+    delete nextDraftWithoutSecrets.notifications.feishu.webhook_url
+    delete nextDraftWithoutSecrets.notifications.telegram.bot_token
+    delete nextDraftWithoutSecrets.notifications.telegram.chat_id
 
     setDraft(nextDraft)
 
@@ -273,11 +326,23 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
         }
       }
 
+      if (shouldUpdateTelegramCredential) {
+        if (typeof onUpdateTelegramCredential !== 'function') {
+          setSaveError('Telegram 凭据更新失败。下一步：稍后重试或联系管理员检查后端接口。')
+          return
+        }
+        const updated = await onUpdateTelegramCredential(requestedTelegramBotToken, requestedTelegramChatId)
+        if (updated === false) {
+          setSaveError('Telegram 凭据更新失败。下一步：检查 bot_token/chat_id 后重试。')
+          return
+        }
+      }
+
       if (typeof onSave !== 'function') {
         setSaveError('设置保存失败。下一步：刷新页面后重试。')
         return
       }
-      const ok = await onSave(nextDraftWithoutWebhook)
+      const ok = await onSave(nextDraftWithoutSecrets)
       if (ok === false) {
         setSaveError('设置保存失败。下一步：检查表单配置后重试；若持续失败请重新登录。')
         return
@@ -548,6 +613,140 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
               ))}
             </select>
           </label>
+        </div>
+
+        <div className="settings-group">
+          <h4>Telegram 机器人（预留）</h4>
+          <label>
+            <span>启用</span>
+            <input
+              type="checkbox"
+              checked={Boolean(draft.notifications.telegram.enabled)}
+              onChange={(e) => updateDraft((prev) => ({
+                ...prev,
+                notifications: {
+                  ...prev.notifications,
+                  telegram: { ...prev.notifications.telegram, enabled: e.target.checked }
+                }
+              }))}
+            />
+          </label>
+          <label>
+            <span>消息格式</span>
+            <span className="settings-note">{telegramMode}</span>
+          </label>
+          <label>
+            <span>启用 HTML（安全转义）</span>
+            <input
+              type="checkbox"
+              checked={String(draft.notifications.telegram.parse_mode || '').trim().toUpperCase() === 'HTML'}
+              onChange={(e) => updateDraft((prev) => ({
+                ...prev,
+                notifications: {
+                  ...prev.notifications,
+                  telegram: { ...prev.notifications.telegram, parse_mode: e.target.checked ? 'HTML' : '' }
+                }
+              }))}
+            />
+          </label>
+          <label>
+            <span>禁用网页预览</span>
+            <input
+              type="checkbox"
+              checked={Boolean(draft.notifications.telegram.disable_web_page_preview)}
+              onChange={(e) => updateDraft((prev) => ({
+                ...prev,
+                notifications: {
+                  ...prev.notifications,
+                  telegram: { ...prev.notifications.telegram, disable_web_page_preview: e.target.checked }
+                }
+              }))}
+            />
+          </label>
+          <label>
+            <span>Telegram 超时（秒）</span>
+            <input
+              type="number"
+              min={0.5}
+              max={30}
+              step={0.5}
+              value={draft.notifications.telegram.timeout_seconds ?? 3}
+              onChange={(e) => updateDraft((prev) => ({
+                ...prev,
+                notifications: {
+                  ...prev.notifications,
+                  telegram: { ...prev.notifications.telegram, timeout_seconds: Number(e.target.value) || 3 }
+                }
+              }))}
+            />
+          </label>
+          <label>
+            <span>Telegram 重试次数</span>
+            <input
+              type="number"
+              min={0}
+              max={5}
+              step={1}
+              value={draft.notifications.telegram.retry_times ?? 2}
+              onChange={(e) => updateDraft((prev) => ({
+                ...prev,
+                notifications: {
+                  ...prev.notifications,
+                  telegram: { ...prev.notifications.telegram, retry_times: Math.max(0, Number(e.target.value) || 0) }
+                }
+              }))}
+            />
+          </label>
+
+          <div className="settings-secret-block">
+            <span className="settings-secret-label">凭据</span>
+            {!showTelegramCredentialInput ? (
+              <div className="settings-secret-preview">
+                <code className="settings-secret-value">
+                  {hasTelegramCredential ? `已配置（chat_id=${currentTelegramChatId || '--'}）` : '未配置'}
+                </code>
+                <button
+                  type="button"
+                  className="ghost"
+                  onClick={() => setEditingTelegramCredential(true)}
+                >
+                  更新凭据
+                </button>
+              </div>
+            ) : (
+              <div className="settings-secret-editor">
+                <input
+                  type="password"
+                  value={pendingTelegramBotToken}
+                  onChange={(e) => setPendingTelegramBotToken(e.target.value)}
+                  placeholder={hasTelegramCredential ? '如需更换请输入新的 bot_token，留空则保持不变' : '填入 bot_token'}
+                  autoComplete="off"
+                />
+                <input
+                  value={pendingTelegramChatId}
+                  onChange={(e) => setPendingTelegramChatId(e.target.value)}
+                  placeholder="填入 chat_id（群通常为负数）"
+                  autoComplete="off"
+                />
+                {hasTelegramCredential && (
+                  <div className="settings-secret-actions">
+                    <button
+                      type="button"
+                      className="ghost"
+                      onClick={() => {
+                        setPendingTelegramBotToken('')
+                        setPendingTelegramChatId(currentTelegramChatId)
+                        setEditingTelegramCredential(false)
+                      }}
+                    >
+                      取消更新
+                    </button>
+                    <p className="settings-note">留空并保存将保持当前凭据不变。</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="settings-group">
