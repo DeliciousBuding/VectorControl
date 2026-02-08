@@ -23,6 +23,11 @@ class FeishuWebhookCredentialIn(BaseModel):
     webhook_url: str = Field(min_length=1, max_length=2048)
 
 
+class TelegramCredentialIn(BaseModel):
+    bot_token: str = Field(min_length=1, max_length=256)
+    chat_id: str = Field(min_length=1, max_length=64)
+
+
 class NetworkBenchmarkRunIn(BaseModel):
     profile: Literal["cn_fund", "global"] = "cn_fund"
     timeout_seconds: float = Field(
@@ -82,6 +87,50 @@ async def put_feishu_webhook_credential(request: Request, payload: FeishuWebhook
                 "timeout_seconds": feishu.get("timeout_seconds"),
                 "retry_times": feishu.get("retry_times"),
                 "template": str(feishu.get("template", "")),
+            }
+        },
+    }
+
+
+@router.put("/notifications/telegram/credential")
+async def put_telegram_credential(request: Request, payload: TelegramCredentialIn) -> dict:
+    user_id = get_holdings_user_id(request)
+    bot_token = str(payload.bot_token or "").strip()
+    chat_id = str(payload.chat_id or "").strip()
+    if not bot_token:
+        raise HTTPException(status_code=422, detail="bot_token 不能为空")
+    if not chat_id:
+        raise HTTPException(status_code=422, detail="chat_id 不能为空")
+
+    settings = upsert_user_settings(
+        user_id,
+        {
+            "notifications": {
+                "telegram": {
+                    "bot_token": bot_token,
+                    "chat_id": chat_id,
+                }
+            }
+        },
+    )
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+    telegram = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+    return {
+        "user_id": user_id,
+        "updated": True,
+        "credential": {
+            "channel": "telegram",
+            "fields": ["bot_token", "chat_id"],
+            "configured": bool(str(telegram.get("bot_token", "")).strip() and str(telegram.get("chat_id", "")).strip()),
+        },
+        "notifications": {
+            "telegram": {
+                "enabled": bool(telegram.get("enabled", False)),
+                "chat_id": str(telegram.get("chat_id", "")),
+                "parse_mode": str(telegram.get("parse_mode", "")),
+                "disable_web_page_preview": bool(telegram.get("disable_web_page_preview", True)),
+                "timeout_seconds": telegram.get("timeout_seconds"),
+                "retry_times": telegram.get("retry_times"),
             }
         },
     }

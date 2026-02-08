@@ -407,6 +407,8 @@ def _default_user_settings() -> dict[str, Any]:
                 "chat_id": "",
                 "parse_mode": "Markdown",
                 "disable_web_page_preview": True,
+                "timeout_seconds": 3,
+                "retry_times": 2,
             },
             "email": {
                 "enabled": False,

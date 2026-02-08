@@ -36,6 +36,8 @@ class NotifierChannelsSmokeTest(unittest.TestCase):
             self.assertIn("chat_id", telegram)
             self.assertIn("parse_mode", telegram)
             self.assertIn("disable_web_page_preview", telegram)
+            self.assertIn("timeout_seconds", telegram)
+            self.assertIn("retry_times", telegram)
 
     def test_dispatcher_telegram_disabled_and_unknown_channel(self) -> None:
         dispatcher = build_default_dispatcher()
