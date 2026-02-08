@@ -144,6 +144,19 @@ transactions:
             token = self._register_and_token(client)
             headers = {"Authorization": f"Bearer {token}"}
 
+            holding_resp = client.post(
+                "/api/holdings",
+                headers=headers,
+                json={
+                    "fund_id": "099999",
+                    "name": "测试基金099999",
+                    "bucket": "tech",
+                    "market_value_cny": 1200,
+                    "cost_basis_cny": 1000,
+                },
+            )
+            self.assertEqual(holding_resp.status_code, 200, holding_resp.text)
+
             yaml_text = """
 transactions:
   - idempotency_key: "sync-tx-001"
@@ -162,6 +175,26 @@ transactions:
             import_resp = client.post("/api/transactions/import_yaml", headers=headers, json={"yaml": yaml_text})
             self.assertEqual(import_resp.status_code, 200, import_resp.text)
             self.assertEqual(int(import_resp.json().get("result", {}).get("added", -1)), 2)
+
+            estimate_before_sync = client.get("/api/estimate?force_refresh=true", headers=headers)
+            self.assertEqual(estimate_before_sync.status_code, 200, estimate_before_sync.text)
+            before_payload = estimate_before_sync.json()
+            self.assertFalse(bool(before_payload.get("cache_hit")))
+            before_fund = next(
+                (
+                    row
+                    for row in before_payload.get("funds", [])
+                    if str(row.get("fund_id") or "") == "099999"
+                ),
+                None,
+            )
+            self.assertIsNotNone(before_fund)
+            self.assertEqual(int((before_fund or {}).get("transaction_pending_count", -1)), 1)
+            self.assertEqual(int((before_fund or {}).get("transaction_confirmed_count", -1)), 0)
+
+            estimate_cached = client.get("/api/estimate", headers=headers)
+            self.assertEqual(estimate_cached.status_code, 200, estimate_cached.text)
+            self.assertTrue(bool(estimate_cached.json().get("cache_hit")))
 
             upsert_fund_nav_daily(
                 fund_id="099999",
@@ -198,6 +231,32 @@ transactions:
             pending_left = client.get("/api/transactions?status=pending&fund_id=088888", headers=headers)
             self.assertEqual(pending_left.status_code, 200, pending_left.text)
             self.assertEqual(int(pending_left.json().get("count", -1)), 1)
+
+            estimate_after_sync = client.get("/api/estimate", headers=headers)
+            self.assertEqual(estimate_after_sync.status_code, 200, estimate_after_sync.text)
+            after_payload = estimate_after_sync.json()
+            self.assertFalse(bool(after_payload.get("cache_hit")))
+            after_fund = next(
+                (
+                    row
+                    for row in after_payload.get("funds", [])
+                    if str(row.get("fund_id") or "") == "099999"
+                ),
+                None,
+            )
+            self.assertIsNotNone(after_fund)
+            self.assertEqual(int((after_fund or {}).get("transaction_pending_count", -1)), 0)
+            self.assertEqual(int((after_fund or {}).get("transaction_confirmed_count", -1)), 1)
+
+            report_resp = client.get("/api/report/daily", headers=headers)
+            self.assertEqual(report_resp.status_code, 200, report_resp.text)
+            report_body = report_resp.json()
+            sections = report_body.get("sections", [])
+            sync_section = next((item for item in sections if str(item.get("title") or "") == "对账入账"), None)
+            self.assertIsNotNone(sync_section)
+            sync_lines = [str(line) for line in (sync_section or {}).get("lines", [])]
+            self.assertTrue(any("pending 1 笔，confirmed 1 笔" in line for line in sync_lines))
+            self.assertTrue(any("sync_pending 累计入账 1 笔" in line for line in sync_lines))
 
     def test_patch_transaction_and_audit_log(self) -> None:
         with TestClient(app) as client:

@@ -9,8 +9,15 @@ from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
 
-from app.api.deps import build_data_status, get_holdings_user_id, get_user_id, get_username
+from app.api.deps import (
+    build_data_status,
+    get_holdings_user_id,
+    get_snapshot_user_id,
+    get_user_id,
+    get_username,
+)
 from app.storage.db import (
+    clear_estimate_snapshots,
     confirm_fund_transaction,
     get_nav_for_transaction_sync,
     list_audit_logs,
@@ -315,6 +322,7 @@ async def import_transactions_yaml(request: Request, payload: TransactionsImport
 @router.post("/sync_pending")
 async def sync_pending_transactions(request: Request, payload: SyncPendingIn) -> dict[str, Any]:
     user_id = get_holdings_user_id(request)
+    snapshot_user_id = get_snapshot_user_id(request)
     pending_rows = list_pending_fund_transactions_for_sync_by_fund(
         user_id=user_id,
         limit=payload.limit,
@@ -375,6 +383,11 @@ async def sync_pending_transactions(request: Request, payload: SyncPendingIn) ->
                 "shares": float(updated.get("shares") or 0),
             }
         )
+
+    if synced > 0:
+        for cache_user_id in {str(user_id or "").strip(), str(snapshot_user_id or "").strip()}:
+            if cache_user_id:
+                clear_estimate_snapshots(cache_user_id)
 
     summary = summarize_fund_transactions_by_fund(user_id=user_id, fund_id=payload.fund_id)
     return {

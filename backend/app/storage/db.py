@@ -1484,6 +1484,19 @@ def list_estimate_snapshots(user_id: str, limit: int = 120) -> list[dict[str, An
     return snapshots
 
 
+def clear_estimate_snapshots(user_id: str) -> int:
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        return 0
+    with connect() as conn:
+        cursor = conn.execute(
+            "DELETE FROM estimate_snapshot WHERE user_id = ?",
+            (clean_user_id,),
+        )
+        conn.commit()
+    return int(cursor.rowcount or 0)
+
+
 def insert_action(
     user_id: str,
     date: str,
@@ -3145,27 +3158,6 @@ def get_system_status_snapshot(holdings_user_id: str, snapshot_user_id: str) -> 
             """,
             (str(holdings_user_id or "legacy"),),
         ).fetchone()
-        last_sync_pending_row = conn.execute(
-            """
-            SELECT MAX(updated_at) AS last_run_at
-            FROM fund_transactions
-            WHERE user_id = ? AND source LIKE '%sync_pending%'
-            """,
-            (str(holdings_user_id or "legacy"),),
-        ).fetchone()
-        sync_stats_row = conn.execute(
-            """
-            SELECT
-                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
-                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS confirmed_count,
-                SUM(CASE WHEN source LIKE '%sync_pending%' THEN 1 ELSE 0 END) AS synced_total,
-                COUNT(DISTINCT CASE WHEN source LIKE '%sync_pending%' THEN fund_id END) AS synced_fund_count,
-                MAX(NULLIF(confirmed_at, '')) AS latest_confirmed_at
-            FROM fund_transactions
-            WHERE user_id = ?
-            """,
-            (str(holdings_user_id or "legacy"),),
-        ).fetchone()
 
     latest_nav = None
     if latest_nav_row:
@@ -3199,24 +3191,52 @@ def get_system_status_snapshot(holdings_user_id: str, snapshot_user_id: str) -> 
         "actions_log": {
             "latest": latest_action,
         },
-        "transactions_sync_pending": {
-            "available": True,
-            "last_run_at": (
-                str(last_sync_pending_row["last_run_at"] or "")
-                if last_sync_pending_row and str(last_sync_pending_row["last_run_at"] or "").strip()
-                else None
-            ),
-            "pending_count_current": int(sync_stats_row["pending_count"] or 0) if sync_stats_row else 0,
-            "confirmed_count_current": int(sync_stats_row["confirmed_count"] or 0) if sync_stats_row else 0,
-            "synced_total": int(sync_stats_row["synced_total"] or 0) if sync_stats_row else 0,
-            "synced_fund_count": int(sync_stats_row["synced_fund_count"] or 0) if sync_stats_row else 0,
-            "latest_confirmed_at": (
-                str(sync_stats_row["latest_confirmed_at"] or "")
-                if sync_stats_row and str(sync_stats_row["latest_confirmed_at"] or "").strip()
-                else None
-            ),
-            "note": "sync_pending 对账任务可用（含当前 pending/confirmed 统计）",
-        },
+        "transactions_sync_pending": get_transactions_sync_pending_snapshot(holdings_user_id),
+    }
+
+
+def get_transactions_sync_pending_snapshot(user_id: str) -> dict[str, Any]:
+    clean_user_id = str(user_id or "legacy")
+    with connect() as conn:
+        last_sync_pending_row = conn.execute(
+            """
+            SELECT MAX(updated_at) AS last_run_at
+            FROM fund_transactions
+            WHERE user_id = ? AND source LIKE '%sync_pending%'
+            """,
+            (clean_user_id,),
+        ).fetchone()
+        sync_stats_row = conn.execute(
+            """
+            SELECT
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS confirmed_count,
+                SUM(CASE WHEN source LIKE '%sync_pending%' THEN 1 ELSE 0 END) AS synced_total,
+                COUNT(DISTINCT CASE WHEN source LIKE '%sync_pending%' THEN fund_id END) AS synced_fund_count,
+                MAX(NULLIF(confirmed_at, '')) AS latest_confirmed_at
+            FROM fund_transactions
+            WHERE user_id = ?
+            """,
+            (clean_user_id,),
+        ).fetchone()
+
+    return {
+        "available": True,
+        "last_run_at": (
+            str(last_sync_pending_row["last_run_at"] or "")
+            if last_sync_pending_row and str(last_sync_pending_row["last_run_at"] or "").strip()
+            else None
+        ),
+        "pending_count_current": int(sync_stats_row["pending_count"] or 0) if sync_stats_row else 0,
+        "confirmed_count_current": int(sync_stats_row["confirmed_count"] or 0) if sync_stats_row else 0,
+        "synced_total": int(sync_stats_row["synced_total"] or 0) if sync_stats_row else 0,
+        "synced_fund_count": int(sync_stats_row["synced_fund_count"] or 0) if sync_stats_row else 0,
+        "latest_confirmed_at": (
+            str(sync_stats_row["latest_confirmed_at"] or "")
+            if sync_stats_row and str(sync_stats_row["latest_confirmed_at"] or "").strip()
+            else None
+        ),
+        "note": "sync_pending 对账任务可用（含当前 pending/confirmed 统计）",
     }
 
 
