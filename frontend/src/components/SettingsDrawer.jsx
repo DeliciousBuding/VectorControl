@@ -148,19 +148,33 @@ function normalizeBenchmarkResult(result) {
   }
 }
 
+function maskWebhookUrl(webhookUrl) {
+  const raw = String(webhookUrl || '').trim()
+  if (!raw) return ''
+  if (raw.length <= 8) {
+    return `${raw.slice(0, 1)}***${raw.slice(-1)}`
+  }
+  return `${raw.slice(0, 6)}...${raw.slice(-4)}`
+}
+
 export function SettingsDrawer({ open, settings, onClose, onSave }) {
   const [draft, setDraft] = useState(() => normalizeDrawerSettings(settings))
   const [benchmarkProfile, setBenchmarkProfile] = useState('cn_fund')
   const [benchmarkLoading, setBenchmarkLoading] = useState(false)
   const [benchmarkError, setBenchmarkError] = useState('')
   const [benchmarkResult, setBenchmarkResult] = useState(null)
+  const [editingFeishuWebhook, setEditingFeishuWebhook] = useState(false)
+  const [pendingFeishuWebhook, setPendingFeishuWebhook] = useState('')
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     const normalized = normalizeDrawerSettings(settings)
+    const webhook = String(normalized.notifications?.feishu?.webhook_url || '').trim()
     setDraft(normalized)
     setBenchmarkProfile(normalized.network_benchmark.default_profile || 'cn_fund')
+    setEditingFeishuWebhook(!webhook)
+    setPendingFeishuWebhook('')
     setSaveError('')
   }, [settings])
 
@@ -198,6 +212,10 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
   }
 
   const timeoutSeconds = Number(draft.network_benchmark.timeout_seconds || 6)
+  const currentFeishuWebhook = String(draft.notifications.feishu.webhook_url || '').trim()
+  const hasFeishuWebhook = currentFeishuWebhook.length > 0
+  const showFeishuWebhookInput = editingFeishuWebhook || !hasFeishuWebhook
+  const maskedFeishuWebhook = maskWebhookUrl(currentFeishuWebhook)
   const benchmarkSummary = benchmarkResult?.summary || null
   const hasBenchmarkRows = Array.isArray(benchmarkResult?.results) && benchmarkResult.results.length > 0
 
@@ -205,8 +223,19 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
     setSaveError('')
     setSaving(true)
 
+    const nextFeishuWebhook = showFeishuWebhookInput
+      ? (String(pendingFeishuWebhook || '').trim() || currentFeishuWebhook)
+      : currentFeishuWebhook
+
     const nextDraft = {
       ...draft,
+      notifications: {
+        ...draft.notifications,
+        feishu: {
+          ...draft.notifications.feishu,
+          webhook_url: nextFeishuWebhook
+        }
+      },
       network_benchmark: {
         ...draft.network_benchmark,
         default_profile: benchmarkProfile,
@@ -397,20 +426,50 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
               }))}
             />
           </label>
-          <label>
-            <span>Webhook 地址</span>
-            <input
-              value={draft.notifications.feishu.webhook_url || ''}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  feishu: { ...prev.notifications.feishu, webhook_url: e.target.value }
-                }
-              }))}
-              placeholder="填入飞书机器人 Webhook"
-            />
-          </label>
+          <div className="settings-secret-block">
+            <span className="settings-secret-label">Webhook 地址</span>
+            {!showFeishuWebhookInput ? (
+              <div className="settings-secret-preview">
+                <code className="settings-secret-value" data-testid="feishu-webhook-masked">
+                  {maskedFeishuWebhook}
+                </code>
+                <button
+                  type="button"
+                  className="ghost"
+                  data-testid="feishu-webhook-edit"
+                  onClick={() => setEditingFeishuWebhook(true)}
+                >
+                  更新凭据
+                </button>
+              </div>
+            ) : (
+              <div className="settings-secret-editor">
+                <input
+                  data-testid="feishu-webhook-input"
+                  value={pendingFeishuWebhook}
+                  onChange={(e) => setPendingFeishuWebhook(e.target.value)}
+                  placeholder={hasFeishuWebhook ? '如需更换请输入新的 Webhook，留空则保持不变' : '填入飞书机器人 Webhook'}
+                  autoComplete="off"
+                />
+                {hasFeishuWebhook && (
+                  <div className="settings-secret-actions">
+                    <button
+                      type="button"
+                      className="ghost"
+                      data-testid="feishu-webhook-cancel-edit"
+                      onClick={() => {
+                        setPendingFeishuWebhook('')
+                        setEditingFeishuWebhook(false)
+                      }}
+                    >
+                      取消更新
+                    </button>
+                    <p className="settings-note">留空并保存将保持当前凭据不变。</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
           <label>
             <span>飞书超时（秒）</span>
             <input
@@ -498,7 +557,7 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
 
         <footer>
           {saveError && <p className="settings-error">{saveError}</p>}
-          <button type="button" className="primary" onClick={save} disabled={saving}>
+          <button type="button" className="primary" onClick={save} disabled={saving} data-testid="settings-save-btn">
             {saving ? '保存中...' : '保存设置'}
           </button>
         </footer>

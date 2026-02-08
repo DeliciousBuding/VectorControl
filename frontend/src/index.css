@@ -1449,6 +1449,47 @@ button:disabled {
   background: #fff;
 }
 
+.settings-secret-block {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-secret-label {
+  font-size: 14px;
+}
+
+.settings-secret-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-secret-value {
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: #f8fbff;
+  color: var(--muted);
+  padding: 6px 8px;
+  font-size: 13px;
+}
+
+.settings-secret-editor {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-secret-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.settings-secret-actions .settings-note {
+  margin: 0;
+}
+
 .settings-benchmark-actions {
   display: flex;
   justify-content: flex-start;

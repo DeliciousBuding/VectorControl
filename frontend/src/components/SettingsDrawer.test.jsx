@@ -165,4 +165,81 @@ describe('SettingsDrawer', () => {
     })
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('default masks existing webhook and updates only through explicit action', async () => {
+    const onSave = vi.fn().mockResolvedValue(true)
+    const currentWebhook = 'https://open.feishu.cn/open-apis/bot/v2/hook/current-token-1234'
+    const nextWebhook = 'https://open.feishu.cn/open-apis/bot/v2/hook/new-token-5678'
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            feishu: {
+              webhook_url: currentWebhook
+            }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />
+    )
+
+    const masked = screen.getByTestId('feishu-webhook-masked').textContent || ''
+    expect(masked).not.toContain(currentWebhook)
+    expect(masked).toContain('...')
+    expect(screen.queryByTestId('feishu-webhook-input')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('feishu-webhook-edit'))
+    fireEvent.change(screen.getByTestId('feishu-webhook-input'), { target: { value: nextWebhook } })
+    fireEvent.click(screen.getByTestId('settings-save-btn'))
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledTimes(1)
+    })
+
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      notifications: {
+        feishu: {
+          webhook_url: nextWebhook
+        }
+      }
+    })
+  })
+
+  it('blank webhook update keeps existing credential unchanged', async () => {
+    const onSave = vi.fn().mockResolvedValue(true)
+    const currentWebhook = 'https://open.feishu.cn/open-apis/bot/v2/hook/current-token-1234'
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            feishu: {
+              webhook_url: currentWebhook
+            }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('feishu-webhook-edit'))
+    fireEvent.click(screen.getByTestId('settings-save-btn'))
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledTimes(1)
+    })
+
+    expect(onSave.mock.calls[0][0]).toMatchObject({
+      notifications: {
+        feishu: {
+          webhook_url: currentWebhook
+        }
+      }
+    })
+  })
 })
