@@ -356,6 +356,7 @@ function App() {
     saveSettingsPatch,
     updateFeishuWebhookCredential,
     updateTelegramCredential,
+    sendTelegramTestMessage,
     saveHolding,
     createHolding
   } = usePortfolio({ user, sorter: sortState })
@@ -2882,6 +2883,7 @@ function App() {
         onSave={async (draft) => saveSettingsPatch(draft)}
         onUpdateFeishuWebhook={async (webhookUrl) => updateFeishuWebhookCredential(webhookUrl)}
         onUpdateTelegramCredential={async (botToken, chatId) => updateTelegramCredential(botToken, chatId)}
+        onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
       />
     </div>
   )

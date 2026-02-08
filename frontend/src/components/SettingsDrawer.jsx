@@ -171,7 +171,15 @@ function maskWebhookUrl(webhookUrl) {
   return `${raw.slice(0, 6)}...${raw.slice(-4)}`
 }
 
-export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishuWebhook, onUpdateTelegramCredential }) {
+export function SettingsDrawer({
+  open,
+  settings,
+  onClose,
+  onSave,
+  onUpdateFeishuWebhook,
+  onUpdateTelegramCredential,
+  onSendTelegramTestMessage
+}) {
   const [draft, setDraft] = useState(() => normalizeDrawerSettings(settings))
   const [benchmarkProfile, setBenchmarkProfile] = useState('cn_fund')
   const [benchmarkLoading, setBenchmarkLoading] = useState(false)
@@ -182,6 +190,9 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
   const [editingTelegramCredential, setEditingTelegramCredential] = useState(false)
   const [pendingTelegramBotToken, setPendingTelegramBotToken] = useState('')
   const [pendingTelegramChatId, setPendingTelegramChatId] = useState('')
+  const [telegramTestLoading, setTelegramTestLoading] = useState(false)
+  const [telegramTestError, setTelegramTestError] = useState('')
+  const [telegramTestHint, setTelegramTestHint] = useState('')
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
 
@@ -197,6 +208,9 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
     setEditingTelegramCredential(!telegramBotToken)
     setPendingTelegramBotToken('')
     setPendingTelegramChatId(telegramChatId)
+    setTelegramTestLoading(false)
+    setTelegramTestError('')
+    setTelegramTestHint('')
     setSaveError('')
   }, [settings])
 
@@ -385,6 +399,48 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
       setBenchmarkError(toGuidedError(error, 'settings_benchmark_run', '测速执行失败'))
     } finally {
       setBenchmarkLoading(false)
+    }
+  }
+
+  const sendTelegramTest = async () => {
+    setTelegramTestError('')
+    setTelegramTestHint('')
+
+    if (shouldUpdateTelegramCredential) {
+      setTelegramTestError('已输入新凭据，请先保存设置以更新凭据后再发送测试消息。')
+      return
+    }
+
+    if (!currentTelegramChatId) {
+      setTelegramTestError('chat_id 为空，无法发送测试消息。请先配置并保存凭据。')
+      return
+    }
+
+    if (typeof onSendTelegramTestMessage !== 'function') {
+      setTelegramTestError('Telegram 测试消息未接入。下一步：请检查前端回调与后端接口是否已集成。')
+      return
+    }
+
+    setTelegramTestLoading(true)
+    try {
+      const payload = await onSendTelegramTestMessage()
+      const traceId = String(payload?.trace_id || '').trim()
+      const ok = payload?.ok === true && payload?.sent === true
+
+      if (ok) {
+        setTelegramTestHint(`Telegram 测试消息已发送${traceId ? `（trace_id: ${traceId}）` : ''}`)
+      } else {
+        const category = String(payload?.error?.category || '').trim()
+        const description = String(payload?.error?.description || payload?.error?.message || '').trim()
+        const suffix = [category, description].filter(Boolean).join(' - ')
+        setTelegramTestError(
+          `Telegram 测试消息发送失败${traceId ? `（trace_id: ${traceId}）` : ''}${suffix ? `：${suffix}` : ''}`
+        )
+      }
+    } catch (error) {
+      setTelegramTestError(toGuidedError(error, 'settings_save', 'Telegram 测试消息发送失败'))
+    } finally {
+      setTelegramTestLoading(false)
     }
   }
 
@@ -747,6 +803,21 @@ export function SettingsDrawer({ open, settings, onClose, onSave, onUpdateFeishu
               </div>
             )}
           </div>
+
+          <div className="settings-secret-actions">
+            <button
+              type="button"
+              className="ghost"
+              data-testid="telegram-test-message-btn"
+              onClick={sendTelegramTest}
+              disabled={telegramTestLoading || saving || shouldUpdateTelegramCredential || !currentTelegramChatId}
+            >
+              {telegramTestLoading ? '发送中...' : '发送测试消息'}
+            </button>
+            <p className="settings-note">将使用已保存的 Telegram 凭据发送固定测试文案。</p>
+          </div>
+          {telegramTestHint && <p className="settings-note">{telegramTestHint}</p>}
+          {telegramTestError && <p className="settings-error">{telegramTestError}</p>}
         </div>
 
         <div className="settings-group">

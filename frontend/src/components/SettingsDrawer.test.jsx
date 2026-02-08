@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsDrawer } from './SettingsDrawer.jsx'
 import { fetchNetworkBenchmarkLatest, runNetworkBenchmark } from '../api.js'
@@ -345,5 +345,71 @@ describe('SettingsDrawer', () => {
     expect(onUpdateTelegramCredential).not.toHaveBeenCalled()
     expect(onSave.mock.calls[0][0]?.notifications?.telegram?.bot_token).toBeUndefined()
     expect(onSave.mock.calls[0][0]?.notifications?.telegram?.chat_id).toBeUndefined()
+  })
+
+  it('can send telegram test message and show hint', async () => {
+    const onSendTelegramTestMessage = vi.fn().mockResolvedValue({
+      ok: true,
+      sent: true,
+      trace_id: 't123'
+    })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            telegram: {
+              bot_token: 'telegram-token-1234',
+              chat_id: '-1001234567890'
+            }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+        onSendTelegramTestMessage={onSendTelegramTestMessage}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('telegram-test-message-btn'))
+
+    await waitFor(() => {
+      expect(onSendTelegramTestMessage).toHaveBeenCalledTimes(1)
+    })
+
+    expect(await screen.findByText(/Telegram 测试消息已发送/)).toBeInTheDocument()
+    expect(screen.getByText(/trace_id: t123/)).toBeInTheDocument()
+  })
+
+  it('disables telegram test message when credential is pending update', async () => {
+    const onSendTelegramTestMessage = vi.fn().mockResolvedValue(true)
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            telegram: {
+              bot_token: 'telegram-token-1234',
+              chat_id: '-1001234567890'
+            }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+        onUpdateTelegramCredential={vi.fn().mockResolvedValue(true)}
+        onSendTelegramTestMessage={onSendTelegramTestMessage}
+      />
+    )
+
+    expect(screen.getByTestId('telegram-test-message-btn')).not.toBeDisabled()
+
+    const telegramGroup = screen.getByRole('heading', { name: 'Telegram 机器人（预留）' }).closest('.settings-group')
+    expect(telegramGroup).toBeTruthy()
+    fireEvent.click(within(telegramGroup).getByRole('button', { name: '更新凭据' }))
+
+    fireEvent.change(await screen.findByPlaceholderText(/bot_token/), { target: { value: 'telegram-token-5678' } })
+
+    expect(screen.getByTestId('telegram-test-message-btn')).toBeDisabled()
   })
 })

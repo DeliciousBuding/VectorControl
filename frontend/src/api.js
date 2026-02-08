@@ -136,6 +136,10 @@ export function updateTelegramCredential(payload) {
   return apiFetch('/api/settings/notifications/telegram/credential', { method: 'PUT', body: payload })
 }
 
+export function sendTelegramTestMessage() {
+  return apiFetch('/api/settings/notifications/telegram/test_message', { method: 'POST' })
+}
+
 export function fetchNetworkBenchmarkLatest() {
   return apiFetchWithFallback([
     '/api/settings/network-benchmark/latest',
