@@ -24,12 +24,14 @@
 1. 后端路由存在性
    - 检查文件：`backend/app/api/routers/settings.py`
    - 检查注册：`backend/app/main.py` 是否包含 settings 路由注册
+   - 兼容要求：同时支持 `/api/settings/network-benchmark/*` 与 `/api/network-benchmark/*`（含 `_` 变体）
    - 本地命令（示例）：
      - `python -m uvicorn app.main:app --host 127.0.0.1 --port 21345`
      - `curl -i http://127.0.0.1:21345/api/settings/network-benchmark/latest`
 2. Nginx `/api` 反向代理
    - 检查文件：`deploy/nginx/site.conf`
    - 核心点：`/api` 必须转发到 backend 容器，不可被静态路由吞掉
+   - 兼容要求：历史路径 `/network-benchmark/*`、`/settings/network-benchmark/*` 重写到 `/api/settings/network-benchmark/*`
    - VPS 命令（示例）：
      - `docker compose -f deploy/docker-compose.prod.yml ps`
      - `curl -i http://127.0.0.1/api/settings/network-benchmark/latest`（容器内或主机可达路径）
@@ -43,6 +45,7 @@
 
 - `GET /api/settings/network-benchmark/latest` 返回 `200` 或明确业务错误（非 404）。
 - `POST /api/settings/network-benchmark/run` 可返回测速结果或受控失败提示（非 404）。
+- `GET /api/network-benchmark/latest` 与 `POST /api/network-benchmark/run` 同样不得返回 404。
 - Gate-D 验收补证：
   - `docs/Gate-D验收证据模板.md` 中“测速接口”项打钩并附输出。
 

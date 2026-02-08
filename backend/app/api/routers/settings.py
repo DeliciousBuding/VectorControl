@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from typing import Any
 
@@ -9,7 +9,9 @@ from app.api.deps import get_holdings_user_id
 from app.core.network_benchmark import run_network_benchmark
 from app.storage.db import get_user_settings, upsert_user_settings
 
-router = APIRouter(prefix="/api/settings", tags=["设置"])
+router = APIRouter(prefix="/api/settings", tags=["settings"])
+# Compatibility routes for historical service paths like `/api/network-benchmark/*`.
+compat_router = APIRouter(prefix="/api", tags=["settings-compat"], include_in_schema=False)
 
 
 class SettingsIn(BaseModel):
@@ -49,7 +51,7 @@ async def get_network_benchmark_latest(request: Request) -> dict:
     }
 
 
-# 兼容早期路径：/network_benchmark/latest
+# Legacy compatibility: /network_benchmark/latest
 @router.get("/network_benchmark/latest", include_in_schema=False)
 async def get_network_benchmark_latest_legacy(request: Request) -> dict:
     return await get_network_benchmark_latest(request)
@@ -76,7 +78,27 @@ async def post_network_benchmark_run(request: Request, payload: NetworkBenchmark
     return {"user_id": user_id, "result": result}
 
 
-# 兼容早期路径：/network_benchmark/run
+# Legacy compatibility: /network_benchmark/run
 @router.post("/network_benchmark/run", include_in_schema=False)
 async def post_network_benchmark_run_legacy(request: Request, payload: NetworkBenchmarkRunIn) -> dict:
+    return await post_network_benchmark_run(request, payload)
+
+
+@compat_router.get("/network-benchmark/latest")
+async def get_network_benchmark_latest_compat(request: Request) -> dict:
+    return await get_network_benchmark_latest(request)
+
+
+@compat_router.get("/network_benchmark/latest")
+async def get_network_benchmark_latest_compat_legacy(request: Request) -> dict:
+    return await get_network_benchmark_latest(request)
+
+
+@compat_router.post("/network-benchmark/run")
+async def post_network_benchmark_run_compat(request: Request, payload: NetworkBenchmarkRunIn) -> dict:
+    return await post_network_benchmark_run(request, payload)
+
+
+@compat_router.post("/network_benchmark/run")
+async def post_network_benchmark_run_compat_legacy(request: Request, payload: NetworkBenchmarkRunIn) -> dict:
     return await post_network_benchmark_run(request, payload)

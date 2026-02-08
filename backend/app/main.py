@@ -92,6 +92,7 @@ async def healthz() -> dict:
 
 app.include_router(auth.router)
 app.include_router(settings.router)
+app.include_router(settings.compat_router)
 app.include_router(config.router)
 app.include_router(estimate.router)
 app.include_router(risk.router)
