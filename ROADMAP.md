@@ -10,3 +10,15 @@
 2. 本文件仅同步更新时间与迁移说明，不承载具体待办条目。
 3. 多 Agent 在读取 ROADMAP 时，以 `<local>\AGENT\ROADMAP.md` 为准。
 
+文档巡检清单（门禁兼容占位）：
+- `README.md`
+- `docs/架构说明.md`
+- `docs/开发规范.md`
+- `docs/接口契约.md`
+- `docs/交易流水YAML导入规范.md`
+- `docs/P0线上故障排查SOP.md`
+- `docs/状态解释验收样例.md`
+- `docs/最新进度.md`
+- `docs/Git工作流.md`
+- `docs/部署与运行.md`
+
