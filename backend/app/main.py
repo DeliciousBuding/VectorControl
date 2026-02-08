@@ -11,6 +11,7 @@ from app.api.routers import (
     actions,
     advice,
     auth,
+    charts,
     config,
     estimate,
     funds,
@@ -147,3 +148,4 @@ app.include_router(profile.router)
 app.include_router(funds.router)
 app.include_router(system.router)
 app.include_router(transactions.router)
+app.include_router(charts.router)

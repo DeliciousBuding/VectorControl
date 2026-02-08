@@ -292,3 +292,13 @@ export function fetchFundNavHistory(fundId, options = {}) {
   const suffix = query.toString() ? `?${query.toString()}` : ''
   return apiFetch(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}/nav/history${suffix}`)
 }
+
+export function fetchCumulativeReturns(days = 30) {
+  const query = new URLSearchParams({ days: String(days) })
+  return apiFetch(`/api/charts/cumulative_returns?${query.toString()}`)
+}
+
+export function fetchReturnsHistory(days = 30) {
+  const query = new URLSearchParams({ days: String(days) })
+  return apiFetch(`/api/charts/returns_history?${query.toString()}`)
+}
