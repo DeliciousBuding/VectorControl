@@ -289,6 +289,53 @@ describe('SettingsDrawer', () => {
     expect(screen.getAllByText(/未测试\/无记录/).length).toBeGreaterThanOrEqual(3)
   })
 
+  it('通知诊断支持复制 trace_id 并格式化 last_test_summary.time', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true
+    })
+
+    fetchNotificationsStatus.mockResolvedValueOnce({
+      status: {
+        feishu: {
+          enabled: true,
+          credential_configured: true,
+          last_test_summary: { ok: true, sent: true, trace_id: 't123', time: '2026-02-08T12:34:56.000Z' }
+        },
+        telegram: { enabled: false, credential_configured: true, last_test_summary: null }
+      }
+    })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            feishu: { webhook_url: '<REDACTED>' },
+            telegram: { chat_id: '-1001234567890' }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByText(/时间: 2026-02-08 12:34:56Z/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('diagnostic-feishu-trace-copy-btn'))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('t123')
+    })
+
+    expect(await screen.findByText(/已复制 trace_id: t123/)).toBeInTheDocument()
+  })
+
   it('can send feishu test message and show hint', async () => {
     fetchNotificationsStatus.mockResolvedValueOnce({
       status: {

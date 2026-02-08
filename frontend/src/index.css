@@ -1544,6 +1544,14 @@ button:disabled {
   color: var(--muted);
 }
 
+button.settings-inline-btn {
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 8px;
+  background: #e8efff;
+  color: var(--brand-dark);
+}
+
 .settings-drawer footer {
   position: sticky;
   bottom: 0;

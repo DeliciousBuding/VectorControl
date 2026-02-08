@@ -455,6 +455,36 @@ export function SettingsDrawer({
     }
   }
 
+  const formatDiagnosticTimestamp = (value) => {
+    const text = String(value || '').trim()
+    if (!text) return ''
+    const date = new Date(text)
+    if (Number.isNaN(date.getTime())) return text
+    return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, 'Z')
+  }
+
+  const copyTextToClipboard = async (text) => {
+    const value = String(text || '')
+    if (!value) return false
+
+    if (navigator?.clipboard?.writeText) {
+      await navigator.clipboard.writeText(value)
+      return true
+    }
+
+    // Legacy fallback for older browsers / non-secure contexts.
+    const textarea = document.createElement('textarea')
+    textarea.value = value
+    textarea.setAttribute('readonly', '')
+    textarea.style.position = 'fixed'
+    textarea.style.left = '-9999px'
+    document.body.appendChild(textarea)
+    textarea.select()
+    const ok = document.execCommand('copy')
+    document.body.removeChild(textarea)
+    return ok
+  }
+
   const handleDiagnosticToast = (toast) => {
     const type = String(toast?.type || '').trim()
     const message = String(toast?.message || '').trim()
@@ -854,20 +884,61 @@ export function SettingsDrawer({
             const feishuLast = feishuStatus.last_test_summary ?? null
             const telegramLast = telegramStatus.last_test_summary ?? null
 
-            const renderLast = (last) => {
+            const parseLast = (last) => {
               const raw = asPlainObject(last)
-              if (!raw || Object.keys(raw).length === 0) return '未测试/无记录'
-              const ok = raw.ok === true && raw.sent === true
-              const traceId = String(raw.trace_id || '').trim()
-              const time = String(raw.time || '').trim()
-              const errorCategory = String(raw.error_category || '').trim()
-              const parts = [
-                ok ? '成功' : '失败',
-                traceId ? `trace_id: ${traceId}` : '',
-                time ? `时间: ${time}` : '',
-                !ok && errorCategory ? `错误: ${errorCategory}` : ''
-              ].filter(Boolean)
-              return parts.length > 0 ? parts.join('｜') : '未测试/无记录'
+              if (!raw || Object.keys(raw).length === 0) return null
+              return {
+                ok: raw.ok === true && raw.sent === true,
+                traceId: String(raw.trace_id || '').trim(),
+                time: formatDiagnosticTimestamp(raw.time),
+                errorCategory: String(raw.error_category || '').trim()
+              }
+            }
+
+            const renderLast = (parsed, channelKey) => {
+              if (!parsed) return '未测试/无记录'
+
+              const pieces = []
+              pieces.push(<span key="result">{parsed.ok ? '成功' : '失败'}</span>)
+
+              if (parsed.traceId) {
+                const copyTestId = `diagnostic-${channelKey}-trace-copy-btn`
+                pieces.push(
+                  <span key="trace">
+                    {'｜trace_id: '}<code>{parsed.traceId}</code>{' '}
+                    <button
+                      type="button"
+                      className="settings-inline-btn"
+                      data-testid={copyTestId}
+                      onClick={async () => {
+                        try {
+                          const ok = await copyTextToClipboard(parsed.traceId)
+                          if (ok) {
+                            handleDiagnosticToast({ type: 'success', message: `已复制 trace_id: ${parsed.traceId}` })
+                          } else {
+                            handleDiagnosticToast({ type: 'error', message: '复制失败：浏览器不支持剪贴板' })
+                          }
+                        } catch (error) {
+                          const detail = String(error?.message || '').trim()
+                          handleDiagnosticToast({ type: 'error', message: detail ? `复制失败：${detail}` : '复制失败' })
+                        }
+                      }}
+                    >
+                      复制
+                    </button>
+                  </span>
+                )
+              }
+
+              if (parsed.time) {
+                pieces.push(<span key="time">{`｜时间: ${parsed.time}`}</span>)
+              }
+
+              if (!parsed.ok && parsed.errorCategory) {
+                pieces.push(<span key="error">{`｜错误: ${parsed.errorCategory}`}</span>)
+              }
+
+              return <span>{pieces}</span>
             }
 
             const canSendFeishu = feishuCredentialConfigured && !shouldUpdateFeishuWebhook
@@ -883,8 +954,14 @@ export function SettingsDrawer({
             return (
               <div>
                 <div className="settings-note">
-                  <p>飞书：{feishuEnabled ? '已启用' : '未启用'}｜凭据：{feishuCredentialConfigured ? '已配置' : '未配置'}｜最近：{renderLast(feishuLast)}</p>
-                  <p>Telegram：{telegramEnabled ? '已启用' : '未启用'}｜凭据：{telegramCredentialConfigured ? '已配置' : '未配置'}｜最近：{renderLast(telegramLast)}</p>
+                  <p>
+                    飞书：{feishuEnabled ? '已启用' : '未启用'}｜凭据：{feishuCredentialConfigured ? '已配置' : '未配置'}｜最近：
+                    {renderLast(parseLast(feishuLast), 'feishu')}
+                  </p>
+                  <p>
+                    Telegram：{telegramEnabled ? '已启用' : '未启用'}｜凭据：{telegramCredentialConfigured ? '已配置' : '未配置'}｜最近：
+                    {renderLast(parseLast(telegramLast), 'telegram')}
+                  </p>
                 </div>
 
                 <div className="settings-secret-actions">
