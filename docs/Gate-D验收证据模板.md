@@ -1,6 +1,6 @@
 # Gate-D 验收证据模板（HTTPS + 回滚 + 巡检）
 
-更新时间：2026-02-07
+更新时间：2026-02-08 17:37:03
 
 用途：用于每次 `main` 发布后的 Gate-D 实机验收留档，保证“可追溯、可复盘、可审计”。
 
@@ -78,6 +78,7 @@
 - [ ] `data_status` 回归通过（首页/持仓/交易/基金中心口径条可见，状态/时点/说明完整）
 - [ ] 基金详情图表区口径提示回归通过（联动 `status/asof/note`）
 - [ ] `/api/system/status` 回归通过（`version/commit/server_time/snapshot` 可读）
+- [ ] 设置中心测速异常态回归通过（接口失败或脏数据时展示“下一步”提示，页面无白屏）
 - [ ] 异常项已记录并建立修复任务（写入 `ROADMAP.md`）
 
 ## 7. 附件索引
@@ -91,6 +92,8 @@
   - `status-holdings-chart.png`
   - `status-trade-sync.png`
   - `status-system-status.png`
+- 设置中心测速异常态截图：
+  - `settings-benchmark-error.png`
 - 回滚演练记录：
 
 ## 8. 结论

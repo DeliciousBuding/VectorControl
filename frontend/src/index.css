@@ -1497,6 +1497,12 @@ button:disabled {
   color: #b91c1c;
 }
 
+.settings-note {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 .settings-drawer footer {
   position: sticky;
   bottom: 0;

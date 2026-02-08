@@ -69,6 +69,75 @@ function normalizeDrawerSettings(source) {
   }
 }
 
+function toNonNegativeNumber(value, fallback = 0) {
+  const parsed = Number(value)
+  if (Number.isFinite(parsed) && parsed >= 0) {
+    return Math.round(parsed * 100) / 100
+  }
+  return fallback
+}
+
+function normalizeBenchmarkResult(result) {
+  if (result == null) {
+    return { result: null, warning: '' }
+  }
+
+  const root = asPlainObject(result)
+  if (root !== result) {
+    return {
+      result: null,
+      warning: '测速结果格式异常，已自动降级为空结果。下一步：稍后重试，必要时检查后端服务状态。'
+    }
+  }
+
+  const sourceSummary = asPlainObject(root.summary)
+  const sourceResults = Array.isArray(root.results) ? root.results : []
+  let hasInvalidItem = false
+
+  const normalizedResults = sourceResults.map((item, index) => {
+    const row = asPlainObject(item)
+    if (row !== item) hasInvalidItem = true
+    const site = String(row.site || `site_${index + 1}`).trim() || `site_${index + 1}`
+    const ok = Boolean(row.ok)
+    return {
+      site,
+      ok,
+      dns_ms: toNonNegativeNumber(row.dns_ms, 0),
+      tcp_ms: toNonNegativeNumber(row.tcp_ms, 0),
+      tls_ms: toNonNegativeNumber(row.tls_ms, 0),
+      ttfb_ms: toNonNegativeNumber(row.ttfb_ms, 0),
+      total_ms: toNonNegativeNumber(row.total_ms, 0),
+      error: String(row.error || '').trim()
+    }
+  })
+
+  const successCountByRows = normalizedResults.filter((item) => item.ok).length
+  const failedCountByRows = normalizedResults.length - successCountByRows
+  const avgByRows = normalizedResults.length > 0
+    ? normalizedResults.reduce((sum, item) => sum + item.total_ms, 0) / normalizedResults.length
+    : 0
+  const elapsedByRows = normalizedResults.reduce((sum, item) => sum + item.total_ms, 0)
+
+  const normalizedSummary = {
+    site_count: toNonNegativeNumber(sourceSummary.site_count, normalizedResults.length),
+    success_count: toNonNegativeNumber(sourceSummary.success_count, successCountByRows),
+    failed_count: toNonNegativeNumber(sourceSummary.failed_count, failedCountByRows),
+    avg_total_ms: toNonNegativeNumber(sourceSummary.avg_total_ms, avgByRows),
+    elapsed_ms: toNonNegativeNumber(sourceSummary.elapsed_ms, elapsedByRows)
+  }
+
+  return {
+    result: {
+      ...root,
+      summary: normalizedSummary,
+      results: normalizedResults
+    },
+    warning: hasInvalidItem
+      ? '测速结果包含异常站点记录，已自动兜底。下一步：请重试测速并核对后端返回格式。'
+      : ''
+  }
+}
+
 export function SettingsDrawer({ open, settings, onClose, onSave }) {
   const [draft, setDraft] = useState(() => normalizeDrawerSettings(settings))
   const [benchmarkProfile, setBenchmarkProfile] = useState('cn_fund')
@@ -91,10 +160,11 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
     let active = true
     ;(async () => {
       try {
-        setBenchmarkError('')
         const payload = await fetchNetworkBenchmarkLatest()
         if (!active) return
-        setBenchmarkResult(payload?.result || null)
+        const normalized = normalizeBenchmarkResult(payload?.result)
+        setBenchmarkResult(normalized.result)
+        setBenchmarkError(normalized.warning || '')
       } catch (error) {
         if (!active) return
         setBenchmarkResult(null)
@@ -119,6 +189,7 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
 
   const timeoutSeconds = Number(draft.network_benchmark.timeout_seconds || 6)
   const benchmarkSummary = benchmarkResult?.summary || null
+  const hasBenchmarkRows = Array.isArray(benchmarkResult?.results) && benchmarkResult.results.length > 0
 
   const save = async () => {
     setSaveError('')
@@ -162,8 +233,13 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
         timeout_seconds: timeoutSeconds,
         persist: true
       })
-      const result = payload?.result || null
+      const normalized = normalizeBenchmarkResult(payload?.result)
+      const result = normalized.result
       setBenchmarkResult(result)
+      setBenchmarkError(
+        normalized.warning
+          || (result ? '' : '测速完成但未返回有效结果。下一步：稍后重试，必要时检查后端服务状态。')
+      )
       updateDraft((prev) => ({
         ...prev,
         network_benchmark: {
@@ -260,6 +336,9 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
             </button>
           </div>
           {benchmarkError && <p className="settings-error">{benchmarkError}</p>}
+          {!benchmarkError && !benchmarkSummary && !hasBenchmarkRows && (
+            <p className="settings-note">暂无测速记录。下一步：点击“开始测速”获取链路健康状态。</p>
+          )}
           {benchmarkSummary && (
             <div className="settings-benchmark-summary">
               <span>站点：{benchmarkSummary.site_count}</span>
@@ -269,10 +348,10 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
               <span>总用时：{benchmarkSummary.elapsed_ms} ms</span>
             </div>
           )}
-          {Array.isArray(benchmarkResult?.results) && benchmarkResult.results.length > 0 && (
+          {hasBenchmarkRows && (
             <div className="settings-benchmark-list">
-              {benchmarkResult.results.map((item) => (
-                <article key={item.site} className="settings-benchmark-item">
+              {benchmarkResult.results.map((item, index) => (
+                <article key={`${item.site}-${index}`} className="settings-benchmark-item">
                   <div className="settings-benchmark-title">
                     <strong>{item.site}</strong>
                     <span className={item.ok ? 'ok' : 'bad'}>{item.ok ? '正常' : '失败'}</span>
@@ -281,7 +360,11 @@ export function SettingsDrawer({ open, settings, onClose, onSave }) {
                     DNS {item.dns_ms} ms / TCP {item.tcp_ms} ms / TLS {item.tls_ms} ms /
                     TTFB {item.ttfb_ms} ms / TOTAL {item.total_ms} ms
                   </p>
-                  {!item.ok && item.error ? <p className="settings-error">{item.error}</p> : null}
+                  {!item.ok ? (
+                    <p className="settings-error">
+                      {item.error || '测速失败，未返回错误详情。下一步：稍后重试并检查后端服务状态。'}
+                    </p>
+                  ) : null}
                 </article>
               ))}
             </div>
