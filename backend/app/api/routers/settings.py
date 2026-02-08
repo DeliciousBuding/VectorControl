@@ -2,7 +2,7 @@
 
 from typing import Any, Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.api.deps import get_holdings_user_id
@@ -17,6 +17,10 @@ MIN_TIMEOUT_SECONDS = 0.5
 
 class SettingsIn(BaseModel):
     settings: dict[str, Any]
+
+
+class FeishuWebhookCredentialIn(BaseModel):
+    webhook_url: str = Field(min_length=1, max_length=2048)
 
 
 class NetworkBenchmarkRunIn(BaseModel):
@@ -41,6 +45,46 @@ async def put_settings(request: Request, payload: SettingsIn) -> dict:
     user_id = get_holdings_user_id(request)
     settings = upsert_user_settings(user_id, payload.settings)
     return {"settings": settings, "user_id": user_id}
+
+
+@router.put("/notifications/feishu/webhook")
+async def put_feishu_webhook_credential(request: Request, payload: FeishuWebhookCredentialIn) -> dict:
+    user_id = get_holdings_user_id(request)
+    webhook_url = str(payload.webhook_url or "").strip()
+    if not webhook_url:
+        raise HTTPException(status_code=422, detail="webhook_url 不能为空")
+
+    settings = upsert_user_settings(
+        user_id,
+        {
+            "notifications": {
+                "feishu": {
+                    "webhook_url": webhook_url,
+                }
+            }
+        },
+    )
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+    feishu = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
+    return {
+        "user_id": user_id,
+        "updated": True,
+        "credential": {
+            "channel": "feishu",
+            "field": "webhook_url",
+            "configured": bool(str(feishu.get("webhook_url", "")).strip()),
+        },
+        "notifications": {
+            "feishu": {
+                "enabled": bool(feishu.get("enabled", False)),
+                "advice_time": str(feishu.get("advice_time", "")),
+                "report_time": str(feishu.get("report_time", "")),
+                "timeout_seconds": feishu.get("timeout_seconds"),
+                "retry_times": feishu.get("retry_times"),
+                "template": str(feishu.get("template", "")),
+            }
+        },
+    }
 
 
 @router.get("/network-benchmark/latest")
