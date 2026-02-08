@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 from datetime import date, datetime
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.api.deps import (
@@ -52,6 +52,7 @@ def _parse_date_or_none(raw: str | None, field_name: str) -> date | None:
 class FundSyncIn(BaseModel):
     fund_ids: list[str] | None = None
     limit: int = 120
+    async_mode: bool = False
 
 
 def _normalize_sync_fund_ids(raw_ids: list[str] | None) -> list[str]:
@@ -79,12 +80,14 @@ def _sleep(seconds: float) -> None:
         time.sleep(seconds)
 
 
-def _fetch_quote_with_retry(provider: EastMoneyQuoteProvider, fund_id: str) -> tuple[dict | None, int, str]:
+def _fetch_quote_with_retry(provider: EastMoneyQuoteProvider, fund_id: str) -> tuple[dict | None, int, str, str]:
+    last_reason_code = "quote_unavailable"
     last_reason = "无报价"
     for attempt in range(1, SYNC_QUOTE_MAX_ATTEMPTS + 1):
         try:
             quote = provider.get_fund_quote(fund_id)
         except Exception as exc:  # noqa: BLE001
+            last_reason_code = "fetch_exception"
             last_reason = f"抓取异常: {exc.__class__.__name__}"
             quote = None
 
@@ -92,15 +95,97 @@ def _fetch_quote_with_retry(provider: EastMoneyQuoteProvider, fund_id: str) -> t
             estimate_nav = quote.get("estimate_nav")
             unit_nav = quote.get("nav")
             if estimate_nav is not None or unit_nav is not None:
-                return quote, attempt, ""
+                return quote, attempt, "", ""
+            last_reason_code = "nav_missing"
             last_reason = "缺少净值字段"
         elif quote is not None:
+            last_reason_code = "quote_format_invalid"
             last_reason = "报价格式异常"
 
         if attempt < SYNC_QUOTE_MAX_ATTEMPTS:
             _sleep(SYNC_QUOTE_RETRY_BACKOFF_SECONDS * attempt)
 
-    return None, SYNC_QUOTE_MAX_ATTEMPTS, last_reason
+    return None, SYNC_QUOTE_MAX_ATTEMPTS, last_reason_code, last_reason
+
+
+def _run_fund_sync_job(job_id: str, fund_ids: list[str]) -> None:
+    provider = EastMoneyQuoteProvider()
+    success_count = 0
+    failed_count = 0
+    errors: list[str] = []
+
+    for index, fund_id in enumerate(fund_ids):
+        if index > 0:
+            _sleep(SYNC_QUOTE_REQUEST_GAP_SECONDS)
+
+        quote, attempts, fail_code, fail_reason = _fetch_quote_with_retry(provider, fund_id)
+        if not isinstance(quote, dict):
+            failed_count += 1
+            if len(errors) < 20:
+                errors.append(f"{fund_id}: {fail_code}: {fail_reason}")
+            append_fund_source_job_log(
+                job_id=job_id,
+                fund_id=fund_id,
+                status=fail_code,
+                attempts=attempts,
+                message=fail_reason,
+            )
+            continue
+
+        estimate_nav = quote.get("estimate_nav")
+        unit_nav = quote.get("nav")
+        asof = str(quote.get("asof") or datetime.now().astimezone().isoformat())
+        trade_date = asof[:10] if len(asof) >= 10 else datetime.now().date().isoformat()
+        try:
+            upsert_fund_nav_daily(
+                fund_id=fund_id,
+                trade_date=trade_date,
+                estimate_nav=estimate_nav,
+                unit_nav=unit_nav,
+                asof=asof,
+                source=str(quote.get("source") or "fund_sync"),
+                confirm_state="estimated",
+            )
+        except Exception as exc:  # noqa: BLE001
+            failed_count += 1
+            if len(errors) < 20:
+                errors.append(f"{fund_id}: persist_failed: {exc.__class__.__name__}")
+            append_fund_source_job_log(
+                job_id=job_id,
+                fund_id=fund_id,
+                status="persist_failed",
+                attempts=attempts,
+                message=f"写入失败: {exc.__class__.__name__}",
+                source=str(quote.get("source") or "fund_sync"),
+                asof=asof,
+            )
+            continue
+
+        success_count += 1
+        append_fund_source_job_log(
+            job_id=job_id,
+            fund_id=fund_id,
+            status="success",
+            attempts=attempts,
+            message="写入成功（幂等 upsert）",
+            source=str(quote.get("source") or "fund_sync"),
+            asof=asof,
+        )
+
+    job_status = "done"
+    if success_count == 0 and failed_count > 0:
+        job_status = "failed"
+    elif success_count > 0 and failed_count > 0:
+        job_status = "partial"
+
+    error_summary = "; ".join(errors[:20])
+    finish_fund_source_job(
+        job_id=job_id,
+        status=job_status,
+        success_count=success_count,
+        failed_count=failed_count,
+        error_summary=error_summary,
+    )
 
 
 def _data_status_for_fund_rows(rows: list[dict], note: str) -> dict:
@@ -170,7 +255,7 @@ async def search_funds(
 
 
 @router.post("/sync")
-async def post_fund_sync(request: Request, payload: FundSyncIn) -> dict:
+async def post_fund_sync(request: Request, payload: FundSyncIn, background_tasks: BackgroundTasks) -> dict:
     if not is_admin(request):
         raise HTTPException(status_code=403, detail="仅管理员可执行基金同步")
 
@@ -185,85 +270,27 @@ async def post_fund_sync(request: Request, payload: FundSyncIn) -> dict:
     if not fund_ids:
         raise HTTPException(status_code=400, detail="无可同步的基金代码")
 
-    provider = EastMoneyQuoteProvider()
     requested_by = get_username(request) or "admin"
     job_id = create_fund_source_job("fund_sync", requested_by=requested_by, total_count=len(fund_ids))
-    success_count = 0
-    failed_count = 0
-    errors: list[str] = []
-
-    for index, fund_id in enumerate(fund_ids):
-        if index > 0:
-            _sleep(SYNC_QUOTE_REQUEST_GAP_SECONDS)
-
-        quote, attempts, fail_reason = _fetch_quote_with_retry(provider, fund_id)
-        if not isinstance(quote, dict):
-            failed_count += 1
-            if len(errors) < 20:
-                errors.append(f"{fund_id}: {fail_reason}")
-            append_fund_source_job_log(
-                job_id=job_id,
-                fund_id=fund_id,
-                status="failed",
-                attempts=attempts,
-                message=fail_reason,
-            )
-            continue
-
-        estimate_nav = quote.get("estimate_nav")
-        unit_nav = quote.get("nav")
-        asof = str(quote.get("asof") or datetime.now().astimezone().isoformat())
-        trade_date = asof[:10] if len(asof) >= 10 else datetime.now().date().isoformat()
-        try:
-            upsert_fund_nav_daily(
-                fund_id=fund_id,
-                trade_date=trade_date,
-                estimate_nav=estimate_nav,
-                unit_nav=unit_nav,
-                asof=asof,
-                source=str(quote.get("source") or "fund_sync"),
-                confirm_state="estimated",
-            )
-        except Exception as exc:  # noqa: BLE001
-            failed_count += 1
-            if len(errors) < 20:
-                errors.append(f"{fund_id}: 写入失败({exc.__class__.__name__})")
-            append_fund_source_job_log(
-                job_id=job_id,
-                fund_id=fund_id,
-                status="failed",
-                attempts=attempts,
-                message=f"写入失败: {exc.__class__.__name__}",
-                source=str(quote.get("source") or "fund_sync"),
-                asof=asof,
-            )
-            continue
-
-        success_count += 1
+    if payload.async_mode:
         append_fund_source_job_log(
             job_id=job_id,
-            fund_id=fund_id,
-            status="success",
-            attempts=attempts,
-            message="写入成功（幂等 upsert）",
-            source=str(quote.get("source") or "fund_sync"),
-            asof=asof,
+            fund_id="",
+            status="job_scheduled",
+            attempts=1,
+            message=f"任务已入队，基金数量: {len(fund_ids)}",
         )
-
-    error_summary = "; ".join(errors[:20])
-    finish_fund_source_job(
-        job_id=job_id,
-        status="done",
-        success_count=success_count,
-        failed_count=failed_count,
-        error_summary=error_summary,
-    )
+        background_tasks.add_task(_run_fund_sync_job, job_id, fund_ids)
+        note = "同步任务已入队，后台执行中"
+    else:
+        _run_fund_sync_job(job_id, fund_ids)
+        note = "同步任务已执行，结果可继续刷新确认"
     return {
         "job": get_fund_source_job(job_id),
         "data_status": build_data_status(
             status="estimating",
             asof=_now_iso(),
-            note="同步任务已执行，结果可继续刷新确认",
+            note=note,
         ),
     }
 
@@ -275,12 +302,21 @@ async def get_fund_sync_job(request: Request, job_id: str) -> dict:
     job = get_fund_source_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail="同步任务不存在")
+    job_status = str(job.get("status") or "")
+    data_status = "confirmed"
+    note = "同步任务状态快照"
+    if job_status == "running":
+        data_status = "estimating"
+        note = "同步任务执行中"
+    elif job_status in {"partial", "failed"}:
+        data_status = "partial"
+        note = "同步任务存在失败项，请查看 recent_logs/error_summary"
     return {
         "job": job,
         "data_status": build_data_status(
-            status="confirmed",
+            status=data_status,
             asof=str(job.get("finished_at") or job.get("started_at") or ""),
-            note="同步任务状态快照",
+            note=note,
         ),
     }
 

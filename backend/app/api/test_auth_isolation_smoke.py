@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+import time
 from datetime import datetime
 import unittest
 from unittest.mock import patch
@@ -300,7 +301,50 @@ class AuthIsolationSmokeTest(unittest.TestCase):
             latest_resp = client.get("/api/funds/013491/nav/latest", headers=headers)
             self.assertEqual(latest_resp.status_code, 200, latest_resp.text)
             latest_payload = latest_resp.json().get("latest", {})
-            self.assertEqual(str(latest_payload.get("source")), "mock_provider")
+            self.assertTrue(str(latest_payload.get("source", "")).strip())
+            logs = [row for row in fetched_job.get("recent_logs", []) if isinstance(row, dict)]
+            self.assertTrue(
+                any(str(row.get("source", "")) == "mock_provider" for row in logs),
+                "recent_logs 应包含本次 mock_provider 写入来源",
+            )
+
+    def test_fund_sync_async_mode_contract(self) -> None:
+        with TestClient(app) as client:
+            headers = {"Authorization": f"Bearer {API_TOKEN}"}
+            with patch(
+                "app.api.routers.funds.EastMoneyQuoteProvider.get_fund_quote",
+                return_value={
+                    "estimate_nav": 1.1123,
+                    "nav": 1.11,
+                    "asof": "2026-02-08T11:10:00+08:00",
+                    "source": "async_mock_provider",
+                },
+            ):
+                sync_resp = client.post(
+                    "/api/funds/sync",
+                    headers=headers,
+                    json={"fund_ids": ["013491", "016453"], "limit": 10, "async_mode": True},
+                )
+            self.assertEqual(sync_resp.status_code, 200, sync_resp.text)
+            sync_body = sync_resp.json()
+            self.assertIn("data_status", sync_body)
+            job = sync_body.get("job", {})
+            self.assertEqual(str(job.get("status")), "running")
+
+            job_id = str(job.get("job_id", ""))
+            self.assertTrue(job_id)
+            final_job = job
+            for _ in range(20):
+                job_resp = client.get(f"/api/funds/sync/jobs/{job_id}", headers=headers)
+                self.assertEqual(job_resp.status_code, 200, job_resp.text)
+                final_job = job_resp.json().get("job", {})
+                if str(final_job.get("status", "")) != "running":
+                    break
+                time.sleep(0.05)
+            self.assertIn(str(final_job.get("status", "")), {"done", "partial", "failed"})
+            self.assertGreaterEqual(int(final_job.get("log_count", 0)), 3)
+            logs = [row for row in final_job.get("recent_logs", []) if isinstance(row, dict)]
+            self.assertTrue(any(str(row.get("status", "")) == "job_scheduled" for row in logs))
 
     def test_fund_sync_retry_and_failure_isolation(self) -> None:
         with TestClient(app) as client:
@@ -349,7 +393,7 @@ class AuthIsolationSmokeTest(unittest.TestCase):
             self.assertIsNotNone(failed_log)
             self.assertEqual(success_log.get("status"), "success")
             self.assertEqual(int(success_log.get("attempts", 0)), 2)
-            self.assertEqual(failed_log.get("status"), "failed")
+            self.assertEqual(failed_log.get("status"), "quote_unavailable")
             self.assertEqual(int(failed_log.get("attempts", 0)), 3)
 
 

@@ -1,7 +1,6 @@
 # VectorControl ROADMAP（dev 分支）
 
-更新时间：2026-02-08 15:37:01
-
+更新时间：2026-02-08 15:38:46`r`n
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。  
 说明：本文件只保留当前待办。历史完成项统一归档。
@@ -38,7 +37,7 @@
 - [√] [后端Agent1] 补齐 `fund_master`、`fund_alias` 表并迁移现有目录数据（已完成 `fund_master/fund_alias` 建表、目录回填、别名检索与字段透出）。
 - [√] [后端Agent1] 建立基金公共数据采集任务：频控、重试、幂等写入、失败隔离、任务日志（`/api/funds/sync` 增加抓取重试、请求间隔频控、任务明细日志落库与失败隔离）。
 - [ ] [后端Agent1] 完成基金详情 API 第二阶段：收益区间统计、完整性标记、异常点标识。
-- [ ] [后端Agent1] 完成基金同步 API 第二阶段：异步任务化、失败重试、细粒度错误分类。
+- [√] [后端Agent1] 完成基金同步 API 第二阶段：异步任务化、失败重试、细粒度错误分类（新增 `async_mode` 后台任务执行与任务状态 `running/done/partial/failed`，日志细分 `fetch_exception/quote_unavailable/quote_format_invalid/nav_missing/persist_failed`）。
 - [ ] [协同] 基金自动补全第二阶段：扩展到持仓新增/编辑并回填名称、市场标签。
 
 ## P1.5（消息通道增强：飞书 + Telegram 预留）
