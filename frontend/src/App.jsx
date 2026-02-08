@@ -458,6 +458,11 @@ function App() {
     setAutoRefreshEnabled(!settings.display.auto_refresh_enabled)
   }
 
+  const handleOpenTradeEntry = useCallback((source = 'unknown') => {
+    recordMetric('交易入口点击', { source })
+    setActiveTab('trade')
+  }, [])
+
   const handleTabChange = (tabKey) => {
     setActiveTab(tabKey)
     if (tabKey !== 'watch' && window.location.pathname.startsWith('/funds/')) {
@@ -578,9 +583,16 @@ function App() {
       try {
         setSearchLoading(true)
         const payload = await fetchFundSuggest(keyword, 8)
-        setSuggestions(Array.isArray(payload?.items) ? payload.items : [])
+        const items = Array.isArray(payload?.items) ? payload.items : []
+        setSuggestions(items)
+        recordMetric('搜索联想返回', {
+          scene: 'global',
+          keyword: keyword.slice(0, 40),
+          result_count: items.length
+        })
       } catch {
         setSuggestions([])
+        recordMetric('搜索联想失败', { scene: 'global', keyword: keyword.slice(0, 40) })
       } finally {
         setSearchLoading(false)
       }
@@ -613,6 +625,11 @@ function App() {
         if (!active) return
         const items = Array.isArray(payload?.items) ? payload.items : []
         setFundCenterItems(items)
+        recordMetric('搜索联想返回', {
+          scene: 'fund_center',
+          keyword: keyword.slice(0, 40),
+          result_count: items.length
+        })
         setFundCenterDataStatus(
           payload?.data_status && typeof payload.data_status === 'object'
             ? payload.data_status
@@ -625,6 +642,7 @@ function App() {
       } catch (error) {
         if (!active) return
         setFundCenterItems([])
+        recordMetric('搜索联想失败', { scene: 'fund_center', keyword: keyword.slice(0, 40) })
         setFundCenterDataStatus({
           status: 'partial',
           asof: '',
@@ -743,9 +761,15 @@ function App() {
         if (!active) return
         const items = Array.isArray(payload?.items) ? payload.items : []
         setTradeFundSuggestions(items)
+        recordMetric('搜索联想返回', {
+          scene: 'trade',
+          keyword: keyword.slice(0, 40),
+          result_count: items.length
+        })
       } catch {
         if (!active) return
         setTradeFundSuggestions([])
+        recordMetric('搜索联想失败', { scene: 'trade', keyword: keyword.slice(0, 40) })
       } finally {
         if (active) setTradeFundSuggestLoading(false)
       }
@@ -760,6 +784,12 @@ function App() {
   const handlePickSuggestion = (item) => {
     const pickedCode = String(item?.fund_id || '').trim()
     if (!pickedCode) return
+    recordMetric('搜索转化', {
+      scene: 'global',
+      keyword: String(searchQuery || '').trim().slice(0, 40),
+      fund_id: pickedCode,
+      target: 'holdings'
+    })
     setSearchQuery(pickedCode)
     setSelectedFundId(pickedCode)
     setActiveTab('holdings')
@@ -769,6 +799,12 @@ function App() {
   const handlePickFundCenter = (item) => {
     const pickedCode = String(item?.fund_id || '').trim()
     if (!pickedCode) return
+    recordMetric('搜索转化', {
+      scene: 'fund_center',
+      keyword: String(fundCenterQuery || '').trim().slice(0, 40),
+      fund_id: pickedCode,
+      target: 'fund_detail'
+    })
     const nextPath = `/funds/${encodeURIComponent(pickedCode)}`
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, '', nextPath)
@@ -776,6 +812,18 @@ function App() {
     setActiveTab('watch')
     setFundCenterSelectedId(pickedCode)
   }
+
+  const handlePickTradeSuggestion = useCallback((item) => {
+    const pickedCode = String(item?.fund_id || '').trim()
+    if (!pickedCode) return
+    recordMetric('搜索转化', {
+      scene: 'trade',
+      keyword: String(tradeFundCode || '').trim().slice(0, 40),
+      fund_id: pickedCode,
+      target: 'trade_form'
+    })
+    setTradeFundCode(pickedCode)
+  }, [tradeFundCode])
 
   useEffect(() => {
     if (!user) {
@@ -1083,7 +1131,7 @@ function App() {
     const elapsed = Math.round(performance.now() - firstLoadStartRef.current)
     setAssetReadyMs(elapsed)
     setAssetTimedOut(false)
-    recordMetric('资产卡更新完成', { elapsed_ms: elapsed })
+    recordMetric('资产卡更新完成', { elapsed_ms: elapsed, rows_count: rows.length })
   }, [assetReadyMs, rows.length, user])
 
   useEffect(() => {
@@ -1189,9 +1237,19 @@ function App() {
       setTradeFundCode('')
       setTradeOccurredAt(nowForDateTimeInput())
       recordMetric('交易入口提交成功', { trade_type: tradeType, amount, done: tradeDone })
+      recordMetric('交易转化提交成功', {
+        trade_type: tradeType,
+        amount,
+        done: tradeDone,
+        with_fund_code: Boolean(code)
+      })
     } catch (error) {
       setTradeSubmitError(toGuidedError(error, 'trade_submit', '交易提交失败'))
       recordMetric('交易入口提交失败', { trade_type: tradeType })
+      recordMetric('交易转化提交失败', {
+        trade_type: tradeType,
+        with_fund_code: Boolean(code)
+      })
     } finally {
       setTradeSubmitting(false)
     }
@@ -1269,7 +1327,10 @@ function App() {
           created_at: new Date().toISOString()
         }
       ]
-      await saveSettingsPatch({ strategy: { dca_plans: nextPlans } })
+      const saved = await saveSettingsPatch({ strategy: { dca_plans: nextPlans } })
+      if (!saved) {
+        throw new Error('定投计划保存失败')
+      }
       setPlanName('')
       setPlanFundCode('')
       setPlanAmount('')
@@ -1277,36 +1338,55 @@ function App() {
       recordMetric('定投计划创建成功', { schedule: planSchedule, amount })
     } catch (error) {
       setPlanError(error?.message || '定投计划保存失败')
+      recordMetric('定投计划创建失败', { schedule: planSchedule, amount })
     } finally {
       setPlanSubmitting(false)
     }
   }
 
   const handleTogglePlan = async (planId) => {
+    const target = dcaPlans.find((item) => String(item.id) === String(planId))
     const nextPlans = dcaPlans.map((item) =>
       String(item.id) === String(planId) ? { ...item, paused: !item.paused } : item
     )
-    await saveSettingsPatch({ strategy: { dca_plans: nextPlans } })
+    const saved = await saveSettingsPatch({ strategy: { dca_plans: nextPlans } })
+    if (saved) {
+      recordMetric('定投计划状态切换', {
+        plan_id: String(planId),
+        paused: Boolean(!target?.paused)
+      })
+    } else {
+      recordMetric('定投计划状态切换失败', { plan_id: String(planId) })
+    }
   }
 
   const handlePlanAction = async (plan, done) => {
     const occurredAt = new Date().toISOString()
     const date = occurredAt.slice(0, 10)
     const actionKey = `dca_plan_${plan.id}`
-    const payload = await saveAction({
-      date,
-      occurred_at: occurredAt,
-      action_key: actionKey,
-      amount: Number(plan.amount || 0),
-      done
-    })
-    if (payload?.data_status && typeof payload.data_status === 'object') {
-      setActionDataStatus(payload.data_status)
+    try {
+      const payload = await saveAction({
+        date,
+        occurred_at: occurredAt,
+        action_key: actionKey,
+        amount: Number(plan.amount || 0),
+        done
+      })
+      if (payload?.data_status && typeof payload.data_status === 'object') {
+        setActionDataStatus(payload.data_status)
+      }
+      const latest = Array.isArray(payload?.actions) ? payload.actions[0] : null
+      if (!latest) return
+      const record = { ...latest, date: payload?.date || date }
+      setActionLogs((prev) => [record, ...prev].sort(compareActionRecordsDesc))
+      recordMetric('定投行为记录', {
+        plan_id: String(plan.id),
+        done: Boolean(done),
+        amount: Number(plan.amount || 0)
+      })
+    } catch {
+      recordMetric('定投行为记录失败', { plan_id: String(plan.id), done: Boolean(done) })
     }
-    const latest = Array.isArray(payload?.actions) ? payload.actions[0] : null
-    if (!latest) return
-    const record = { ...latest, date: payload?.date || date }
-    setActionLogs((prev) => [record, ...prev].sort(compareActionRecordsDesc))
   }
 
   const handleCreateRule = async (event) => {
@@ -1427,7 +1507,7 @@ function App() {
               <article className="todo-card">
                 <h3>主操作</h3>
                 <p>进入交易页完成买入、定投、赎回或转换。</p>
-                <button type="button" className="primary" onClick={() => setActiveTab('trade')}>去交易</button>
+                <button type="button" className="primary" onClick={() => handleOpenTradeEntry('home_todo_primary')}>去交易</button>
               </article>
               <article className="todo-card">
                 <h3>持仓巡检</h3>
@@ -1667,6 +1747,7 @@ function App() {
                   setTradeType(item.key)
                   setTradeSubmitError('')
                   setTradeSubmitResult(null)
+                  recordMetric('交易类型切换', { trade_type: item.key })
                 }}
               >
                 {item.label}
@@ -1693,7 +1774,7 @@ function App() {
                       <h3>{item.name || '--'}</h3>
                       <p>{item.fund_id}</p>
                     </div>
-                    <button type="button" className="ghost" onClick={() => setTradeFundCode(String(item.fund_id || ''))}>
+                    <button type="button" className="ghost" onClick={() => handlePickTradeSuggestion(item)}>
                       选用
                     </button>
                   </article>
