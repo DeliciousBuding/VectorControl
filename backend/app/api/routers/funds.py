@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import time
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -35,6 +36,225 @@ router = APIRouter(prefix="/api/funds", tags=["基金"])
 SYNC_QUOTE_MAX_ATTEMPTS = 3
 SYNC_QUOTE_RETRY_BACKOFF_SECONDS = 0.2
 SYNC_QUOTE_REQUEST_GAP_SECONDS = 0.05
+DETAIL_HISTORY_LIMIT = 600
+
+
+def _to_float(value: Any) -> float | None:
+    try:
+        if value is None:
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _history_nav_value(row: dict[str, Any]) -> float | None:
+    unit_nav = _to_float(row.get("unit_nav"))
+    if unit_nav is not None and unit_nav > 0:
+        return unit_nav
+    estimate_nav = _to_float(row.get("estimate_nav"))
+    if estimate_nav is not None and estimate_nav > 0:
+        return estimate_nav
+    return None
+
+
+def _safe_pct_change(current: float | None, base: float | None) -> float | None:
+    if current is None or base is None or base <= 0:
+        return None
+    return round(((current / base) - 1.0) * 100.0, 4)
+
+
+def _pick_window_base(
+    rows: list[dict[str, Any]],
+    latest_day: date,
+    days: int,
+) -> tuple[dict[str, Any] | None, date]:
+    target_day = latest_day - timedelta(days=max(1, days) - 1)
+    candidate: dict[str, Any] | None = None
+    candidate_day: date | None = None
+    for row in rows:
+        trade_text = str(row.get("trade_date") or "").strip()
+        if len(trade_text) != 10:
+            continue
+        try:
+            trade_day = date.fromisoformat(trade_text)
+        except ValueError:
+            continue
+        if trade_day > latest_day:
+            continue
+        if trade_day <= target_day:
+            candidate = row
+            candidate_day = trade_day
+        else:
+            break
+    return candidate, candidate_day or target_day
+
+
+def _build_fund_detail_stage2(
+    nav_rows: list[dict[str, Any]],
+) -> tuple[dict[str, Any], dict[str, Any], list[dict[str, Any]]]:
+    if not nav_rows:
+        return (
+            {
+                "d7": {"available": False, "return_pct": None, "from_trade_date": None, "to_trade_date": None},
+                "d30": {"available": False, "return_pct": None, "from_trade_date": None, "to_trade_date": None},
+                "d90": {"available": False, "return_pct": None, "from_trade_date": None, "to_trade_date": None},
+                "d180": {"available": False, "return_pct": None, "from_trade_date": None, "to_trade_date": None},
+                "d365": {"available": False, "return_pct": None, "from_trade_date": None, "to_trade_date": None},
+                "ytd": {"available": False, "return_pct": None, "from_trade_date": None, "to_trade_date": None},
+            },
+            {
+                "status": "missing",
+                "history_days": 0,
+                "latest_trade_date": None,
+                "latest_confirm_state": None,
+                "recent_30d_coverage": 0.0,
+                "recent_30d_expected_days": 30,
+                "recent_30d_available_days": 0,
+            },
+            [
+                {
+                    "type": "nav_missing",
+                    "severity": "high",
+                    "message": "暂无可用净值数据",
+                }
+            ],
+        )
+
+    sorted_rows: list[dict[str, Any]] = []
+    for row in nav_rows:
+        trade_text = str(row.get("trade_date") or "").strip()
+        if len(trade_text) != 10:
+            continue
+        nav_value = _history_nav_value(row)
+        if nav_value is None:
+            continue
+        sorted_rows.append(
+            {
+                **row,
+                "_trade_date": trade_text,
+                "_nav_value": nav_value,
+            }
+        )
+
+    if not sorted_rows:
+        return _build_fund_detail_stage2([])
+
+    sorted_rows.sort(key=lambda item: (str(item.get("_trade_date")), str(item.get("asof") or "")))
+    latest = sorted_rows[-1]
+    latest_trade_text = str(latest.get("_trade_date"))
+    latest_trade_day = date.fromisoformat(latest_trade_text)
+    latest_nav = _to_float(latest.get("_nav_value"))
+
+    performance_ranges: dict[str, Any] = {}
+    for key, days in (("d7", 7), ("d30", 30), ("d90", 90), ("d180", 180), ("d365", 365)):
+        base_row, base_day = _pick_window_base(sorted_rows, latest_trade_day, days)
+        base_nav = _history_nav_value(base_row) if isinstance(base_row, dict) else None
+        perf = _safe_pct_change(latest_nav, base_nav)
+        performance_ranges[key] = {
+            "available": perf is not None,
+            "return_pct": perf,
+            "from_trade_date": str(base_day) if perf is not None else None,
+            "to_trade_date": latest_trade_text if perf is not None else None,
+        }
+
+    ytd_start = date(latest_trade_day.year, 1, 1)
+    ytd_base_row: dict[str, Any] | None = None
+    for row in sorted_rows:
+        trade_text = str(row.get("_trade_date") or "")
+        if not trade_text:
+            continue
+        trade_day = date.fromisoformat(trade_text)
+        if trade_day >= ytd_start:
+            ytd_base_row = row
+            break
+    ytd_base = _history_nav_value(ytd_base_row) if isinstance(ytd_base_row, dict) else None
+    ytd_perf = _safe_pct_change(latest_nav, ytd_base)
+    performance_ranges["ytd"] = {
+        "available": ytd_perf is not None,
+        "return_pct": ytd_perf,
+        "from_trade_date": str(ytd_base_row.get("_trade_date")) if ytd_perf is not None and ytd_base_row else None,
+        "to_trade_date": latest_trade_text if ytd_perf is not None else None,
+    }
+
+    recent_cutoff = latest_trade_day - timedelta(days=29)
+    recent_30d_available = 0
+    for row in sorted_rows:
+        trade_day = date.fromisoformat(str(row.get("_trade_date")))
+        if trade_day >= recent_cutoff:
+            recent_30d_available += 1
+    recent_coverage = round(min(1.0, recent_30d_available / 30.0), 4)
+    integrity_status = "complete"
+    if recent_coverage < 0.2:
+        integrity_status = "missing"
+    elif recent_coverage < 0.6:
+        integrity_status = "partial"
+
+    integrity = {
+        "status": integrity_status,
+        "history_days": len(sorted_rows),
+        "latest_trade_date": latest_trade_text,
+        "latest_confirm_state": str(latest.get("confirm_state") or ""),
+        "recent_30d_coverage": recent_coverage,
+        "recent_30d_expected_days": 30,
+        "recent_30d_available_days": recent_30d_available,
+    }
+
+    anomalies: list[dict[str, Any]] = []
+    if recent_coverage < 0.4:
+        anomalies.append(
+            {
+                "type": "recent_data_sparse",
+                "severity": "medium",
+                "message": f"近30天净值覆盖较低（{recent_30d_available}/30）",
+            }
+        )
+
+    stale_days = (date.today() - latest_trade_day).days
+    if stale_days > 5:
+        anomalies.append(
+            {
+                "type": "stale_nav",
+                "severity": "medium",
+                "message": f"最近净值距今 {stale_days} 天，可能存在滞后",
+                "latest_trade_date": latest_trade_text,
+            }
+        )
+
+    confirm_states = {str(row.get("confirm_state") or "").strip() for row in sorted_rows if row.get("confirm_state")}
+    if len(confirm_states) > 1:
+        anomalies.append(
+            {
+                "type": "mixed_confirm_state",
+                "severity": "low",
+                "message": "历史净值包含多种确认状态，口径可能混合",
+                "states": sorted(confirm_states),
+            }
+        )
+
+    prev_row: dict[str, Any] | None = None
+    for row in sorted_rows:
+        if prev_row is None:
+            prev_row = row
+            continue
+        prev_nav = _history_nav_value(prev_row)
+        curr_nav = _history_nav_value(row)
+        jump_pct = _safe_pct_change(curr_nav, prev_nav)
+        if jump_pct is not None and abs(jump_pct) >= 8.0:
+            anomalies.append(
+                {
+                    "type": "nav_jump",
+                    "severity": "high" if abs(jump_pct) >= 15.0 else "medium",
+                    "message": "相邻净值波动较大，请关注数据源或除权事件",
+                    "trade_date": str(row.get("_trade_date") or ""),
+                    "change_pct": jump_pct,
+                }
+            )
+            if len(anomalies) >= 5:
+                break
+        prev_row = row
+
+    return performance_ranges, integrity, anomalies[:5]
 
 
 def _parse_date_or_none(raw: str | None, field_name: str) -> date | None:
@@ -328,8 +548,22 @@ async def get_fund_detail(request: Request, fund_id: str) -> dict:
     fund = get_fund_catalog_item(fund_id)
     if not fund:
         raise HTTPException(status_code=404, detail="基金不存在或尚未收录")
+    clean_fund_id = str(fund.get("fund_id") or fund_id)
+    nav_rows = list_fund_nav_daily(
+        fund_id=clean_fund_id,
+        date_from=None,
+        date_to=None,
+        limit=DETAIL_HISTORY_LIMIT,
+    )
+    if not nav_rows:
+        snapshot_user_id = get_snapshot_user_id(request)
+        nav_rows = list_fund_nav_history_from_snapshots(snapshot_user_id, clean_fund_id, limit=DETAIL_HISTORY_LIMIT)
+    performance_ranges, integrity, anomalies = _build_fund_detail_stage2(nav_rows)
     return {
         "fund": fund,
+        "performance_ranges": performance_ranges,
+        "integrity": integrity,
+        "anomalies": anomalies,
         "data_status": build_data_status(
             status="confirmed",
             asof=str(fund.get("updated_at") or ""),
