@@ -411,6 +411,11 @@ button:disabled {
   padding: 16px;
 }
 
+.holdings-create-panel {
+  margin-bottom: 14px;
+  padding: 12px;
+}
+
 .home-main {
   margin-top: 16px;
   padding: 16px;
@@ -577,6 +582,15 @@ button:disabled {
   grid-template-columns: 1fr 1fr auto auto;
   gap: 10px;
   align-items: end;
+}
+
+.holdings-create-form {
+  margin-top: 8px;
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+}
+
+.holdings-create-suggest-list {
+  margin-top: 8px;
 }
 
 .trade-form label {
@@ -1511,6 +1525,10 @@ button:disabled {
     grid-template-columns: 1fr 1fr 1fr;
   }
 
+  .holdings-create-form {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
   .reminder-form {
     grid-template-columns: 1fr 1fr 1fr;
   }
@@ -1556,6 +1574,10 @@ button:disabled {
   }
 
   .dca-plan-form {
+    grid-template-columns: 1fr;
+  }
+
+  .holdings-create-form {
     grid-template-columns: 1fr;
   }
 

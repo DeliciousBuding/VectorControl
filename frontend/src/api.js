@@ -192,6 +192,13 @@ export function fetchTransactionAudit(transactionId, limit = 20) {
   )
 }
 
+export function createHolding(payload) {
+  return apiFetch('/api/holdings', {
+    method: 'POST',
+    body: payload
+  })
+}
+
 export function updateHolding(fundId, payload) {
   return apiFetch(`/api/holdings/${encodeURIComponent(fundId)}`, {
     method: 'PATCH',

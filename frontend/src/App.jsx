@@ -140,6 +140,24 @@ function lifecycleStepClass(currentStep, targetStep) {
   return ''
 }
 
+function marketGroupLabel(value) {
+  const key = String(value || '').toLowerCase()
+  if (key === 'us_overseas') return '美股/海外'
+  if (key === 'cn_hk') return 'A股/港股'
+  return key ? key : '--'
+}
+
+function defaultBucketByMarketGroup(value) {
+  return String(value || '').toLowerCase() === 'us_overseas' ? 'overseas' : 'core'
+}
+
+function parseTagList(text) {
+  return String(text || '')
+    .split(/[,\s，]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
 function parseFundIdFromPath(pathname) {
   const match = String(pathname || '').match(/^\/funds\/([^/]+)$/)
   if (!match) return ''
@@ -269,6 +287,18 @@ function App() {
   const [tradeFundCode, setTradeFundCode] = useState('')
   const [tradeFundSuggestions, setTradeFundSuggestions] = useState([])
   const [tradeFundSuggestLoading, setTradeFundSuggestLoading] = useState(false)
+  const [holdingCreateForm, setHoldingCreateForm] = useState({
+    fund_id: '',
+    name: '',
+    bucket: 'core',
+    market_group: 'cn_hk',
+    tags_text: ''
+  })
+  const [holdingCreateSuggestions, setHoldingCreateSuggestions] = useState([])
+  const [holdingCreateSuggestLoading, setHoldingCreateSuggestLoading] = useState(false)
+  const [holdingCreateSubmitting, setHoldingCreateSubmitting] = useState(false)
+  const [holdingCreateError, setHoldingCreateError] = useState('')
+  const [holdingCreateResult, setHoldingCreateResult] = useState(null)
   const [tradeAmount, setTradeAmount] = useState('')
   const [tradeOccurredAt, setTradeOccurredAt] = useState(() => nowForDateTimeInput())
   const [tradeDone, setTradeDone] = useState(false)
@@ -321,7 +351,8 @@ function App() {
     refresh,
     setAutoRefreshEnabled,
     saveSettingsPatch,
-    saveHolding
+    saveHolding,
+    createHolding
   } = usePortfolio({ user, sorter: sortState })
 
   const dateLabel = useMemo(() => {
@@ -785,6 +816,43 @@ function App() {
     }
   }, [activeTab, tradeFundCode])
 
+  useEffect(() => {
+    if (activeTab !== 'holdings') return undefined
+    const keyword = String(holdingCreateForm.fund_id || '').trim()
+    if (!keyword) {
+      setHoldingCreateSuggestions([])
+      setHoldingCreateSuggestLoading(false)
+      return undefined
+    }
+
+    let active = true
+    const timer = window.setTimeout(async () => {
+      try {
+        setHoldingCreateSuggestLoading(true)
+        const payload = await fetchFundSuggest(keyword, 8)
+        if (!active) return
+        const items = Array.isArray(payload?.items) ? payload.items : []
+        setHoldingCreateSuggestions(items)
+        recordMetric('搜索联想返回', {
+          scene: 'holdings_create',
+          keyword: keyword.slice(0, 40),
+          result_count: items.length
+        })
+      } catch {
+        if (!active) return
+        setHoldingCreateSuggestions([])
+        recordMetric('搜索联想失败', { scene: 'holdings_create', keyword: keyword.slice(0, 40) })
+      } finally {
+        if (active) setHoldingCreateSuggestLoading(false)
+      }
+    }, 220)
+
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [activeTab, holdingCreateForm.fund_id])
+
   const handlePickSuggestion = (item) => {
     const pickedCode = String(item?.fund_id || '').trim()
     if (!pickedCode) return
@@ -829,6 +897,88 @@ function App() {
     setTradeFundCode(pickedCode)
   }, [tradeFundCode])
 
+  const handlePickHoldingCreateSuggestion = useCallback((item) => {
+    const pickedCode = String(item?.fund_id || '').trim()
+    if (!pickedCode) return
+    const pickedName = String(item?.name || '').trim()
+    const marketGroup = String(item?.market_group || 'cn_hk').trim().toLowerCase() || 'cn_hk'
+    const tagsText = Array.isArray(item?.tags) ? item.tags.filter(Boolean).join(',') : ''
+    setHoldingCreateForm((prev) => ({
+      ...prev,
+      fund_id: pickedCode,
+      name: pickedName || prev.name,
+      market_group: marketGroup,
+      bucket: defaultBucketByMarketGroup(marketGroup),
+      tags_text: tagsText
+    }))
+    setHoldingCreateSuggestions([])
+    recordMetric('搜索转化', {
+      scene: 'holdings_create',
+      keyword: String(holdingCreateForm.fund_id || '').trim().slice(0, 40),
+      fund_id: pickedCode,
+      target: 'holding_create_form'
+    })
+  }, [holdingCreateForm.fund_id])
+
+  const handleSubmitHoldingCreate = useCallback(async (event) => {
+    event.preventDefault()
+    const fundId = String(holdingCreateForm.fund_id || '').trim()
+    const name = String(holdingCreateForm.name || '').trim()
+    const marketGroup = String(holdingCreateForm.market_group || 'cn_hk').trim().toLowerCase() || 'cn_hk'
+    const bucket = String(holdingCreateForm.bucket || '').trim() || defaultBucketByMarketGroup(marketGroup)
+    if (!fundId) {
+      setHoldingCreateError('请输入基金代码')
+      return
+    }
+    if (!name) {
+      setHoldingCreateError('请输入基金名称')
+      return
+    }
+    if (!bucket) {
+      setHoldingCreateError('请选择持仓分组')
+      return
+    }
+
+    setHoldingCreateSubmitting(true)
+    setHoldingCreateError('')
+    setHoldingCreateResult(null)
+    try {
+      const payload = {
+        fund_id: fundId,
+        name,
+        bucket,
+        market_group: marketGroup,
+        tags: parseTagList(holdingCreateForm.tags_text)
+      }
+      const created = await createHolding(payload)
+      if (!created) {
+        setHoldingCreateError('新增持仓失败，请检查输入后重试')
+        recordMetric('持仓新增失败', { fund_id: fundId })
+        return
+      }
+      const existed = rows.some((item) => String(item.fund_id) === fundId)
+      setSelectedFundId(created.fund_id)
+      setHoldingCreateResult({
+        ...created,
+        action: existed ? '覆盖' : '新增'
+      })
+      setHoldingCreateForm({
+        fund_id: '',
+        name: '',
+        bucket: defaultBucketByMarketGroup(marketGroup),
+        market_group: marketGroup,
+        tags_text: ''
+      })
+      setHoldingCreateSuggestions([])
+      recordMetric('持仓新增成功', { fund_id: created.fund_id, action: existed ? 'replace' : 'create' })
+    } catch (error) {
+      setHoldingCreateError(toGuidedError(error, 'holding_create', '新增持仓失败'))
+      recordMetric('持仓新增失败', { fund_id: fundId })
+    } finally {
+      setHoldingCreateSubmitting(false)
+    }
+  }, [createHolding, holdingCreateForm, rows])
+
   useEffect(() => {
     if (!user) {
       setActionLogs([])
@@ -854,6 +1004,18 @@ function App() {
       setSyncPendingResult(null)
       setActionError('')
       setReportSummary('')
+      setHoldingCreateSuggestions([])
+      setHoldingCreateSuggestLoading(false)
+      setHoldingCreateSubmitting(false)
+      setHoldingCreateError('')
+      setHoldingCreateResult(null)
+      setHoldingCreateForm({
+        fund_id: '',
+        name: '',
+        bucket: 'core',
+        market_group: 'cn_hk',
+        tags_text: ''
+      })
       return
     }
     if (activeTab !== 'trade' && activeTab !== 'profile' && activeTab !== 'home') return
@@ -2210,6 +2372,96 @@ function App() {
             </div>
             <DataStatusBanner title="持仓页口径" dataStatus={estimateDataStatus} />
             <RiskStatusBar risk={riskOverview} onOpenRiskCenter={handleJumpToRiskCenter} />
+
+            <section className="panel holdings-create-panel">
+              <div className="section-head">
+                <h3>新增持仓（自动补全）</h3>
+                <span>支持基金代码联想并自动回填名称与市场标签</span>
+              </div>
+              <form className="trade-form holdings-create-form" onSubmit={handleSubmitHoldingCreate}>
+                <label>
+                  基金代码
+                  <input
+                    value={holdingCreateForm.fund_id}
+                    onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, fund_id: event.target.value }))}
+                    placeholder="例如 016453"
+                    maxLength={16}
+                  />
+                </label>
+                <label>
+                  基金名称
+                  <input
+                    value={holdingCreateForm.name}
+                    onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, name: event.target.value }))}
+                    placeholder="例如 纳斯达克100ETF联接"
+                    maxLength={60}
+                  />
+                </label>
+                <label>
+                  市场分组
+                  <select
+                    value={holdingCreateForm.market_group}
+                    onChange={(event) => {
+                      const nextGroup = String(event.target.value || 'cn_hk')
+                      setHoldingCreateForm((prev) => ({
+                        ...prev,
+                        market_group: nextGroup,
+                        bucket: defaultBucketByMarketGroup(nextGroup)
+                      }))
+                    }}
+                  >
+                    <option value="cn_hk">A股/港股（cn_hk）</option>
+                    <option value="us_overseas">美股/海外（us_overseas）</option>
+                  </select>
+                </label>
+                <label>
+                  持仓分组
+                  <input
+                    value={holdingCreateForm.bucket}
+                    onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, bucket: event.target.value }))}
+                    placeholder="例如 core / overseas / growth"
+                    maxLength={32}
+                  />
+                </label>
+                <label>
+                  标签（可选）
+                  <input
+                    value={holdingCreateForm.tags_text}
+                    onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, tags_text: event.target.value }))}
+                    placeholder="例如 QDII,指数,科技"
+                    maxLength={80}
+                  />
+                </label>
+                <button type="submit" className="primary" disabled={holdingCreateSubmitting}>
+                  {holdingCreateSubmitting ? '提交中...' : '新增/覆盖持仓'}
+                </button>
+              </form>
+
+              {holdingCreateSuggestLoading && <div className="chart-empty">基金联想加载中...</div>}
+              {!holdingCreateSuggestLoading && holdingCreateSuggestions.length > 0 && (
+                <div className="watch-list holdings-create-suggest-list">
+                  {holdingCreateSuggestions.slice(0, 6).map((item) => (
+                    <article key={`holding-create-suggest-${item.fund_id}`} className="watch-item">
+                      <div>
+                        <h3>{item.name || '--'}</h3>
+                        <p>{item.fund_id} · {marketGroupLabel(item.market_group)}</p>
+                      </div>
+                      <button type="button" className="ghost" onClick={() => handlePickHoldingCreateSuggestion(item)}>
+                        选用
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              )}
+              {holdingCreateError && <div className="chart-empty">{holdingCreateError}</div>}
+              {holdingCreateResult && (
+                <div className="trade-result">
+                  <strong>持仓{holdingCreateResult.action}成功</strong>
+                  <p>基金：{holdingCreateResult.name || '--'}（{holdingCreateResult.fund_id || '--'}）</p>
+                  <p>市场：{marketGroupLabel(holdingCreateResult.market_group)} ｜ 分组：{holdingCreateResult.bucket || '--'}</p>
+                </div>
+              )}
+            </section>
 
             <HoldingsTable
               title="国内股 / 港股"

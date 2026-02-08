@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { fetchEstimate, fetchSettings, saveSettings, updateHolding } from '../api.js'
+import { createHolding as createHoldingApi, fetchEstimate, fetchSettings, saveSettings, updateHolding } from '../api.js'
 import { formatDateTime } from '../utils/format.js'
 import { normalizeFundRows, sortRows } from '../utils/holdings.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
@@ -243,6 +243,32 @@ export function usePortfolio({ user, sorter }) {
     }
   }, [])
 
+  const createHolding = useCallback(async (payload) => {
+    try {
+      const response = await createHoldingApi(payload)
+      const created = response?.holding
+      if (!created) {
+        throw new Error('后端未返回新增后的持仓')
+      }
+      const normalized = normalizeFundRows([created])[0]
+      if (!normalized) {
+        throw new Error('新增持仓数据格式异常')
+      }
+      setRows((prev) => {
+        const index = prev.findIndex((item) => item.fund_id === normalized.fund_id)
+        if (index < 0) {
+          return [normalized, ...prev]
+        }
+        return prev.map((item) => (item.fund_id === normalized.fund_id ? { ...item, ...normalized } : item))
+      })
+      setStatus({ type: 'success', message: `已新增/覆盖 ${normalized.fund_id} 持仓` })
+      return normalized
+    } catch (error) {
+      setStatus({ type: 'error', message: toGuidedError(error, 'holding_create', '新增持仓失败') })
+      return null
+    }
+  }, [])
+
   const sortedRows = useMemo(() => sortRows(rows, sorter), [rows, sorter])
 
   return {
@@ -265,6 +291,7 @@ export function usePortfolio({ user, sorter }) {
     refresh,
     setAutoRefreshEnabled,
     saveSettingsPatch,
-    saveHolding
+    saveHolding,
+    createHolding
   }
 }
