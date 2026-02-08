@@ -1,5 +1,22 @@
 const SESSION_TOKEN_KEY = 'vectorcontrol_session_token'
 
+function readRequestId(headers) {
+  if (!headers || typeof headers.get !== 'function') return ''
+  return String(
+    headers.get('x-request-id')
+    || headers.get('X-Request-ID')
+    || ''
+  ).trim()
+}
+
+function withRequestId(message, requestId) {
+  const base = String(message || '').trim()
+  const trace = String(requestId || '').trim()
+  if (!trace) return base
+  if (base.includes(trace)) return base
+  return `${base}（请求ID: ${trace}）`
+}
+
 export function getStoredToken() {
   try {
     return localStorage.getItem(SESSION_TOKEN_KEY) || ''
@@ -57,10 +74,13 @@ export async function apiFetch(path, options = {}) {
   }
 
   if (!response.ok) {
+    const requestId = readRequestId(response.headers)
     const message = payload?.detail || payload?.message || payload?.error || `请求失败（${response.status}）`
-    const error = new Error(message)
+    const error = new Error(withRequestId(message, requestId))
     error.status = response.status
     error.path = path
+    error.requestId = requestId
+    error.request_id = requestId
     throw error
   }
 
