@@ -72,5 +72,19 @@ export function toGuidedError(error, scene = 'generic', fallback = '操作失败
     return withNextStep(raw, '确认存在 pending 交易后再次执行')
   }
 
+  if (scene === 'trade_transaction_patch') {
+    if (status === 401) return withNextStep('登录状态已失效，交易修正失败', '重新登录后再提交修正')
+    if (status === 404) return withNextStep('目标交易不存在或已被移除', '刷新交易流水后重试')
+    if (networkFailed) return withNextStep('交易修正失败，网络不可达', '检查网络后重试')
+    return withNextStep(raw, '检查发生时间、状态和净值后再次提交')
+  }
+
+  if (scene === 'trade_transaction_audit') {
+    if (status === 401) return withNextStep('登录状态已失效，无法查看审计记录', '重新登录后重试')
+    if (status === 404) return withNextStep('交易审计接口不存在（404）', '把后端更新到最新版本并重启服务')
+    if (networkFailed) return withNextStep('审计记录加载失败，网络不可达', '检查网络后重试')
+    return withNextStep(raw, '稍后重试，必要时先刷新交易流水')
+  }
+
   return withNextStep(raw, '稍后重试')
 }

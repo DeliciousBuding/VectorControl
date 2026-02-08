@@ -799,6 +799,13 @@ button:disabled {
   gap: 4px;
 }
 
+.record-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .record-side strong {
   font-family: 'Manrope', 'Noto Sans SC', sans-serif;
   font-size: 18px;

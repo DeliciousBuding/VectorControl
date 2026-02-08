@@ -13,6 +13,7 @@ from app.api.deps import build_data_status, get_holdings_user_id, get_user_id, g
 from app.storage.db import (
     confirm_fund_transaction,
     get_nav_for_transaction_sync,
+    list_audit_logs,
     list_fund_transactions,
     list_pending_fund_transactions_for_sync_by_fund,
     patch_fund_transaction,
@@ -453,4 +454,33 @@ async def patch_transaction(
         "changed_fields": patch_result.get("changed_fields") or [],
         "patched_at": datetime.now().astimezone().isoformat(),
         "data_status": _build_transaction_data_status(summary),
+    }
+
+
+@router.get("/{transaction_id}/audit")
+async def get_transaction_audit(
+    request: Request,
+    transaction_id: int,
+    limit: int = Query(default=20, ge=1, le=200),
+) -> dict[str, Any]:
+    user_id = get_holdings_user_id(request)
+    tx_id = int(transaction_id)
+    if tx_id <= 0:
+        return JSONResponse({"detail": "交易 ID 非法"}, status_code=400)
+
+    items = list_audit_logs(
+        user_id=user_id,
+        entity_type="fund_transaction",
+        entity_id=str(tx_id),
+        limit=limit,
+    )
+    return {
+        "transaction_id": tx_id,
+        "count": len(items),
+        "items": items,
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=datetime.now().astimezone().isoformat(),
+            note="交易审计记录来自 audit_logs，可用于回放修正过程",
+        ),
     }

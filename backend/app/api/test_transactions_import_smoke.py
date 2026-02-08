@@ -247,6 +247,14 @@ transactions:
             self.assertIn("manual_patch", str(tx.get("source") or ""))
             self.assertEqual(str(patch_body.get("data_status", {}).get("status")), "confirmed")
 
+            audit_resp = client.get(f"/api/transactions/{tx_id}/audit?limit=5", headers=headers)
+            self.assertEqual(audit_resp.status_code, 200, audit_resp.text)
+            audit_body = audit_resp.json()
+            self.assertEqual(int(audit_body.get("transaction_id") or 0), tx_id)
+            self.assertGreaterEqual(int(audit_body.get("count") or 0), 1)
+            self.assertIn("data_status", audit_body)
+            self.assertEqual(str(audit_body.get("data_status", {}).get("status")), "confirmed")
+
             logs = list_audit_logs(
                 user_id=user_id,
                 entity_type="fund_transaction",

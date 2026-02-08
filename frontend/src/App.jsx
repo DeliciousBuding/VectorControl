@@ -8,9 +8,11 @@ import {
   fetchFundNavHistory,
   fetchFundNavLatest,
   fetchHoldingAudit,
+  fetchTransactionAudit,
   fetchFundSuggest,
   fetchTransactions,
   fetchSystemStatus,
+  patchTransaction,
   saveAction,
   searchFunds,
   syncPendingTransactions
@@ -44,6 +46,15 @@ function nowForDateTimeInput() {
   now.setSeconds(0, 0)
   const offset = now.getTimezoneOffset() * 60 * 1000
   return new Date(now.getTime() - offset).toISOString().slice(0, 16)
+}
+
+function isoToDateTimeInput(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  const date = new Date(text)
+  if (Number.isNaN(date.getTime())) return ''
+  const offset = date.getTimezoneOffset() * 60 * 1000
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16)
 }
 
 function compareActionRecordsDesc(a, b) {
@@ -233,6 +244,22 @@ function App() {
   const [transactionLoading, setTransactionLoading] = useState(false)
   const [transactionError, setTransactionError] = useState('')
   const [transactionFilterStatus, setTransactionFilterStatus] = useState('all')
+  const [editingTransactionId, setEditingTransactionId] = useState(0)
+  const [editingTransactionForm, setEditingTransactionForm] = useState({
+    occurred_at: '',
+    status: 'pending',
+    confirmed_at: '',
+    nav: '',
+    note: '',
+    audit_note: ''
+  })
+  const [transactionPatchLoading, setTransactionPatchLoading] = useState(false)
+  const [transactionPatchError, setTransactionPatchError] = useState('')
+  const [transactionPatchResult, setTransactionPatchResult] = useState(null)
+  const [transactionAuditTargetId, setTransactionAuditTargetId] = useState(0)
+  const [transactionAuditLoading, setTransactionAuditLoading] = useState(false)
+  const [transactionAuditError, setTransactionAuditError] = useState('')
+  const [transactionAuditItems, setTransactionAuditItems] = useState([])
   const [syncPendingLoading, setSyncPendingLoading] = useState(false)
   const [syncPendingError, setSyncPendingError] = useState('')
   const [syncPendingResult, setSyncPendingResult] = useState(null)
@@ -883,6 +910,111 @@ function App() {
       setTransactionLoading(false)
     }
   }, [transactionFilterStatus, user])
+
+  const beginEditTransaction = useCallback((item) => {
+    const txId = Number(item?.id || 0)
+    if (!txId) return
+    const status = String(item?.status || '').toLowerCase() === 'confirmed' ? 'confirmed' : 'pending'
+    setEditingTransactionId(txId)
+    setTransactionPatchError('')
+    setTransactionPatchResult(null)
+    setEditingTransactionForm({
+      occurred_at: isoToDateTimeInput(item?.occurred_at) || nowForDateTimeInput(),
+      status,
+      confirmed_at: status === 'confirmed' ? (isoToDateTimeInput(item?.confirmed_at) || nowForDateTimeInput()) : '',
+      nav: status === 'confirmed' ? String(Number(item?.nav || 0) || '') : '',
+      note: String(item?.note || ''),
+      audit_note: ''
+    })
+  }, [])
+
+  const cancelEditTransaction = useCallback(() => {
+    setEditingTransactionId(0)
+    setTransactionPatchError('')
+    setTransactionPatchResult(null)
+    setEditingTransactionForm({
+      occurred_at: '',
+      status: 'pending',
+      confirmed_at: '',
+      nav: '',
+      note: '',
+      audit_note: ''
+    })
+  }, [])
+
+  const loadTransactionAudit = useCallback(async (transactionId, { silent = false } = {}) => {
+    const txId = Number(transactionId || 0)
+    if (!txId) return
+    setTransactionAuditLoading(true)
+    if (!silent) setTransactionAuditError('')
+    try {
+      const payload = await fetchTransactionAudit(txId, 50)
+      const items = Array.isArray(payload?.items) ? payload.items : []
+      setTransactionAuditTargetId(txId)
+      setTransactionAuditItems(items)
+      if (!silent) setTransactionAuditError('')
+    } catch (error) {
+      const guided = toGuidedError(error, 'trade_transaction_audit', '交易审计记录加载失败')
+      setTransactionAuditTargetId(txId)
+      setTransactionAuditItems([])
+      setTransactionAuditError(guided)
+    } finally {
+      setTransactionAuditLoading(false)
+    }
+  }, [])
+
+  const handlePatchTransaction = useCallback(async (event) => {
+    event.preventDefault()
+    const txId = Number(editingTransactionId || 0)
+    if (!txId) return
+
+    const cleanOccurredAt = String(editingTransactionForm.occurred_at || '').trim()
+    if (!cleanOccurredAt) {
+      setTransactionPatchError('请输入发生时间')
+      return
+    }
+    const nextStatus = String(editingTransactionForm.status || 'pending').trim().toLowerCase() === 'confirmed'
+      ? 'confirmed'
+      : 'pending'
+    const navNumber = Number(editingTransactionForm.nav)
+    if (nextStatus === 'confirmed' && (!Number.isFinite(navNumber) || navNumber <= 0)) {
+      setTransactionPatchError('confirmed 状态必须填写大于 0 的净值')
+      return
+    }
+
+    setTransactionPatchLoading(true)
+    setTransactionPatchError('')
+    setTransactionPatchResult(null)
+    try {
+      const payload = {
+        occurred_at: cleanOccurredAt,
+        status: nextStatus,
+        note: String(editingTransactionForm.note || '').trim(),
+        audit_note: String(editingTransactionForm.audit_note || '').trim()
+      }
+      if (nextStatus === 'confirmed') {
+        payload.confirmed_at = String(editingTransactionForm.confirmed_at || '').trim() || nowForDateTimeInput()
+        payload.nav = navNumber
+      } else {
+        payload.confirmed_at = ''
+      }
+
+      const result = await patchTransaction(txId, payload)
+      setTransactionPatchResult(result?.transaction || null)
+      if (result?.data_status && typeof result.data_status === 'object') {
+        setTransactionDataStatus(result.data_status)
+      }
+      await loadTransactionList(transactionFilterStatus, { silent: true })
+      await loadTransactionAudit(txId, { silent: true })
+      setEditingTransactionForm((prev) => ({ ...prev, audit_note: '' }))
+      recordMetric('交易流水手工修正成功', { transaction_id: txId, status: nextStatus })
+    } catch (error) {
+      setTransactionPatchError(toGuidedError(error, 'trade_transaction_patch', '交易修正失败'))
+      recordMetric('交易流水手工修正失败', { transaction_id: txId })
+    } finally {
+      setTransactionPatchLoading(false)
+    }
+  }, [editingTransactionForm, editingTransactionId, loadTransactionAudit, loadTransactionList, transactionFilterStatus])
 
   useEffect(() => {
     if (!user) return
@@ -1711,10 +1843,164 @@ function App() {
                     <span className={String(item.status || '') === 'confirmed' ? 'record-done' : 'record-pending'}>
                       {String(item.status || '') === 'confirmed' ? '已确认' : '待确认'}
                     </span>
+                    <div className="record-actions">
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => beginEditTransaction(item)}
+                        disabled={transactionPatchLoading}
+                      >
+                        编辑
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => void loadTransactionAudit(item.id)}
+                        disabled={transactionAuditLoading}
+                      >
+                        审计
+                      </button>
+                    </div>
                   </div>
                 </article>
               ))}
             </div>
+          )}
+          {editingTransactionId > 0 && (
+            <section className="trade-lifecycle">
+              <div className="section-head trade-head">
+                <h3>交易手工修正</h3>
+                <span>交易 ID：{editingTransactionId}</span>
+              </div>
+              <form className="trade-form" onSubmit={handlePatchTransaction}>
+                <label>
+                  发生时间
+                  <input
+                    type="datetime-local"
+                    value={editingTransactionForm.occurred_at}
+                    onChange={(event) =>
+                      setEditingTransactionForm((prev) => ({ ...prev, occurred_at: event.target.value }))
+                    }
+                    required
+                  />
+                </label>
+                <label>
+                  状态
+                  <select
+                    value={editingTransactionForm.status}
+                    onChange={(event) =>
+                      setEditingTransactionForm((prev) => ({
+                        ...prev,
+                        status: event.target.value,
+                        confirmed_at:
+                          event.target.value === 'confirmed'
+                            ? prev.confirmed_at || nowForDateTimeInput()
+                            : '',
+                        nav: event.target.value === 'confirmed' ? prev.nav : ''
+                      }))
+                    }
+                  >
+                    <option value="pending">pending</option>
+                    <option value="confirmed">confirmed</option>
+                  </select>
+                </label>
+                {editingTransactionForm.status === 'confirmed' && (
+                  <>
+                    <label>
+                      确认时间
+                      <input
+                        type="datetime-local"
+                        value={editingTransactionForm.confirmed_at}
+                        onChange={(event) =>
+                          setEditingTransactionForm((prev) => ({ ...prev, confirmed_at: event.target.value }))
+                        }
+                        required
+                      />
+                    </label>
+                    <label>
+                      净值
+                      <input
+                        type="number"
+                        min="0.0001"
+                        step="0.0001"
+                        value={editingTransactionForm.nav}
+                        onChange={(event) =>
+                          setEditingTransactionForm((prev) => ({ ...prev, nav: event.target.value }))
+                        }
+                        required
+                      />
+                    </label>
+                  </>
+                )}
+                <label>
+                  备注（可选）
+                  <input
+                    value={editingTransactionForm.note}
+                    onChange={(event) => setEditingTransactionForm((prev) => ({ ...prev, note: event.target.value }))}
+                    placeholder="例如：手工修正净值来源"
+                    maxLength={120}
+                  />
+                </label>
+                <label>
+                  审计说明（建议填写）
+                  <input
+                    value={editingTransactionForm.audit_note}
+                    onChange={(event) =>
+                      setEditingTransactionForm((prev) => ({ ...prev, audit_note: event.target.value }))
+                    }
+                    placeholder="例如：回填券商结算数据"
+                    maxLength={120}
+                  />
+                </label>
+                <div className="trade-grid trade-grid-single">
+                  <button type="submit" className="primary" disabled={transactionPatchLoading}>
+                    {transactionPatchLoading ? '提交中...' : '保存修正'}
+                  </button>
+                  <button type="button" className="ghost" onClick={cancelEditTransaction} disabled={transactionPatchLoading}>
+                    取消编辑
+                  </button>
+                </div>
+              </form>
+              {transactionPatchError && <div className="chart-empty">{transactionPatchError}</div>}
+              {transactionPatchResult && (
+                <div className="trade-result">
+                  <strong>交易修正已保存</strong>
+                  <p>状态：{String(transactionPatchResult.status || '') === 'confirmed' ? '已确认' : '待确认'}</p>
+                  <p>发生时间：{formatDateTime(transactionPatchResult.occurred_at)}</p>
+                  <p>确认时间：{formatDateTime(transactionPatchResult.confirmed_at)}</p>
+                </div>
+              )}
+            </section>
+          )}
+          {transactionAuditTargetId > 0 && (
+            <section className="trade-lifecycle">
+              <div className="section-head trade-head">
+                <h3>交易审计链路</h3>
+                <span>交易 ID：{transactionAuditTargetId}</span>
+              </div>
+              {transactionAuditLoading && <div className="chart-empty">审计记录加载中...</div>}
+              {!transactionAuditLoading && transactionAuditError && <div className="chart-empty">{transactionAuditError}</div>}
+              {!transactionAuditLoading && !transactionAuditError && transactionAuditItems.length === 0 && (
+                <div className="chart-empty">当前交易暂无审计记录。</div>
+              )}
+              {!transactionAuditLoading && !transactionAuditError && transactionAuditItems.length > 0 && (
+                <div className="record-list">
+                  {transactionAuditItems.map((logItem) => (
+                    <article key={`tx-audit-${logItem.id}`} className="record-item">
+                      <div>
+                        <h4>操作 {logItem.action || '--'}</h4>
+                        <p>执行人 {logItem.actor_username || logItem.actor_user_id || 'system'} ｜ 时间 {formatDateTime(logItem.created_at)}</p>
+                        <p>{logItem.note || '无备注'}</p>
+                      </div>
+                      <div className="record-side">
+                        <strong>{logItem.entity_id || '--'}</strong>
+                        <span className="record-pending">{logItem.entity_type || 'fund_transaction'}</span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </section>
           )}
 
           <div className="section-head trade-head">

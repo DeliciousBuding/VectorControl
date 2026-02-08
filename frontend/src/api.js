@@ -176,6 +176,22 @@ export function syncPendingTransactions(payload = {}) {
   return apiFetch('/api/transactions/sync_pending', { method: 'POST', body: payload })
 }
 
+export function patchTransaction(transactionId, payload = {}) {
+  return apiFetch(`/api/transactions/${encodeURIComponent(String(transactionId || '').trim())}`, {
+    method: 'PATCH',
+    body: payload
+  })
+}
+
+export function fetchTransactionAudit(transactionId, limit = 20) {
+  const query = new URLSearchParams({
+    limit: String(limit)
+  })
+  return apiFetch(
+    `/api/transactions/${encodeURIComponent(String(transactionId || '').trim())}/audit?${query.toString()}`
+  )
+}
+
 export function updateHolding(fundId, payload) {
   return apiFetch(`/api/holdings/${encodeURIComponent(fundId)}`, {
     method: 'PATCH',
