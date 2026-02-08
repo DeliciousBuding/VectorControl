@@ -3153,6 +3153,19 @@ def get_system_status_snapshot(holdings_user_id: str, snapshot_user_id: str) -> 
             """,
             (str(holdings_user_id or "legacy"),),
         ).fetchone()
+        sync_stats_row = conn.execute(
+            """
+            SELECT
+                SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+                SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS confirmed_count,
+                SUM(CASE WHEN source LIKE '%sync_pending%' THEN 1 ELSE 0 END) AS synced_total,
+                COUNT(DISTINCT CASE WHEN source LIKE '%sync_pending%' THEN fund_id END) AS synced_fund_count,
+                MAX(NULLIF(confirmed_at, '')) AS latest_confirmed_at
+            FROM fund_transactions
+            WHERE user_id = ?
+            """,
+            (str(holdings_user_id or "legacy"),),
+        ).fetchone()
 
     latest_nav = None
     if latest_nav_row:
@@ -3193,7 +3206,16 @@ def get_system_status_snapshot(holdings_user_id: str, snapshot_user_id: str) -> 
                 if last_sync_pending_row and str(last_sync_pending_row["last_run_at"] or "").strip()
                 else None
             ),
-            "note": "sync_pending 对账任务可用",
+            "pending_count_current": int(sync_stats_row["pending_count"] or 0) if sync_stats_row else 0,
+            "confirmed_count_current": int(sync_stats_row["confirmed_count"] or 0) if sync_stats_row else 0,
+            "synced_total": int(sync_stats_row["synced_total"] or 0) if sync_stats_row else 0,
+            "synced_fund_count": int(sync_stats_row["synced_fund_count"] or 0) if sync_stats_row else 0,
+            "latest_confirmed_at": (
+                str(sync_stats_row["latest_confirmed_at"] or "")
+                if sync_stats_row and str(sync_stats_row["latest_confirmed_at"] or "").strip()
+                else None
+            ),
+            "note": "sync_pending 对账任务可用（含当前 pending/confirmed 统计）",
         },
     }
 

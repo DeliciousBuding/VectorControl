@@ -45,6 +45,15 @@ class AuthIsolationSmokeTest(unittest.TestCase):
             self.assertIn("commit", body)
             self.assertIn("server_time", body)
             self.assertIn("python_version", body)
+            self.assertIn("release", body)
+
+            release = body.get("release", {})
+            self.assertIn("current", release)
+            self.assertIn("online_reference", release)
+            self.assertIn("compare_with_online", release)
+            self.assertIn("status", release.get("compare_with_online", {}))
+            self.assertIn("ahead", release.get("compare_with_online", {}))
+            self.assertIn("behind", release.get("compare_with_online", {}))
 
             user = body.get("user", {})
             self.assertEqual(bool(user.get("is_admin")), False)
@@ -58,6 +67,12 @@ class AuthIsolationSmokeTest(unittest.TestCase):
             self.assertIn("fund_sync_job", snapshot)
             self.assertIn("actions_log", snapshot)
             self.assertIn("transactions_sync_pending", snapshot)
+            sync_pending = snapshot.get("transactions_sync_pending", {})
+            self.assertIn("pending_count_current", sync_pending)
+            self.assertIn("confirmed_count_current", sync_pending)
+            self.assertIn("synced_total", sync_pending)
+            self.assertIn("synced_fund_count", sync_pending)
+            self.assertIn("latest_confirmed_at", sync_pending)
 
     def test_user_data_isolation(self) -> None:
         with TestClient(app) as client:

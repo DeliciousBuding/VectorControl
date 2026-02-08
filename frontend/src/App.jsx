@@ -2260,6 +2260,19 @@ function App() {
                     <strong>{systemStatusData.service || '--'}</strong>
                     <p>版本：{systemStatusData.version || '--'}</p>
                     <p>Commit：{systemStatusData.commit || '--'}</p>
+                    <p>线上参考版本：{systemStatusData.release?.online_reference?.version || '--'}</p>
+                    <p>线上参考 Commit：{systemStatusData.release?.online_reference?.commit || '--'}</p>
+                    <p>
+                      与线上对照：
+                      {{
+                        same: '一致',
+                        ahead: '当前分支领先线上',
+                        behind: '当前分支落后线上',
+                        diverged: '分叉（需人工确认）',
+                        unknown: '未知',
+                      }[systemStatusData.release?.compare_with_online?.status] || '未知'}
+                      （ahead {Number(systemStatusData.release?.compare_with_online?.ahead || 0)} / behind {Number(systemStatusData.release?.compare_with_online?.behind || 0)}）
+                    </p>
                     <p>服务器时间：{formatDateTime(systemStatusData.server_time)}</p>
                     <p>Python：{systemStatusData.python_version || '--'}</p>
                   </div>
@@ -2308,6 +2321,10 @@ function App() {
                       <div>
                         <h4>Pending 对账能力</h4>
                         <p>{systemStatusData.snapshot?.transactions_sync_pending?.note || '--'}</p>
+                        <p>
+                          当前 pending {Number(systemStatusData.snapshot?.transactions_sync_pending?.pending_count_current || 0)}
+                          ｜ confirmed {Number(systemStatusData.snapshot?.transactions_sync_pending?.confirmed_count_current || 0)}
+                        </p>
                       </div>
                       <div className="record-side">
                         <strong>
@@ -2315,6 +2332,13 @@ function App() {
                         </strong>
                         <span className="record-pending">
                           最近执行 {formatDateTime(systemStatusData.snapshot?.transactions_sync_pending?.last_run_at)}
+                        </span>
+                        <span className="record-pending">
+                          最近确认 {formatDateTime(systemStatusData.snapshot?.transactions_sync_pending?.latest_confirmed_at)}
+                        </span>
+                        <span className="record-pending">
+                          已对账记录 {Number(systemStatusData.snapshot?.transactions_sync_pending?.synced_total || 0)}
+                          （基金 {Number(systemStatusData.snapshot?.transactions_sync_pending?.synced_fund_count || 0)}）
                         </span>
                       </div>
                     </article>
