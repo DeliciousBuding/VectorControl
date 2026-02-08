@@ -1,7 +1,7 @@
 # AGENTS.md（VectorControl 仓库级执行规范）
 
 本文件是本仓库自动化 Agent 的最高执行规范（仅次于用户当轮明确指令）。
-优先级：`用户当轮指令 > AGENTS.md > ROADMAP.md > docs/*`
+优先级：`用户当轮指令 > AGENTS.md > <local>\AGENT\ROADMAP.md > docs/*`
 
 ## 1. 分支与发布（强制）
 
@@ -14,7 +14,7 @@
   - 后端 Agent：`feat/backend-agent1-<topic>`
   - 总控集成：`dev`（只由总控 Agent 执行合并、冲突处理、统一验收）
 - 分支保护治理目标：远端仓库 `dev/main` 启用分支保护（`Docs Gate` / `Release Consistency`）。
-- 当前敏捷阶段：分支保护治理后置，不阻塞当轮 `dev` 迭代与本地测试；回补任务以 `ROADMAP.md` 为准。
+- 当前敏捷阶段：分支保护治理后置，不阻塞当轮 `dev` 迭代与本地测试；回补任务以 `<local>\AGENT\ROADMAP.md` 为准。
 - 分支保护检查/应用脚本：`python scripts/branch_protection.py --mode check|apply --required-contexts "Docs Gate / docs-gate" --main-required-contexts "Release Consistency / verify-release"`（治理回补时执行）
 
 ## 1.1 多 Agent 角色（强制）
@@ -80,6 +80,7 @@
 ## 3.1 main 文档门禁（强制）
 
 - 每次更新 `main` 前，必须完成文档全量检查与必要完善，范围至少包含：
+  - `<local>\AGENT\ROADMAP.md`（任务真源）
   - `README.md`
   - `ROADMAP.md`
   - `docs/架构说明.md`
@@ -130,7 +131,7 @@
 - 提交前必须通过：
   - 前端：`npm run build`
   - 后端：`python -m compileall app`
-- 代码改动必须同步更新文档和 `ROADMAP.md`
+- 代码改动必须同步更新文档和 `<local>\AGENT\ROADMAP.md`（仓库内 `ROADMAP.md` 仅镜像占位）
 - 发布前统一执行：`python scripts/check_release_preflight.py`（文档门禁严格模式 + 后端 compileall + 前端 build）
 
 ## 7. Gate 约束
