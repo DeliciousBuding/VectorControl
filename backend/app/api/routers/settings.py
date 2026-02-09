@@ -164,6 +164,101 @@ def _strip_redacted_credentials_incoming(settings: dict[str, Any]) -> dict[str, 
     return settings
 
 
+def _validate_and_normalize_dca_plans_incoming(settings: dict[str, Any]) -> dict[str, Any]:
+    # Lightweight validation for settings.strategy.dca_plans only.
+    if not isinstance(settings, dict):
+        return {}
+
+    if "strategy" not in settings:
+        return settings
+    strategy = settings.get("strategy")
+    if strategy is None:
+        return settings
+    if not isinstance(strategy, dict):
+        raise HTTPException(status_code=422, detail="settings.strategy 必须为对象")
+    if "dca_plans" not in strategy:
+        return settings
+
+    trace_id = uuid.uuid4().hex[:12]
+    raw_plans = strategy.get("dca_plans")
+    if raw_plans is None:
+        raise HTTPException(status_code=422, detail=f"settings.strategy.dca_plans 不能为空 (trace_id={trace_id})")
+    if not isinstance(raw_plans, list):
+        raise HTTPException(status_code=422, detail=f"settings.strategy.dca_plans 必须为数组 (trace_id={trace_id})")
+
+    allowed_schedules = {"weekly", "biweekly", "monthly"}
+    normalized: list[dict[str, Any]] = []
+    for i, raw in enumerate(raw_plans):
+        if not isinstance(raw, dict):
+            raise HTTPException(
+                status_code=422,
+                detail=f"settings.strategy.dca_plans[{i}] 必须为对象 (trace_id={trace_id})",
+            )
+
+        plan_id = str(raw.get("id", "")).strip()
+        if not plan_id:
+            raise HTTPException(
+                status_code=422,
+                detail=f"settings.strategy.dca_plans[{i}].id 不能为空 (trace_id={trace_id})",
+            )
+        name = str(raw.get("name", "")).strip()
+        if not name:
+            raise HTTPException(
+                status_code=422,
+                detail=f"settings.strategy.dca_plans[{i}].name 不能为空 (trace_id={trace_id})",
+            )
+
+        amount = raw.get("amount")
+        if isinstance(amount, bool) or not isinstance(amount, (int, float)):
+            raise HTTPException(
+                status_code=422,
+                detail=f"settings.strategy.dca_plans[{i}].amount 必须为数字 (trace_id={trace_id})",
+            )
+        if float(amount) <= 0:
+            raise HTTPException(
+                status_code=422,
+                detail=f"settings.strategy.dca_plans[{i}].amount 必须 > 0 (trace_id={trace_id})",
+            )
+
+        schedule_raw = raw.get("schedule")
+        schedule = str(schedule_raw or "").strip().lower()
+        if schedule not in allowed_schedules:
+            raise HTTPException(
+                status_code=422,
+                detail=f"settings.strategy.dca_plans[{i}].schedule 非法 (trace_id={trace_id})",
+            )
+
+        fund_id_raw = raw.get("fund_id", "")
+        fund_id = "" if fund_id_raw is None else str(fund_id_raw).strip()
+        if fund_id and (len(fund_id) != 6 or not fund_id.isdigit()):
+            raise HTTPException(
+                status_code=422,
+                detail=f"settings.strategy.dca_plans[{i}].fund_id 必须为空或6位数字 (trace_id={trace_id})",
+            )
+
+        paused = raw.get("paused")
+        if not isinstance(paused, bool):
+            raise HTTPException(
+                status_code=422,
+                detail=f"settings.strategy.dca_plans[{i}].paused 必须为布尔值 (trace_id={trace_id})",
+            )
+
+        plan_out: dict[str, Any] = dict(raw)
+        plan_out["id"] = plan_id
+        plan_out["name"] = name
+        plan_out["amount"] = float(amount) if isinstance(amount, int) else amount
+        plan_out["schedule"] = schedule
+        plan_out["fund_id"] = fund_id
+        plan_out["paused"] = paused
+        normalized.append(plan_out)
+
+    strategy_out: dict[str, Any] = dict(strategy)
+    strategy_out["dca_plans"] = normalized
+    settings_out: dict[str, Any] = dict(settings)
+    settings_out["strategy"] = strategy_out
+    return settings_out
+
+
 class SettingsIn(BaseModel):
     settings: dict[str, Any]
 
@@ -199,6 +294,7 @@ async def put_settings(request: Request, payload: SettingsIn) -> dict:
     user_id = get_holdings_user_id(request)
     incoming = payload.settings if isinstance(payload.settings, dict) else {}
     incoming = _strip_redacted_credentials_incoming(incoming)
+    incoming = _validate_and_normalize_dca_plans_incoming(incoming)
     stored = upsert_user_settings(user_id, incoming)
     return {"settings": _redact_settings_for_response(stored), "user_id": user_id}
 
