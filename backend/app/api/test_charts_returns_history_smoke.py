@@ -34,11 +34,11 @@ class ChartsReturnsHistorySmokeTest(unittest.TestCase):
             # 清理遗留快照，避免历史数据影响断言。
             clear_estimate_snapshots(user_id)
 
-            base = datetime(2026, 2, 7, 8, 0, 0, tzinfo=timezone.utc)
-            # 同一天两条快照，后者应覆盖前者。
+            base = datetime(2026, 2, 8, 8, 0, 0, tzinfo=timezone.utc)
+            # 同一天两条快照：比较口径应基于 asof 解析后的时间，而非字符串大小。
             save_estimate_snapshot(
                 user_id=user_id,
-                asof=(base).isoformat(),
+                asof="2026-02-08T23:10:00+08:00",
                 payload={
                     "funds": [
                         {"market_value_cny": 110.0, "cost_basis_cny": 100.0, "day_profit_cny": 1.2},
@@ -47,10 +47,10 @@ class ChartsReturnsHistorySmokeTest(unittest.TestCase):
             )
             save_estimate_snapshot(
                 user_id=user_id,
-                asof=(base + timedelta(hours=10)).isoformat(),
+                asof="2026-02-08T15:40:00+00:00",
                 payload={
                     "funds": [
-                        {"market_value_cny": 120.0, "cost_basis_cny": 100.0, "day_profit_cny": 2.0},
+                        {"market_value_cny": 125.0, "cost_basis_cny": 100.0, "day_profit_cny": 2.5},
                     ]
                 },
             )
@@ -73,9 +73,21 @@ class ChartsReturnsHistorySmokeTest(unittest.TestCase):
             self.assertGreaterEqual(len(history.get("data") or []), 2)
             self.assertIn("data_status", history)
 
+            data = history.get("data") or []
+            # 2026-02-08 这天应选择 asof=2026-02-08T15:40:00+00:00（真实时间更晚）。
+            first = data[0]
+            self.assertEqual(first.get("date"), "2026-02-08")
+            self.assertEqual(first.get("asof"), "2026-02-08T15:40:00+00:00")
+            self.assertAlmostEqual(float(first.get("total_market_value_cny") or 0.0), 125.0, places=2)
+            self.assertAlmostEqual(float(first.get("total_cost_basis_cny") or 0.0), 100.0, places=2)
+            self.assertAlmostEqual(float(first.get("total_return") or 0.0), 25.0, places=3)
+            self.assertAlmostEqual(float(first.get("day_profit") or 0.0), 2.5, places=2)
+
             # 最新一天的 total_return 应为 (130-100)/100*100=30
             last = (history.get("data") or [])[-1]
             self.assertAlmostEqual(float(last.get("total_return") or 0.0), 30.0, places=3)
+            self.assertAlmostEqual(float(last.get("total_market_value_cny") or 0.0), 130.0, places=2)
+            self.assertAlmostEqual(float(last.get("total_cost_basis_cny") or 0.0), 100.0, places=2)
 
             cumulative_resp = client.get("/api/charts/cumulative_returns?days=30", headers=headers)
             self.assertEqual(cumulative_resp.status_code, 200, cumulative_resp.text)

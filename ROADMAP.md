@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 04:52:42
+更新时间：2026-02-10 05:00:45
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。  
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -52,9 +52,9 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [前端Agent1] 定投计划体验 v2：列表展示“下次执行日/距今天数”+ 最近一次执行结果（ok/failed），并支持首页待办一键定位到定投区；补最小回归（已合入 origin/dev@1d934c3，来源 origin/feat/frontend-agent1-dca-plans-next-run-v2@41b0a01）
 - [√] [后端Agent1] SIP 定投计划后端 v1：基于 mot-bot 思路新增 `/api/sip` CRUD + execute，并并入 `app.storage.db.init_db()` 统一建表迁移，补齐 smoke + 契约（已完成 `python3 -m compileall app` 与 storage 层本地自检；`app.api.test_sip_crud_execute_smoke` 待依赖齐全环境执行）
 - [ ] [前端Agent1] SIP 定投计划前端 v1：SettingsDrawer 增加定投计划管理面板，对接 `/api/sip`，补最小回归（已于 2026-02-09 16:25:17 预告排队）
-- [ ] [后端Agent1] 图表接口稳定性 v1：`/api/charts/returns_history` 补充市场值/成本汇总字段并明确 asof 解析口径，扩展 smoke 与契约（已于 2026-02-09 16:55:54 预告排队）
+- [√] [后端Agent1] 图表接口稳定性 v1：`/api/charts/returns_history` 补充市场值/成本汇总字段并明确 asof 解析口径，扩展 smoke 与契约（已完成代码+契约+smoke 扩展；当前执行环境缺少 fastapi 依赖，`python3 -m unittest app.api.test_charts_returns_history_smoke` 待依赖齐全后复跑）
 - [√] [后端Agent1] 图表接口 days 参数校验：`GET /api/charts/returns_history?days=` 仅允许 7/30/90，默认 30，非法 422 并可解释；补最小 smoke + 契约（已合入 `origin/dev@3b49cfb`）
-- [ ] [后端Agent1] 图表接口稳定性 v2（资产/成本汇总字段）：为 `returns_history.data[]` 补充 `total_market_value_cny`/`total_cost_basis_cny`（按当日最后快照汇总），扩展 smoke + 契约（已于 2026-02-09 17:20:05 预告排队）
+- [√] [后端Agent1] 图表接口稳定性 v2（资产/成本汇总字段）：为 `returns_history.data[]` 补充 `total_market_value_cny`/`total_cost_basis_cny`（按当日最后快照汇总），扩展 smoke + 契约（与 v1 同批完成）
 - [ ] [后端Agent1] 图表接口性能 v1（returns_history 聚合优化）：最大 days/DB 聚合/按日缓存（含过期策略），补最小性能 smoke + 架构说明（已于 2026-02-09 17:29:19 预告排队）
 - [ ] [前端Agent1] 收益曲线体验 v3（摘要信息）：在收益曲线面板增加累计收益/最大回撤/近30天波动摘要与口径提示，补最小回归（已于 2026-02-09 17:18:30 预告排队）
 - [ ] [前端Agent1] 系统状态面板 v2（复制内容增强）：复制状态信息包包含版本/页面URL/request_id（脱敏），补最小回归（已于 2026-02-09 17:20:05 预告排队）

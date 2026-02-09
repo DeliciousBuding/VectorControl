@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query, Request
@@ -22,43 +22,77 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
-def _calculate_total_return(snapshot: dict[str, Any]) -> float:
-    """计算单个快照的总收益率（%）"""
+def _parse_asof_datetime(asof: str) -> datetime | None:
+    """解析 asof：支持 ISO8601 与 Z；无时区时按 UTC 解释。"""
+    text = str(asof or "").strip()
+    if not text:
+        return None
+    try:
+        dt = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _resolve_snapshot_asof(snapshot: dict[str, Any]) -> tuple[str, datetime] | None:
+    """asof 口径：优先使用快照行 asof，缺失时回退 payload.asof/as_of。"""
+    asof_text = str(snapshot.get("asof") or "").strip()
+    if not asof_text:
+        payload = snapshot.get("payload")
+        if isinstance(payload, dict):
+            asof_text = str(payload.get("asof") or payload.get("as_of") or "").strip()
+    if not asof_text:
+        return None
+    parsed = _parse_asof_datetime(asof_text)
+    if parsed is None:
+        return None
+    return asof_text, parsed
+
+
+def _summarize_snapshot(snapshot: dict[str, Any]) -> dict[str, float]:
+    """汇总单个快照的组合资产、成本、收益。"""
     funds = snapshot.get("payload", {}).get("funds", [])
-    if not funds:
-        return 0.0
+    if not isinstance(funds, list) or not funds:
+        return {
+            "total_market_value_cny": 0.0,
+            "total_cost_basis_cny": 0.0,
+            "total_return": 0.0,
+            "day_profit": 0.0,
+        }
 
     total_market_value = 0.0
     total_cost = 0.0
-
+    total_day_profit = 0.0
     for fund in funds:
         if not isinstance(fund, dict):
             continue
-        market_value = _to_float(fund.get("market_value_cny")) or 0.0
-        cost_basis = _to_float(fund.get("cost_basis_cny")) or 0.0
-        total_market_value += market_value
-        total_cost += cost_basis
+        total_market_value += _to_float(fund.get("market_value_cny")) or 0.0
+        total_cost += _to_float(fund.get("cost_basis_cny")) or 0.0
+        total_day_profit += _to_float(fund.get("day_profit_cny")) or 0.0
 
     if total_cost <= 0:
-        return 0.0
+        total_return = 0.0
+    else:
+        total_return = round((total_market_value - total_cost) / total_cost * 100, 4)
 
-    return round((total_market_value - total_cost) / total_cost * 100, 4)
+    return {
+        "total_market_value_cny": round(total_market_value, 2),
+        "total_cost_basis_cny": round(total_cost, 2),
+        "total_return": total_return,
+        "day_profit": round(total_day_profit, 2),
+    }
+
+
+def _calculate_total_return(snapshot: dict[str, Any]) -> float:
+    """计算单个快照的总收益率（%）"""
+    return float(_summarize_snapshot(snapshot).get("total_return") or 0.0)
 
 
 def _calculate_day_profit(snapshot: dict[str, Any]) -> float:
     """计算单个快照的当日收益（CNY）"""
-    funds = snapshot.get("payload", {}).get("funds", [])
-    if not funds:
-        return 0.0
-
-    total = 0.0
-    for fund in funds:
-        if not isinstance(fund, dict):
-            continue
-        day_profit = _to_float(fund.get("day_profit_cny")) or 0.0
-        total += day_profit
-
-    return round(total, 2)
+    return float(_summarize_snapshot(snapshot).get("day_profit") or 0.0)
 
 
 @router.get("/returns_history")
@@ -93,26 +127,29 @@ async def get_returns_history(
     daily_data: dict[str, dict[str, Any]] = {}
 
     for snapshot in snapshots:
-        asof = str(snapshot.get("asof") or "")
-        if not asof:
+        resolved = _resolve_snapshot_asof(snapshot)
+        if resolved is None:
             continue
+        asof_text, asof_dt = resolved
 
-        try:
-            dt = datetime.fromisoformat(asof.replace("Z", "+00:00"))
-        except ValueError:
-            continue
+        date_key = asof_dt.date().isoformat()
+        summary = _summarize_snapshot(snapshot)
 
-        date_key = dt.date().isoformat()
-
-        if date_key not in daily_data or asof > str(daily_data[date_key].get("asof") or ""):
+        existing = daily_data.get(date_key)
+        existing_dt = existing.get("_asof_dt") if isinstance(existing, dict) else None
+        if not isinstance(existing_dt, datetime) or asof_dt > existing_dt:
             daily_data[date_key] = {
                 "date": date_key,
-                "asof": asof,
-                "total_return": _calculate_total_return(snapshot),
-                "day_profit": _calculate_day_profit(snapshot),
+                "asof": asof_text,
+                "total_market_value_cny": float(summary.get("total_market_value_cny") or 0.0),
+                "total_cost_basis_cny": float(summary.get("total_cost_basis_cny") or 0.0),
+                "total_return": float(summary.get("total_return") or 0.0),
+                "day_profit": float(summary.get("day_profit") or 0.0),
+                "_asof_dt": asof_dt,
             }
 
     data = sorted(daily_data.values(), key=lambda x: str(x.get("date") or ""))
+    data = [{k: v for k, v in item.items() if k != "_asof_dt"} for item in data]
     if len(data) > days:
         data = data[-days:]
 
@@ -153,26 +190,26 @@ async def get_cumulative_returns(
     daily_data: dict[str, dict[str, Any]] = {}
 
     for snapshot in snapshots:
-        asof = str(snapshot.get("asof") or "")
-        if not asof:
+        resolved = _resolve_snapshot_asof(snapshot)
+        if resolved is None:
             continue
+        asof_text, asof_dt = resolved
 
-        try:
-            dt = datetime.fromisoformat(asof.replace("Z", "+00:00"))
-        except ValueError:
-            continue
+        date_key = asof_dt.date().isoformat()
 
-        date_key = dt.date().isoformat()
-
-        if date_key not in daily_data or asof > str(daily_data[date_key].get("asof") or ""):
+        existing = daily_data.get(date_key)
+        existing_dt = existing.get("_asof_dt") if isinstance(existing, dict) else None
+        if not isinstance(existing_dt, datetime) or asof_dt > existing_dt:
             daily_data[date_key] = {
                 "date": date_key,
-                "label": dt.strftime("%m-%d"),
-                "asof": asof,
+                "label": asof_dt.strftime("%m-%d"),
+                "asof": asof_text,
                 "total_return": _calculate_total_return(snapshot),
+                "_asof_dt": asof_dt,
             }
 
     data = sorted(daily_data.values(), key=lambda x: str(x.get("date") or ""))
+    data = [{k: v for k, v in item.items() if k != "_asof_dt"} for item in data]
     if len(data) > days:
         data = data[-days:]
 
