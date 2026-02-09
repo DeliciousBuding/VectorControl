@@ -15,7 +15,7 @@ from app.api.deps import (
     is_admin,
     map_confirm_state_to_data_status,
 )
-from app.data_sources.eastmoney import EastMoneyQuoteProvider
+from app.data_sources.eastmoney import EastMoneyQuoteProvider, EastMoneySearchProvider
 from app.storage.db import (
     append_fund_source_job_log,
     create_fund_source_job,
@@ -429,6 +429,38 @@ def _data_status_for_fund_rows(rows: list[dict], note: str) -> dict:
     return build_data_status(status=status, asof=latest_asof, note=note)
 
 
+def _build_remote_search_items(keyword: str, limit: int) -> list[dict[str, Any]]:
+    provider = EastMoneySearchProvider()
+    items = provider.search_funds(keyword=keyword, limit=limit)
+    normalized: list[dict[str, Any]] = []
+    for row in items:
+        if not isinstance(row, dict):
+            continue
+        fund_id = str(row.get("fund_id") or "").strip()
+        name = str(row.get("name") or "").strip()
+        if not fund_id or not name:
+            continue
+        normalized.append(
+            {
+                "fund_id": fund_id,
+                "name": name,
+                "pinyin": str(row.get("pinyin") or ""),
+                "abbr": str(row.get("abbr") or ""),
+                "status": str(row.get("status") or "active"),
+                "notify_email_placeholder": "",
+                "notify_feishu_placeholder": "",
+                "market_group": "",
+                "fund_type": "",
+                "bucket": "",
+                "tags": [],
+                "aliases": [],
+                "alias_hits": [],
+                "source": str(row.get("source") or "eastmoney_search"),
+            }
+        )
+    return normalized
+
+
 @router.get("/suggest")
 async def suggest_funds(
     request: Request,
@@ -438,6 +470,10 @@ async def suggest_funds(
     config = get_config(request)
     sync_fund_catalog_from_config(config)
     candidates = list_fund_suggestions(keyword=keyword, limit=limit)
+    fallback_used = False
+    if not candidates and str(keyword or "").strip():
+        candidates = _build_remote_search_items(keyword=keyword, limit=limit)
+        fallback_used = bool(candidates)
     return {
         "keyword": keyword,
         "limit": limit,
@@ -447,7 +483,7 @@ async def suggest_funds(
         "data_status": build_data_status(
             status="confirmed",
             asof=_now_iso(),
-            note="检索结果来自基金目录库",
+            note="检索结果来自基金目录库（本地无命中已回源）" if fallback_used else "检索结果来自基金目录库",
         ),
     }
 
@@ -461,6 +497,10 @@ async def search_funds(
     config = get_config(request)
     sync_fund_catalog_from_config(config)
     items = list_fund_suggestions(keyword=q, limit=limit)
+    fallback_used = False
+    if not items and str(q or "").strip():
+        items = _build_remote_search_items(keyword=q, limit=limit)
+        fallback_used = bool(items)
     return {
         "q": q,
         "limit": limit,
@@ -469,7 +509,7 @@ async def search_funds(
         "data_status": build_data_status(
             status="confirmed",
             asof=_now_iso(),
-            note="搜索结果来自基金目录库",
+            note="搜索结果来自基金目录库（本地无命中已回源）" if fallback_used else "搜索结果来自基金目录库",
         ),
     }
 
