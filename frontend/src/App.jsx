@@ -34,6 +34,7 @@ import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
 import { DataStatusBanner } from './components/DataStatusBanner.jsx'
 import { recordMetric } from './utils/metrics.js'
+import { computeNextRunDate, daysUntil, getDcaScheduleLabel, normalizeDcaSchedule } from './utils/dca.js'
 
 const TRADE_TYPES = [
   { key: 'buy', label: '买入' },
@@ -454,6 +455,20 @@ function App() {
       const planId = key.slice('dca_plan_'.length)
       if (!planId || map[planId]) continue
       map[planId] = item.done ? 'ok' : 'failed'
+    }
+    return map
+  }, [actionLogs])
+
+  const dcaLastRunAtMap = useMemo(() => {
+    const map = {}
+    for (const item of actionLogs) {
+      const key = String(item?.action_key || '')
+      if (!key.startsWith('dca_plan_')) continue
+      const planId = key.slice('dca_plan_'.length)
+      if (!planId || map[planId]) continue
+      const occurredAt = item?.occurred_at || item?.ts
+      if (!occurredAt) continue
+      map[planId] = occurredAt
     }
     return map
   }, [actionLogs])
@@ -1549,14 +1564,18 @@ function App() {
     setPlanError('')
     setPlanSubmitting(true)
     try {
+      const normalizedExistingPlans = dcaPlans.map((plan) => ({
+        ...plan,
+        schedule: normalizeDcaSchedule(plan.schedule)
+      }))
       const nextPlans = [
-        ...dcaPlans,
+        ...normalizedExistingPlans,
         {
           id: `plan_${Date.now()}`,
           name: planName.trim(),
           fund_id: planFundCode.trim(),
           amount,
-          schedule: planSchedule,
+          schedule: normalizeDcaSchedule(planSchedule),
           paused: false,
           created_at: new Date().toISOString()
         }
@@ -1581,7 +1600,9 @@ function App() {
   const handleTogglePlan = async (planId) => {
     const target = dcaPlans.find((item) => String(item.id) === String(planId))
     const nextPlans = dcaPlans.map((item) =>
-      String(item.id) === String(planId) ? { ...item, paused: !item.paused } : item
+      String(item.id) === String(planId)
+        ? { ...item, schedule: normalizeDcaSchedule(item.schedule), paused: !item.paused }
+        : { ...item, schedule: normalizeDcaSchedule(item.schedule) }
     )
     const saved = await saveSettingsPatch({ strategy: { dca_plans: nextPlans } })
     if (saved) {
@@ -2361,8 +2382,8 @@ function App() {
             <label>
               扣款频率
               <select value={planSchedule} onChange={(event) => setPlanSchedule(event.target.value)}>
-                <option value="daily">每日</option>
                 <option value="weekly">每周</option>
+                <option value="biweekly">双周</option>
                 <option value="monthly">每月</option>
               </select>
             </label>
@@ -2376,17 +2397,28 @@ function App() {
             <div className="plan-list">
               {dcaPlans.map((plan) => {
                 const failed = dcaStatusMap[String(plan.id)] === 'failed'
+                const scheduleLabel = getDcaScheduleLabel(plan.schedule)
+                const lastRunAt = dcaLastRunAtMap[String(plan.id)]
+                const nextRunDate = plan.paused ? null : computeNextRunDate({ schedule: plan.schedule, lastRunAt })
+                const untilDays = nextRunDate ? daysUntil(nextRunDate) : null
+                const nextRunText = nextRunDate
+                  ? `${formatDate(nextRunDate)}（距今 ${untilDays ?? '--'} 天）`
+                  : '已暂停'
+                const badgeText = plan.paused ? '已暂停' : (failed ? '失败待办' : '状态正常')
+                const badgeClass = plan.paused || failed ? 'record-pending' : 'record-done'
                 return (
                   <article key={plan.id} className="plan-item">
                     <div>
                       <h4>{plan.name}</h4>
                       <p>
-                        代码：{plan.fund_id || '--'} ｜ 频率：{plan.schedule} ｜ 金额：{Number(plan.amount || 0).toFixed(2)}
+                        代码：{plan.fund_id || '--'} ｜ 频率：{scheduleLabel} ｜ 金额：{Number(plan.amount || 0).toFixed(2)}
+                        <br />
+                        下次执行：{nextRunText}
                       </p>
                     </div>
                     <div className="plan-actions">
-                      <span className={failed ? 'record-pending' : 'record-done'}>
-                        {failed ? '失败待办' : '状态正常'}
+                      <span className={badgeClass}>
+                        {badgeText}
                       </span>
                       <button type="button" className="ghost" onClick={() => handleTogglePlan(plan.id)}>
                         {plan.paused ? '恢复' : '暂停'}
