@@ -33,10 +33,12 @@ DOC_SCOPE_FILES = [
 REQUIRED_GATE_FILES: dict[Path, list[str]] = {
     Path("scripts/check_release_preflight.py"): [
         "scripts/check_docs_gate.py",
+        "scripts/check_secrets_leak.py",
         "compileall",
         "npm",
     ],
     Path(".githooks/pre-push"): [
+        "python scripts/check_secrets_leak.py",
         "python scripts/check_docs_gate.py --strict",
     ],
     Path(".githooks/commit-msg"): [

@@ -1,5 +1,12 @@
 #!/bin/sh
 
+echo "[HOOK] pre-push: 执行敏感信息泄露扫描..."
+
+if ! python scripts/check_secrets_leak.py; then
+  echo "[HOOK] pre-push 阻断：检测到疑似敏感信息泄露，请先清理后再 push。"
+  exit 1
+fi
+
 echo "[HOOK] pre-push: 执行文档门禁检查..."
 
 if ! python scripts/check_docs_gate.py --strict; then
