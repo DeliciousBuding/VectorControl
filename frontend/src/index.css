@@ -483,6 +483,45 @@ button:disabled {
   font-size: 13px;
 }
 
+.benchmark-list {
+  display: grid;
+  gap: 10px;
+}
+
+.benchmark-item {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8fbff;
+  padding: 12px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.benchmark-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.benchmark-title h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.benchmark-title p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.benchmark-code {
+  margin-left: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: 'Manrope', 'Noto Sans SC', sans-serif;
+}
+
 .watch-profit {
   font-size: 20px;
   font-weight: 800;

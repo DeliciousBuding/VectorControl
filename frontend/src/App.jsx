@@ -30,6 +30,7 @@ import { FundDetailPanel } from './components/FundDetailPanel.jsx'
 import { RiskCenter } from './components/RiskCenter.jsx'
 import { RiskStatusBar } from './components/RiskStatusBar.jsx'
 import { PortfolioReturnsPanel } from './components/PortfolioReturnsPanel.jsx'
+import { BenchmarkComparisonPanel } from './components/BenchmarkComparisonPanel.jsx'
 import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
@@ -1767,6 +1768,7 @@ function App() {
           <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
 
           <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
+          <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
           
           <section className="panel home-main">
             <div className="section-head">

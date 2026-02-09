@@ -176,6 +176,14 @@ export function fetchPortfolioReturnsHistory(days = 30) {
   return apiFetch(`/api/charts/returns_history?days=${encodeURIComponent(String(safeDays))}`)
 }
 
+export function fetchBenchmarks() {
+  return apiFetch('/api/benchmark/list')
+}
+
+export function fetchBenchmarkComparison() {
+  return apiFetch('/api/benchmark/comparison')
+}
+
 export function fetchHealthz() {
   return apiFetchWithFallback(['/api/healthz', '/api/health'])
 }
