@@ -21,14 +21,19 @@ import { buildFundSeries, splitMarketGroups } from './utils/chart.js'
 import { cycleSortState } from './utils/holdings.js'
 import { classBySign, formatDate, formatDateTime, formatMoney, formatPercent } from './utils/format.js'
 import { toGuidedError } from './utils/errorFeedback.js'
+import { resolveGlobalSearchTarget } from './utils/searchRouting.js'
 import { LoginPanel } from './components/LoginPanel.jsx'
 import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
+import { ReturnsChart } from './components/ReturnsChart.jsx'
+import { BenchmarkComparison } from './components/BenchmarkComparison.jsx'
+import { SIPPlanManager } from './components/SIPPlanManager.jsx'
 import { HoldingsTable } from './components/HoldingsTable.jsx'
 import { FundDetailPanel } from './components/FundDetailPanel.jsx'
 import { RiskCenter } from './components/RiskCenter.jsx'
 import { RiskStatusBar } from './components/RiskStatusBar.jsx'
 import { PortfolioReturnsPanel } from './components/PortfolioReturnsPanel.jsx'
+import { BenchmarkComparisonPanel } from './components/BenchmarkComparisonPanel.jsx'
 import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
@@ -879,15 +884,27 @@ function App() {
   const handlePickSuggestion = (item) => {
     const pickedCode = String(item?.fund_id || '').trim()
     if (!pickedCode) return
+    const target = resolveGlobalSearchTarget(rows, pickedCode)
     recordMetric('搜索转化', {
       scene: 'global',
       keyword: String(searchQuery || '').trim().slice(0, 40),
       fund_id: pickedCode,
-      target: 'holdings'
+      target
     })
-    setSearchQuery(pickedCode)
-    setSelectedFundId(pickedCode)
-    setActiveTab('holdings')
+
+    if (target === 'holdings') {
+      setSearchQuery(pickedCode)
+      setSelectedFundId(pickedCode)
+      setActiveTab('holdings')
+    } else {
+      const nextPath = `/funds/${encodeURIComponent(pickedCode)}`
+      if (window.location.pathname !== nextPath) {
+        window.history.pushState({}, '', nextPath)
+      }
+      setFundCenterQuery(String(item?.name || pickedCode).trim() || pickedCode)
+      setFundCenterSelectedId(pickedCode)
+      setActiveTab('watch')
+    }
     setSuggestions([])
   }
 
@@ -1751,9 +1768,12 @@ function App() {
       {activeTab === 'home' && (
         <>
           <SummaryCards rows={rows} loading={loading} />
+          <ReturnsChart user={user} />
+          <BenchmarkComparison user={user} />
           <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
 
           <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
+          <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
           
           <section className="panel home-main">
             <div className="section-head">
@@ -2077,6 +2097,10 @@ function App() {
             </div>
           )}
           <p className="trade-tip">已打通买入/定投/赎回/转换入口，提交后写入执行记录并在下方列表回显。</p>
+
+          <div className="sip-plans-section">
+            <SIPPlanManager user={user} />
+          </div>
 
           <section className="trade-lifecycle">
             <div className="section-head trade-head">

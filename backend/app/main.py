@@ -21,6 +21,7 @@ from app.api.routers import (
     report,
     risk,
     settings,
+    sip,
     system,
     transactions,
 )
@@ -151,3 +152,6 @@ app.include_router(charts.router)
 app.include_router(benchmark.router)
 app.include_router(system.router)
 app.include_router(transactions.router)
+app.include_router(charts.router)
+app.include_router(benchmark.router)
+app.include_router(sip.router)
