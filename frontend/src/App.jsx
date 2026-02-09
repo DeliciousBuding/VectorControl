@@ -12,7 +12,6 @@ import {
   fetchFundSuggest,
   fetchTransactions,
   fetchSystemStatus,
-  fetchPortfolioCumulativeReturns,
   patchTransaction,
   saveAction,
   searchFunds,
@@ -29,7 +28,7 @@ import { HoldingsTable } from './components/HoldingsTable.jsx'
 import { FundDetailPanel } from './components/FundDetailPanel.jsx'
 import { RiskCenter } from './components/RiskCenter.jsx'
 import { RiskStatusBar } from './components/RiskStatusBar.jsx'
-import { SparklineMini } from './components/SparklineMini.jsx'
+import { PortfolioReturnsPanel } from './components/PortfolioReturnsPanel.jsx'
 import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
@@ -372,10 +371,6 @@ function App() {
     return formatDate(new Date())
   }, [asof])
 
-  const [portfolioReturnsPoints, setPortfolioReturnsPoints] = useState([])
-  const [portfolioReturnsLoading, setPortfolioReturnsLoading] = useState(false)
-  const [portfolioReturnsError, setPortfolioReturnsError] = useState('')
-
   const sparklineMap = useMemo(() => {
     const map = {}
     rows.forEach((row) => {
@@ -383,39 +378,6 @@ function App() {
     })
     return map
   }, [rows])
-
-  useEffect(() => {
-    if (!user) return
-
-    let alive = true
-    setPortfolioReturnsLoading(true)
-    setPortfolioReturnsError('')
-
-    fetchPortfolioCumulativeReturns(30)
-      .then((payload) => {
-        if (!alive) return
-        const labels = Array.isArray(payload?.labels) ? payload.labels : []
-        const values = Array.isArray(payload?.values) ? payload.values : []
-        const points = labels.map((label, index) => ({
-          label,
-          value: Number(values[index] || 0)
-        }))
-        setPortfolioReturnsPoints(points)
-      })
-      .catch((error) => {
-        if (!alive) return
-        setPortfolioReturnsError(String(error?.message || '收益曲线加载失败'))
-        setPortfolioReturnsPoints([])
-      })
-      .finally(() => {
-        if (!alive) return
-        setPortfolioReturnsLoading(false)
-      })
-
-    return () => {
-      alive = false
-    }
-  }, [user, lastRefresh])
 
   const filteredRows = useMemo(() => {
     const query = String(searchQuery || '').trim().toLowerCase()
@@ -1770,33 +1732,7 @@ function App() {
           <SummaryCards rows={rows} loading={loading} />
           <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
 
-          <section className="panel home-main">
-            <div className="section-head">
-              <h2>组合收益曲线</h2>
-              <span>最近 30 天（按估值快照）</span>
-            </div>
-            {portfolioReturnsLoading && <div className="chart-empty">正在加载收益曲线...</div>}
-            {!portfolioReturnsLoading && portfolioReturnsError && (
-              <div className="chart-empty">{portfolioReturnsError}</div>
-            )}
-            {!portfolioReturnsLoading && !portfolioReturnsError && portfolioReturnsPoints.length < 2 && (
-              <div className="chart-empty">暂无可用历史数据（请先进行几次刷新）。</div>
-            )}
-            {!portfolioReturnsLoading && !portfolioReturnsError && portfolioReturnsPoints.length >= 2 && (
-              <div className="watch-item">
-                <div>
-                  <h3>累计收益率</h3>
-                  <p>曲线最后一点为当前累计收益率（%）。</p>
-                </div>
-                <div className="plan-actions">
-                  <span className={classBySign(portfolioReturnsPoints[portfolioReturnsPoints.length - 1]?.value || 0)}>
-                    {formatPercent(portfolioReturnsPoints[portfolioReturnsPoints.length - 1]?.value || 0)}
-                  </span>
-                  <SparklineMini points={portfolioReturnsPoints} />
-                </div>
-              </div>
-            )}
-          </section>
+          <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
           
           <section className="panel home-main">
             <div className="section-head">

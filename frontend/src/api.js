@@ -171,6 +171,11 @@ export function fetchPortfolioCumulativeReturns(days = 30) {
   return apiFetch(`/api/charts/cumulative_returns?days=${encodeURIComponent(String(safeDays))}`)
 }
 
+export function fetchPortfolioReturnsHistory(days = 30) {
+  const safeDays = Math.max(1, Math.min(Number(days) || 30, 365))
+  return apiFetch(`/api/charts/returns_history?days=${encodeURIComponent(String(safeDays))}`)
+}
+
 export function fetchConfig() {
   return apiFetch('/api/config')
 }

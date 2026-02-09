@@ -288,7 +288,8 @@ describe('SettingsDrawer', () => {
       expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
     })
 
-    expect(screen.getAllByText(/未测试\/无记录/).length).toBeGreaterThanOrEqual(3)
+    // 当前前端只渲染飞书/Telegram 两通道，email 会被过滤掉
+    expect(screen.getAllByText(/未测试\/无记录/).length).toBeGreaterThanOrEqual(2)
   })
 
   it('通知诊断支持复制 trace_id 并格式化 last_test_summary.time', async () => {
