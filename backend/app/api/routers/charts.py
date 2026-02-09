@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.api.deps import build_data_status, get_snapshot_user_id
 from app.storage.db import list_estimate_snapshots
 
 router = APIRouter(prefix="/api/charts", tags=["图表"])
+ALLOWED_RETURNS_HISTORY_DAYS = {7, 30, 90}
 
 
 def _to_float(value: Any) -> float | None:
@@ -62,10 +64,16 @@ def _calculate_day_profit(snapshot: dict[str, Any]) -> float:
 @router.get("/returns_history")
 async def get_returns_history(
     request: Request,
-    days: int = Query(default=30, ge=1, le=365, description="返回多少天的历史数据"),
+    days: int | None = Query(default=None, description="仅允许 7/30/90，默认 30"),
 ) -> dict[str, Any]:
     """获取历史收益率曲线数据"""
     user_id = get_snapshot_user_id(request)
+
+    if days is None:
+        days = 30
+    elif int(days) not in ALLOWED_RETURNS_HISTORY_DAYS:
+        trace_id = uuid.uuid4().hex[:12]
+        raise HTTPException(status_code=422, detail=f"days 参数非法，仅允许 7/30/90 (trace_id={trace_id})")
 
     # 获取足够多的历史快照：按每日至多 2 个估算快照粗略估算。
     limit = min(days * 2, 500)
@@ -182,4 +190,3 @@ async def get_cumulative_returns(
             note=f"最近 {len(data)} 天累计收益率",
         ),
     }
-

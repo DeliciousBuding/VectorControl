@@ -86,7 +86,13 @@ class ChartsReturnsHistorySmokeTest(unittest.TestCase):
             self.assertGreaterEqual(len(labels), 2)
             self.assertIn("data_status", cumulative)
 
+            bad_resp = client.get("/api/charts/returns_history?days=15", headers=headers)
+            self.assertEqual(bad_resp.status_code, 422, bad_resp.text)
+            detail = (bad_resp.json() or {}).get("detail")
+            self.assertIsInstance(detail, str)
+            self.assertIn("7/30/90", detail)
+            self.assertIn("trace_id=", detail)
+
 
 if __name__ == "__main__":
     unittest.main()
-
