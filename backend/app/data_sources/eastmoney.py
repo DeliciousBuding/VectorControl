@@ -4,7 +4,7 @@ import json
 import re
 import time
 from typing import Any
-from urllib import error, request
+from urllib import error, parse, request
 
 from app.data_sources.base import QuoteProvider
 
@@ -27,6 +27,13 @@ def _to_float(value: Any) -> float | None:
 def _normalize_code(fund_id: str) -> str | None:
     code = str(fund_id or "").strip()
     return code if re.fullmatch(r"\d{6}", code) else None
+
+
+def _normalize_keyword(keyword: str) -> str:
+    text = str(keyword or "").strip()
+    if not text:
+        return ""
+    return re.sub(r"\s+", " ", text)
 
 
 class EastMoneyQuoteProvider(QuoteProvider):
@@ -117,3 +124,91 @@ class EastMoneyQuoteProvider(QuoteProvider):
             "asof": parts[8].strip() if len(parts) > 8 else "",
             "source": "tencent_fallback",
         }
+
+
+class EastMoneySearchProvider:
+    SEARCH_ENDPOINT = "https://fundsuggest.eastmoney.com/FundSearch/api/FundSearchAPI.ashx"
+
+    def __init__(self, timeout_seconds: float = 4.0) -> None:
+        self.timeout_seconds = timeout_seconds
+
+    @staticmethod
+    def _parse_search_payload(payload: Any, limit: int = 20) -> list[dict[str, Any]]:
+        if not isinstance(payload, dict):
+            return []
+
+        raw_items = payload.get("Datas")
+        if not isinstance(raw_items, list):
+            return []
+
+        safe_limit = max(1, min(int(limit), 50))
+        items: list[dict[str, Any]] = []
+        seen_codes: set[str] = set()
+
+        for row in raw_items:
+            if not isinstance(row, dict):
+                continue
+
+            category = str(row.get("CATEGORYDESC") or "").strip()
+            category_code = str(row.get("CATEGORY") or "").strip()
+            is_fund = ("基金" in category) or (category_code == "700")
+            if not is_fund:
+                continue
+
+            fund_id = _normalize_code(
+                str(row.get("CODE") or row.get("FCODE") or row.get("_id") or "")
+            )
+            name = str(row.get("NAME") or row.get("SHORTNAME") or "").strip()
+            if not fund_id or not name:
+                continue
+            if fund_id in seen_codes:
+                continue
+            seen_codes.add(fund_id)
+
+            pinyin = str(row.get("JP") or "").strip().lower()
+            items.append(
+                {
+                    "fund_id": fund_id,
+                    "name": name,
+                    "pinyin": pinyin,
+                    "abbr": pinyin[:32],
+                    "aliases": [],
+                    "tags": [],
+                    "status": "active",
+                    "source": "eastmoney_search",
+                }
+            )
+            if len(items) >= safe_limit:
+                break
+
+        return items
+
+    def search_funds(self, keyword: str, limit: int = 20) -> list[dict[str, Any]]:
+        clean_keyword = _normalize_keyword(keyword)
+        if not clean_keyword:
+            return []
+
+        safe_limit = max(1, min(int(limit), 50))
+        query = parse.urlencode({"m": "1", "key": clean_keyword})
+        url = f"{self.SEARCH_ENDPOINT}?{query}"
+        req = request.Request(
+            url,
+            headers={
+                "User-Agent": _UA,
+                "Referer": "https://fund.eastmoney.com/",
+                "Accept": "application/json",
+            },
+            method="GET",
+        )
+        try:
+            with request.urlopen(req, timeout=self.timeout_seconds) as resp:
+                text = resp.read().decode("utf-8", errors="ignore")
+        except (error.URLError, TimeoutError, ValueError):
+            return []
+
+        try:
+            payload = json.loads(text)
+        except (json.JSONDecodeError, TypeError):
+            return []
+
+        return self._parse_search_payload(payload, limit=safe_limit)
