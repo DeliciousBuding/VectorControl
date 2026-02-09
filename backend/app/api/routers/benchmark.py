@@ -5,29 +5,16 @@ from typing import Any
 
 from fastapi import APIRouter, Request
 
-from app.api.deps import build_data_status
-from app.storage.db import get_latest_estimate_snapshot
+from app.api.deps import build_data_status, get_snapshot_user_id
+from app.storage.db import list_estimate_snapshots
 
 router = APIRouter(prefix="/api/benchmark", tags=["基准对比"])
 
-# 简化的基准指数数据（实际应该从数据源获取）
-# 这里用沪深300的历史近似收益率作为示例
-BENCHMARK_DATA = {
-    "hs300": {
-        "name": "沪深300",
-        "code": "000300",
-        "description": "反映中国A股市场整体表现的指数",
-    },
-    "zz500": {
-        "name": "中证500",
-        "code": "000905",
-        "description": "反映中国A股市场中小市值公司表现的指数",
-    },
-    "cyb50": {
-        "name": "创业板50",
-        "code": "399673",
-        "description": "反映创业板市场高成长性公司表现的指数",
-    },
+# v1: 先提供“可对比的基准列表 + 组合收益率”，基准收益率暂不接入外部数据源（返回 None）。
+BENCHMARKS: dict[str, dict[str, str]] = {
+    "hs300": {"name": "沪深300", "code": "000300", "description": "反映中国A股市场整体表现的指数"},
+    "zz500": {"name": "中证500", "code": "000905", "description": "反映中国A股市场中小市值公司表现的指数"},
+    "cyb50": {"name": "创业板50", "code": "399673", "description": "反映创业板市场高成长性公司表现的指数"},
 }
 
 
@@ -40,104 +27,77 @@ def _to_float(value: Any) -> float | None:
         return None
 
 
-def _calculate_portfolio_return(snapshot: dict[str, Any]) -> float:
-    """计算组合总收益率"""
-    funds = snapshot.get("funds", [])
-    if not funds:
+def _calculate_portfolio_return(snapshot_payload: dict[str, Any]) -> float:
+    """计算组合总收益率（%），口径与 charts._calculate_total_return 对齐。"""
+    funds = snapshot_payload.get("funds", [])
+    if not isinstance(funds, list) or not funds:
         return 0.0
 
     total_market_value = 0.0
     total_cost = 0.0
-
     for fund in funds:
         if not isinstance(fund, dict):
             continue
-        market_value = _to_float(fund.get("market_value_cny")) or 0.0
-        cost_basis = _to_float(fund.get("cost_basis_cny")) or 0.0
-        total_market_value += market_value
-        total_cost += cost_basis
+        total_market_value += _to_float(fund.get("market_value_cny")) or 0.0
+        total_cost += _to_float(fund.get("cost_basis_cny")) or 0.0
 
     if total_cost <= 0:
         return 0.0
-
     return round((total_market_value - total_cost) / total_cost * 100, 4)
-
-
-def _estimate_benchmark_return(benchmark_id: str) -> float:
-    """
-    估算基准收益率（简化版本）
-    实际应该从真实数据源获取
-    这里返回示例数据
-    """
-    # 实际应该调用东方财富等数据源获取基准指数的涨跌幅
-    # 这里暂时返回 0，表示需要用户自己判断
-    return 0.0
-
-
-@router.get("/comparison")
-async def get_benchmark_comparison(request: Request) -> dict[str, Any]:
-    """获取组合与基准的对比数据"""
-    from app.api.deps import get_snapshot_user_id
-
-    user_id = get_snapshot_user_id(request)
-    snapshot = get_latest_estimate_snapshot(user_id)
-
-    if not snapshot:
-        return {
-            "portfolio_return": 0.0,
-            "benchmarks": {},
-            "comparison": {},
-            "data_status": build_data_status(
-                status="partial",
-                asof="",
-                note="暂无持仓数据",
-            ),
-        }
-
-    portfolio_return = _calculate_portfolio_return(snapshot)
-    asof = snapshot.get("asof", "")
-
-    # 对比各个基准
-    comparison = {}
-    benchmarks = {}
-
-    for bench_id, bench_info in BENCHMARK_DATA.items():
-        bench_return = _estimate_benchmark_return(bench_id)
-        excess_return = round(portfolio_return - bench_return, 4)
-
-        benchmarks[bench_id] = {
-            **bench_info,
-            "return": bench_return,
-        }
-
-        comparison[bench_id] = {
-            "portfolio_return": portfolio_return,
-            "benchmark_return": bench_return,
-            "excess_return": excess_return,
-            "outperform": excess_return > 0,
-        }
-
-    return {
-        "portfolio_return": portfolio_return,
-        "benchmarks": benchmarks,
-        "comparison": comparison,
-        "best_benchmark": max(
-            comparison.items(),
-            key=lambda x: x[1]["excess_return"],
-            default=(None, None),
-        )[0],
-        "data_status": build_data_status(
-            status="confirmed",
-            asof=asof,
-            note="基准对比基于最新估值快照计算",
-        ),
-    }
 
 
 @router.get("/list")
 async def list_benchmarks() -> dict[str, Any]:
-    """列出所有可用的基准指数"""
+    return {"benchmarks": BENCHMARKS, "count": len(BENCHMARKS)}
+
+
+@router.get("/comparison")
+async def get_benchmark_comparison(request: Request) -> dict[str, Any]:
+    """组合 vs 基准对比（v1：基准收益率暂不接入数据源）。"""
+    user_id = get_snapshot_user_id(request)
+
+    # 使用最新估值快照，便于带出 asof 时间；payload 结构与 charts/returns_history 一致。
+    snaps = list_estimate_snapshots(user_id, limit=1)
+    latest = snaps[-1] if snaps else None
+    if not latest:
+        return {
+            "portfolio_return": 0.0,
+            "benchmarks": BENCHMARKS,
+            "comparison": {},
+            "best_benchmark": None,
+            "data_status": build_data_status(
+                status="partial",
+                asof=datetime.now().astimezone().isoformat(),
+                note="暂无估值快照数据",
+            ),
+        }
+
+    payload = latest.get("payload", {}) if isinstance(latest, dict) else {}
+    asof = str(latest.get("asof") or "").strip() if isinstance(latest, dict) else ""
+    payload = payload if isinstance(payload, dict) else {}
+
+    portfolio_return = _calculate_portfolio_return(payload)
+
+    comparison: dict[str, dict[str, Any]] = {}
+    for bench_id in BENCHMARKS.keys():
+        # v1: 未接入真实基准数据源，返回 None；前端应展示 unknown 状态而非“跑赢/跑输”。
+        benchmark_return: float | None = None
+        comparison[bench_id] = {
+            "portfolio_return": portfolio_return,
+            "benchmark_return": benchmark_return,
+            "excess_return": None,
+            "outperform": None,
+        }
+
     return {
-        "benchmarks": BENCHMARK_DATA,
-        "count": len(BENCHMARK_DATA),
+        "portfolio_return": portfolio_return,
+        "benchmarks": BENCHMARKS,
+        "comparison": comparison,
+        "best_benchmark": None,
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=asof,
+            note="组合收益率基于最新估值快照；基准收益率暂未接入数据源",
+        ),
     }
+

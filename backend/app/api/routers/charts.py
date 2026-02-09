@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+import uuid
+from datetime import datetime
 from typing import Any
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.api.deps import build_data_status, get_snapshot_user_id
 from app.storage.db import list_estimate_snapshots
 
 router = APIRouter(prefix="/api/charts", tags=["图表"])
+ALLOWED_RETURNS_HISTORY_DAYS = {7, 30, 90}
 
 
 def _to_float(value: Any) -> float | None:
@@ -21,7 +23,7 @@ def _to_float(value: Any) -> float | None:
 
 
 def _calculate_total_return(snapshot: dict[str, Any]) -> float:
-    """计算单个快照的总收益率"""
+    """计算单个快照的总收益率（%）"""
     funds = snapshot.get("payload", {}).get("funds", [])
     if not funds:
         return 0.0
@@ -44,7 +46,7 @@ def _calculate_total_return(snapshot: dict[str, Any]) -> float:
 
 
 def _calculate_day_profit(snapshot: dict[str, Any]) -> float:
-    """计算单个快照的当日收益"""
+    """计算单个快照的当日收益（CNY）"""
     funds = snapshot.get("payload", {}).get("funds", [])
     if not funds:
         return 0.0
@@ -62,13 +64,19 @@ def _calculate_day_profit(snapshot: dict[str, Any]) -> float:
 @router.get("/returns_history")
 async def get_returns_history(
     request: Request,
-    days: int = Query(default=30, ge=1, le=365, description="返回多少天的历史数据"),
+    days: int | None = Query(default=None, description="仅允许 7/30/90，默认 30"),
 ) -> dict[str, Any]:
     """获取历史收益率曲线数据"""
     user_id = get_snapshot_user_id(request)
 
-    # 获取足够多的历史快照
-    limit = min(days * 2, 500)  # 每天最多2个快照
+    if days is None:
+        days = 30
+    elif int(days) not in ALLOWED_RETURNS_HISTORY_DAYS:
+        trace_id = uuid.uuid4().hex[:12]
+        raise HTTPException(status_code=422, detail=f"days 参数非法，仅允许 7/30/90 (trace_id={trace_id})")
+
+    # 获取足够多的历史快照：按每日至多 2 个估算快照粗略估算。
+    limit = min(days * 2, 500)
     snapshots = list_estimate_snapshots(user_id, limit=limit)
 
     if not snapshots:
@@ -81,7 +89,7 @@ async def get_returns_history(
             ),
         }
 
-    # 按日期分组，每天取最后一个快照
+    # 按日期分组，每天取最后一个快照。
     daily_data: dict[str, dict[str, Any]] = {}
 
     for snapshot in snapshots:
@@ -96,8 +104,7 @@ async def get_returns_history(
 
         date_key = dt.date().isoformat()
 
-        # 如果这一天还没有数据，或者这个快照比已有更新，则更新
-        if date_key not in daily_data or asof > daily_data[date_key].get("asof", ""):
+        if date_key not in daily_data or asof > str(daily_data[date_key].get("asof") or ""):
             daily_data[date_key] = {
                 "date": date_key,
                 "asof": asof,
@@ -105,10 +112,7 @@ async def get_returns_history(
                 "day_profit": _calculate_day_profit(snapshot),
             }
 
-    # 转换为列表并按日期排序
-    data = sorted(daily_data.values(), key=lambda x: x["date"])
-
-    # 只保留最近 N 天
+    data = sorted(daily_data.values(), key=lambda x: str(x.get("date") or ""))
     if len(data) > days:
         data = data[-days:]
 
@@ -118,7 +122,7 @@ async def get_returns_history(
         "days": days,
         "data_status": build_data_status(
             status="confirmed" if data else "partial",
-            asof=data[-1]["asof"] if data else "",
+            asof=str(data[-1]["asof"]) if data else "",
             note=f"包含最近 {len(data)} 天的收益率数据",
         ),
     }
@@ -129,10 +133,9 @@ async def get_cumulative_returns(
     request: Request,
     days: int = Query(default=30, ge=1, le=365, description="返回多少天的历史数据"),
 ) -> dict[str, Any]:
-    """获取累计收益曲线数据（适合绘图）"""
+    """获取累计收益曲线数据（适配前端绘图）"""
     user_id = get_snapshot_user_id(request)
 
-    # 复用 get_returns_history 的逻辑
     limit = min(days * 2, 500)
     snapshots = list_estimate_snapshots(user_id, limit=limit)
 
@@ -147,7 +150,6 @@ async def get_cumulative_returns(
             ),
         }
 
-    # 按日期分组
     daily_data: dict[str, dict[str, Any]] = {}
 
     for snapshot in snapshots:
@@ -162,7 +164,7 @@ async def get_cumulative_returns(
 
         date_key = dt.date().isoformat()
 
-        if date_key not in daily_data or asof > daily_data[date_key].get("asof", ""):
+        if date_key not in daily_data or asof > str(daily_data[date_key].get("asof") or ""):
             daily_data[date_key] = {
                 "date": date_key,
                 "label": dt.strftime("%m-%d"),
@@ -170,14 +172,12 @@ async def get_cumulative_returns(
                 "total_return": _calculate_total_return(snapshot),
             }
 
-    # 排序并截取
-    data = sorted(daily_data.values(), key=lambda x: x["date"])
+    data = sorted(daily_data.values(), key=lambda x: str(x.get("date") or ""))
     if len(data) > days:
         data = data[-days:]
 
-    # 提取 labels 和 values（Chart.js 格式）
-    labels = [item["label"] for item in data]
-    values = [item["total_return"] for item in data]
+    labels = [str(item.get("label") or "") for item in data]
+    values = [float(item.get("total_return") or 0.0) for item in data]
 
     return {
         "labels": labels,
@@ -186,7 +186,7 @@ async def get_cumulative_returns(
         "days": days,
         "data_status": build_data_status(
             status="confirmed" if data else "partial",
-            asof=data[-1]["asof"] if data else "",
+            asof=str(data[-1]["asof"]) if data else "",
             note=f"最近 {len(data)} 天累计收益率",
         ),
     }

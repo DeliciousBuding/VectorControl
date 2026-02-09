@@ -53,12 +53,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="发布前本地预检：文档门禁 + 后端编译检查 + 前端构建检查。"
     )
+    parser.add_argument("--skip-secrets", action="store_true", help="跳过敏感信息泄露扫描。")
     parser.add_argument("--skip-docs", action="store_true", help="跳过文档门禁检查。")
     parser.add_argument("--skip-backend", action="store_true", help="跳过后端 compileall。")
     parser.add_argument("--skip-frontend", action="store_true", help="跳过前端 build。")
     args = parser.parse_args()
 
     steps: list[tuple[str, list[str]]] = []
+    if not args.skip_secrets:
+        steps.append(("Secrets Leak Guard", [sys.executable, "scripts/check_secrets_leak.py"]))
     if not args.skip_docs:
         steps.append(
             ("文档门禁（严格）", [sys.executable, "scripts/check_docs_gate.py", "--strict"])
