@@ -28,6 +28,7 @@ from app.storage.db import (
     list_fund_nav_history_from_snapshots,
     list_fund_suggestions,
     sync_fund_catalog_from_config,
+    upsert_fund_catalog,
     upsert_fund_nav_daily,
 )
 
@@ -461,6 +462,13 @@ def _build_remote_search_items(keyword: str, limit: int) -> list[dict[str, Any]]
     return normalized
 
 
+def _fallback_search_and_upsert(keyword: str, limit: int) -> int:
+    remote_items = _build_remote_search_items(keyword=keyword, limit=limit)
+    if not remote_items:
+        return 0
+    return int(upsert_fund_catalog(remote_items))
+
+
 @router.get("/suggest")
 async def suggest_funds(
     request: Request,
@@ -472,8 +480,10 @@ async def suggest_funds(
     candidates = list_fund_suggestions(keyword=keyword, limit=limit)
     fallback_used = False
     if not candidates and str(keyword or "").strip():
-        candidates = _build_remote_search_items(keyword=keyword, limit=limit)
-        fallback_used = bool(candidates)
+        inserted_count = _fallback_search_and_upsert(keyword=keyword, limit=limit)
+        if inserted_count > 0:
+            candidates = list_fund_suggestions(keyword=keyword, limit=limit)
+            fallback_used = bool(candidates)
     return {
         "keyword": keyword,
         "limit": limit,
@@ -499,8 +509,10 @@ async def search_funds(
     items = list_fund_suggestions(keyword=q, limit=limit)
     fallback_used = False
     if not items and str(q or "").strip():
-        items = _build_remote_search_items(keyword=q, limit=limit)
-        fallback_used = bool(items)
+        inserted_count = _fallback_search_and_upsert(keyword=q, limit=limit)
+        if inserted_count > 0:
+            items = list_fund_suggestions(keyword=q, limit=limit)
+            fallback_used = bool(items)
     return {
         "q": q,
         "limit": limit,
