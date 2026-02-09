@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 02:29:14
+更新时间：2026-02-10 04:52:42
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。  
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -50,7 +50,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [前端Agent1] 本地一键启动脚本（dev_up/dev_down）：新增 `scripts/dev_up.ps1`/`scripts/dev_down.ps1` 并更新 `docs/部署与运行.md` Windows 段落引用（已于 2026-02-09 17:13:30 预告排队）
 - [ ] [后端Agent1] Secrets Leak Guard v1.1：扩展常见密钥形态扫描（低误报优先）并补 `--selftest`（已于 2026-02-09 17:13:30 预告排队）
 - [√] [前端Agent1] 定投计划体验 v2：列表展示“下次执行日/距今天数”+ 最近一次执行结果（ok/failed），并支持首页待办一键定位到定投区；补最小回归（已合入 origin/dev@1d934c3，来源 origin/feat/frontend-agent1-dca-plans-next-run-v2@41b0a01）
-- [ ] [后端Agent1] SIP 定投计划后端 v1：基于 mot-bot 思路新增 `/api/sip` CRUD + execute，但必须并入 `app.storage.db.init_db()` 统一建表迁移，补 smoke + 契约（已于 2026-02-09 16:25:17 预告排队）
+- [√] [后端Agent1] SIP 定投计划后端 v1：基于 mot-bot 思路新增 `/api/sip` CRUD + execute，并并入 `app.storage.db.init_db()` 统一建表迁移，补齐 smoke + 契约（已完成 `python3 -m compileall app` 与 storage 层本地自检；`app.api.test_sip_crud_execute_smoke` 待依赖齐全环境执行）
 - [ ] [前端Agent1] SIP 定投计划前端 v1：SettingsDrawer 增加定投计划管理面板，对接 `/api/sip`，补最小回归（已于 2026-02-09 16:25:17 预告排队）
 - [ ] [后端Agent1] 图表接口稳定性 v1：`/api/charts/returns_history` 补充市场值/成本汇总字段并明确 asof 解析口径，扩展 smoke 与契约（已于 2026-02-09 16:55:54 预告排队）
 - [√] [后端Agent1] 图表接口 days 参数校验：`GET /api/charts/returns_history?days=` 仅允许 7/30/90，默认 30，非法 422 并可解释；补最小 smoke + 契约（已合入 `origin/dev@3b49cfb`）
@@ -167,8 +167,3 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [后端Agent1] 增加全局 `request_id` 中间件与 `X-Request-ID` 响应头，统一日志关联（已合并 `ebc2e7e -> dev@8d9fd62`，补齐 request_id middleware smoke）。
 - [√] [前端Agent1] 设置中心补齐飞书高级参数编辑入口（`timeout_seconds/retry_times/template`）并与契约字段对齐。
 - [√] [协同] 评估并落地 `GET /api/settings` 中敏感配置脱敏策略（如 `webhook_url` 部分掩码 + 单独“更新凭据”写接口），降低前端日志/录屏泄露风险（前端已合并 `cbb7e95 -> dev@3522db6`；后端新增 `PUT /api/settings/notifications/feishu/webhook` 独立凭据写接口并补齐 smoke + 契约更新；前端联调已切换凭据更新调用该独立接口，普通 `PUT /api/settings` 不再携带 webhook 明文）。
-
-
-
-
-

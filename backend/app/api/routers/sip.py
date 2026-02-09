@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, Field
 from starlette.responses import JSONResponse
 
-from app.api.deps import build_data_status, get_holdings_user_id, get_user_id, get_username
-from app.sip.db import (
+from app.api.deps import build_data_status, get_holdings_user_id
+from app.storage.db import (
     create_sip_plan,
     delete_sip_plan,
+    execute_sip_plan,
     get_sip_plan,
-    get_upcoming_sip_plans,
     list_sip_plans,
-    mark_sip_executed,
+    list_upcoming_sip_plans,
     update_sip_plan,
 )
 
@@ -24,7 +24,7 @@ router = APIRouter(prefix="/api/sip", tags=["定投计划"])
 
 
 class SIPPlanCreate(BaseModel):
-    fund_id: str = Field(min_length=6, max_length=6, description="基金代码")
+    fund_id: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$", description="基金代码")
     fund_name: str = Field(default="", description="基金名称")
     amount: float = Field(gt=0, description="定投金额")
     frequency: str = Field(default="monthly", description="频率: weekly/biweekly/monthly")
@@ -49,10 +49,11 @@ async def get_sip_plans(
     """获取用户的所有定投计划"""
     user_id = get_holdings_user_id(request)
     plans = list_sip_plans(user_id, enabled_only=enabled_only)
-    
+
     return {
-        "plans": [p.to_dict() for p in plans],
+        "plans": plans,
         "count": len(plans),
+        "enabled_only": enabled_only,
         "data_status": build_data_status(
             status="confirmed",
             asof=datetime.now().astimezone().isoformat(),
@@ -65,31 +66,21 @@ async def get_sip_plans(
 async def create_plan(request: Request, payload: SIPPlanCreate) -> dict[str, Any]:
     """创建定投计划"""
     user_id = get_holdings_user_id(request)
-    
-    if payload.frequency not in ("weekly", "biweekly", "monthly"):
-        return JSONResponse(
-            {"detail": "frequency 必须是 weekly/biweekly/monthly"},
-            status_code=400,
+    try:
+        plan = create_sip_plan(
+            user_id=user_id,
+            fund_id=payload.fund_id,
+            amount=payload.amount,
+            frequency=payload.frequency,
+            day=payload.day,
+            fund_name=payload.fund_name,
+            note=payload.note,
         )
-    
-    if payload.frequency == "weekly" and payload.day > 7:
-        return JSONResponse(
-            {"detail": "周投计划的 day 必须在 1-7 之间（1=周一）"},
-            status_code=400,
-        )
-    
-    plan = create_sip_plan(
-        user_id=user_id,
-        fund_id=payload.fund_id,
-        amount=payload.amount,
-        frequency=payload.frequency,
-        day=payload.day,
-        fund_name=payload.fund_name,
-        note=payload.note,
-    )
-    
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=422)
+
     return {
-        "plan": plan.to_dict(),
+        "plan": plan,
         "data_status": build_data_status(
             status="confirmed",
             asof=datetime.now().astimezone().isoformat(),
@@ -105,10 +96,10 @@ async def get_upcoming(
 ) -> dict[str, Any]:
     """获取即将执行的定投计划"""
     user_id = get_holdings_user_id(request)
-    plans = get_upcoming_sip_plans(user_id, days=days)
-    
+    plans = list_upcoming_sip_plans(user_id, days=days)
+
     return {
-        "plans": [p.to_dict() for p in plans],
+        "plans": plans,
         "count": len(plans),
         "days": days,
         "data_status": build_data_status(
@@ -124,18 +115,18 @@ async def get_plan(request: Request, plan_id: int) -> dict[str, Any]:
     """获取单个定投计划"""
     user_id = get_holdings_user_id(request)
     plan = get_sip_plan(user_id, plan_id)
-    
+
     if not plan:
         return JSONResponse(
             {"detail": "定投计划不存在"},
             status_code=404,
         )
-    
+
     return {
-        "plan": plan.to_dict(),
+        "plan": plan,
         "data_status": build_data_status(
             status="confirmed",
-            asof=plan.updated_at or plan.created_at or "",
+            asof=str(plan.get("updated_at") or plan.get("created_at") or ""),
             note="定投计划详情",
         ),
     }
@@ -149,25 +140,28 @@ async def update_plan(
 ) -> dict[str, Any]:
     """更新定投计划"""
     user_id = get_holdings_user_id(request)
-    
+
     updates = payload.model_dump(exclude_none=True)
-    
+
     if not updates:
         return JSONResponse(
             {"detail": "没有需要更新的字段"},
             status_code=400,
         )
-    
-    plan = update_sip_plan(user_id, plan_id, updates)
-    
+
+    try:
+        plan = update_sip_plan(user_id, plan_id, updates)
+    except ValueError as exc:
+        return JSONResponse({"detail": str(exc)}, status_code=422)
+
     if not plan:
         return JSONResponse(
             {"detail": "定投计划不存在"},
             status_code=404,
         )
-    
+
     return {
-        "plan": plan.to_dict(),
+        "plan": plan,
         "data_status": build_data_status(
             status="confirmed",
             asof=datetime.now().astimezone().isoformat(),
@@ -180,15 +174,15 @@ async def update_plan(
 async def delete_plan(request: Request, plan_id: int) -> dict[str, Any]:
     """删除定投计划"""
     user_id = get_holdings_user_id(request)
-    
+
     deleted = delete_sip_plan(user_id, plan_id)
-    
+
     if not deleted:
         return JSONResponse(
             {"detail": "定投计划不存在"},
             status_code=404,
         )
-    
+
     return {
         "deleted": True,
         "plan_id": plan_id,
@@ -204,20 +198,19 @@ async def delete_plan(request: Request, plan_id: int) -> dict[str, Any]:
 async def execute_plan(request: Request, plan_id: int) -> dict[str, Any]:
     """标记定投计划已执行"""
     user_id = get_holdings_user_id(request)
-    
-    plan = mark_sip_executed(user_id, plan_id)
-    
+    plan = execute_sip_plan(user_id, plan_id)
+
     if not plan:
         return JSONResponse(
             {"detail": "定投计划不存在"},
             status_code=404,
         )
-    
+
     return {
-        "plan": plan.to_dict(),
+        "plan": plan,
         "data_status": build_data_status(
             status="confirmed",
-            asof=datetime.now().astimezone().isoformat(),
-            note=f"已执行，下次定投: {plan.next_date}",
+            asof=str(plan.get("updated_at") or datetime.now().astimezone().isoformat()),
+            note=f"已执行，下次定投: {str(plan.get('next_date') or '-')}",
         ),
     }
