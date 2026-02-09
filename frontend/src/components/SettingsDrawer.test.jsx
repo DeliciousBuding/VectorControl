@@ -1,9 +1,10 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsDrawer } from './SettingsDrawer.jsx'
-import { fetchNetworkBenchmarkLatest, fetchNotificationsStatus, fetchSystemStatus, runNetworkBenchmark } from '../api.js'
+import { fetchHealthz, fetchNetworkBenchmarkLatest, fetchNotificationsStatus, fetchSystemStatus, runNetworkBenchmark } from '../api.js'
 
 vi.mock('../api.js', () => ({
+  fetchHealthz: vi.fn(),
   fetchNetworkBenchmarkLatest: vi.fn(),
   fetchNotificationsStatus: vi.fn(),
   fetchSystemStatus: vi.fn(),
@@ -22,6 +23,7 @@ describe('SettingsDrawer', () => {
       }
     })
     fetchSystemStatus.mockResolvedValue({})
+    fetchHealthz.mockResolvedValue({ status: 'ok' })
     runNetworkBenchmark.mockResolvedValue({ result: null })
   })
 
@@ -140,6 +142,75 @@ describe('SettingsDrawer', () => {
 
     expect(await screen.findByText(/测速结果格式异常/)).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: '设置中心' })).toBeInTheDocument()
+  })
+
+  it('系统状态面板展示 /api/system/status 与 /api/healthz 结果', async () => {
+    fetchSystemStatus.mockResolvedValueOnce({
+      service: 'vectorcontrol',
+      version: 'v1.2.3',
+      commit: 'abc123',
+      server_time: '2026-02-09T03:00:00Z'
+    })
+    fetchHealthz.mockResolvedValueOnce({ status: 'ok', service: 'vectorcontrol' })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{}}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    await waitFor(() => {
+      expect(fetchSystemStatus).toHaveBeenCalledTimes(1)
+      expect(fetchHealthz).toHaveBeenCalledTimes(1)
+    })
+
+    expect(screen.getByTestId('system-status-service').textContent || '').toMatch(/vectorcontrol/)
+    expect(screen.getByTestId('system-status-commit').textContent || '').toMatch(/abc123/)
+    expect(screen.getByTestId('system-healthz-result').textContent || '').toMatch(/ok/)
+  })
+
+  it('系统状态面板支持一键复制状态', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText },
+      configurable: true
+    })
+
+    fetchSystemStatus.mockResolvedValueOnce({
+      service: 'vectorcontrol',
+      version: 'v1.2.3',
+      commit: 'abc123',
+      server_time: '2026-02-09T03:00:00Z'
+    })
+    fetchHealthz.mockResolvedValueOnce({ status: 'ok' })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{}}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    await waitFor(() => {
+      expect(fetchSystemStatus).toHaveBeenCalledTimes(1)
+      expect(fetchHealthz).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.click(screen.getByTestId('system-status-copy-btn'))
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledTimes(1)
+    })
+
+    const copied = String(writeText.mock.calls[0][0] || '')
+    expect(copied).toMatch(/\"system_status\"/)
+    expect(copied).toMatch(/\"healthz\"/)
+    expect(await screen.findByText(/已复制状态/)).toBeInTheDocument()
   })
 
   it('支持编辑飞书高级参数并随保存请求提交', async () => {
@@ -288,7 +359,8 @@ describe('SettingsDrawer', () => {
       expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
     })
 
-    expect(screen.getAllByText(/未测试\/无记录/).length).toBeGreaterThanOrEqual(3)
+    // 当前前端只渲染飞书/Telegram 两通道，email 会被过滤掉
+    expect(screen.getAllByText(/未测试\/无记录/).length).toBeGreaterThanOrEqual(2)
   })
 
   it('通知诊断支持复制 trace_id 并格式化 last_test_summary.time', async () => {

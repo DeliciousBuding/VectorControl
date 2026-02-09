@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { fetchNetworkBenchmarkLatest, fetchNotificationsStatus, fetchSystemStatus, runNetworkBenchmark } from '../api.js'
+import { fetchHealthz, fetchNetworkBenchmarkLatest, fetchNotificationsStatus, fetchSystemStatus, runNetworkBenchmark } from '../api.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
 import { TestMessageButton } from './TestMessageButton.jsx'
 
@@ -206,6 +206,14 @@ export function SettingsDrawer({
   const [notificationsStatusLoading, setNotificationsStatusLoading] = useState(false)
   const [notificationsStatusError, setNotificationsStatusError] = useState('')
   const [notificationsStatus, setNotificationsStatus] = useState(null)
+  const [systemStatusLoading, setSystemStatusLoading] = useState(false)
+  const [systemStatusError, setSystemStatusError] = useState('')
+  const [systemStatusSnapshot, setSystemStatusSnapshot] = useState(null)
+  const [healthzLoading, setHealthzLoading] = useState(false)
+  const [healthzError, setHealthzError] = useState('')
+  const [healthzSnapshot, setHealthzSnapshot] = useState(null)
+  const [systemPanelHint, setSystemPanelHint] = useState('')
+  const [systemPanelError, setSystemPanelError] = useState('')
   const [diagnosticHint, setDiagnosticHint] = useState('')
   const [diagnosticError, setDiagnosticError] = useState('')
   const [feishuHistoryOpen, setFeishuHistoryOpen] = useState(false)
@@ -227,6 +235,12 @@ export function SettingsDrawer({
     setPendingTelegramChatId(telegramChatId)
     setNotificationsStatusError('')
     setNotificationsStatus(null)
+    setSystemStatusError('')
+    setSystemStatusSnapshot(null)
+    setSystemPanelHint('')
+    setSystemPanelError('')
+    setHealthzError('')
+    setHealthzSnapshot(null)
     setDiagnosticHint('')
     setDiagnosticError('')
     setSaveError('')
@@ -273,6 +287,53 @@ export function SettingsDrawer({
       } finally {
         if (!active) return
         setNotificationsStatusLoading(false)
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+
+    let active = true
+    setSystemStatusLoading(true)
+    setSystemStatusError('')
+    setSystemStatusSnapshot(null)
+    setSystemPanelHint('')
+    setSystemPanelError('')
+    setHealthzLoading(true)
+    setHealthzError('')
+    setHealthzSnapshot(null)
+    ;(async () => {
+      try {
+        const payload = await fetchSystemStatus()
+        if (!active) return
+        setSystemStatusSnapshot(asPlainObject(payload))
+      } catch (error) {
+        if (!active) return
+        setSystemStatusSnapshot(null)
+        setSystemStatusError(toGuidedError(error, 'system_status_load', '系统状态加载失败'))
+      } finally {
+        if (!active) return
+        setSystemStatusLoading(false)
+      }
+    })()
+
+    ;(async () => {
+      try {
+        const payload = await fetchHealthz()
+        if (!active) return
+        setHealthzSnapshot(asPlainObject(payload))
+      } catch (error) {
+        if (!active) return
+        setHealthzSnapshot(null)
+        setHealthzError(toGuidedError(error, 'healthz_check', '健康检查失败'))
+      } finally {
+        if (!active) return
+        setHealthzLoading(false)
       }
     })()
 
@@ -492,12 +553,14 @@ export function SettingsDrawer({
       const statusSnapshot = notificationsStatus ? asPlainObject(notificationsStatus) : null
       const statusErrorSnapshot = String(notificationsStatusError || '').trim()
 
-      let systemStatus = null
-      try {
-        // Best-effort: include backend version/commit if available.
-        systemStatus = await fetchSystemStatus()
-      } catch {
-        systemStatus = null
+      let systemStatus = systemStatusSnapshot ? asPlainObject(systemStatusSnapshot) : null
+      if (!systemStatus || Object.keys(systemStatus).length === 0) {
+        try {
+          // Best-effort: include backend version/commit if available.
+          systemStatus = await fetchSystemStatus()
+        } catch {
+          systemStatus = null
+        }
       }
 
       const system = asPlainObject(systemStatus)
@@ -527,6 +590,37 @@ export function SettingsDrawer({
     } catch (error) {
       const detail = String(error?.message || '').trim()
       handleDiagnosticToast({ type: 'error', message: detail ? `复制失败：${detail}` : '复制失败' })
+    }
+  }
+
+  const handleCopySystemStatus = async () => {
+    try {
+      const snapshot = systemStatusSnapshot ? asPlainObject(systemStatusSnapshot) : null
+      const statusErrorSnapshot = String(systemStatusError || '').trim()
+      const healthSnapshot = healthzSnapshot ? asPlainObject(healthzSnapshot) : null
+      const healthErrorSnapshot = String(healthzError || '').trim()
+
+      const bundle = {
+        copied_at: new Date().toISOString(),
+        system_status: snapshot,
+        healthz: healthSnapshot,
+        ...(statusErrorSnapshot ? { system_status_error: statusErrorSnapshot } : {}),
+        ...(healthErrorSnapshot ? { healthz_error: healthErrorSnapshot } : {})
+      }
+
+      const text = JSON.stringify(bundle, null, 2)
+      const ok = await copyTextToClipboard(text)
+      if (ok) {
+        setSystemPanelHint('已复制状态（脱敏）')
+        setSystemPanelError('')
+      } else {
+        setSystemPanelError('复制失败：浏览器不支持剪贴板')
+        setSystemPanelHint('')
+      }
+    } catch (error) {
+      const detail = String(error?.message || '').trim()
+      setSystemPanelError(detail ? `复制失败：${detail}` : '复制失败')
+      setSystemPanelHint('')
     }
   }
 
@@ -904,6 +998,46 @@ export function SettingsDrawer({
             )}
           </div>
 
+        </div>
+
+        <div className="settings-group">
+          <h4>系统状态</h4>
+          {systemStatusLoading || healthzLoading ? <p className="settings-note">加载中...</p> : null}
+          {systemStatusError ? <p className="settings-error">{systemStatusError}</p> : null}
+          {healthzError ? <p className="settings-error">{healthzError}</p> : null}
+
+          <div className="settings-note" data-testid="system-status-panel">
+            <p data-testid="system-status-service">
+              服务：<code>{String(systemStatusSnapshot?.service || '--')}</code>
+            </p>
+            <p data-testid="system-status-version">
+              版本：<code>{String(systemStatusSnapshot?.version || '--')}</code>
+            </p>
+            <p data-testid="system-status-commit">
+              commit：<code>{String(systemStatusSnapshot?.commit || '--')}</code>
+            </p>
+            <p data-testid="system-status-server-time">
+              服务时间：<code>{formatDiagnosticTimestamp(systemStatusSnapshot?.server_time || '') || '--'}</code>
+            </p>
+            <p data-testid="system-healthz-result">
+              健康检查（/api/healthz）：<code>{healthzSnapshot ? 'ok' : (healthzError ? 'failed' : '--')}</code>
+            </p>
+          </div>
+
+          <div className="settings-secret-actions">
+            <button
+              type="button"
+              className="ghost"
+              data-testid="system-status-copy-btn"
+              onClick={handleCopySystemStatus}
+              disabled={systemStatusLoading || healthzLoading}
+            >
+              一键复制状态
+            </button>
+          </div>
+
+          {systemPanelHint ? <p className="settings-note">{systemPanelHint}</p> : null}
+          {systemPanelError ? <p className="settings-error">{systemPanelError}</p> : null}
         </div>
 
         <div className="settings-group">
