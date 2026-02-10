@@ -330,6 +330,7 @@ function App() {
   const [ruleSubmitting, setRuleSubmitting] = useState(false)
   const [ruleError, setRuleError] = useState('')
   const [reportSummary, setReportSummary] = useState('')
+  const [reportDataQuality, setReportDataQuality] = useState(null)
   const [assetReadyMs, setAssetReadyMs] = useState(0)
   const [assetTimedOut, setAssetTimedOut] = useState(false)
   const [skeletonLock, setSkeletonLock] = useState(false)
@@ -1166,9 +1167,15 @@ function App() {
 
       try {
         const report = await fetchDailyReport()
-        if (mounted) setReportSummary(String(report?.summary || ''))
+        if (mounted) {
+          setReportSummary(String(report?.summary || ''))
+          setReportDataQuality(report?.data_quality || null)
+        }
       } catch {
-        if (mounted) setReportSummary('')
+        if (mounted) {
+          setReportSummary('')
+          setReportDataQuality(null)
+        }
       }
     }
 
@@ -1772,6 +1779,24 @@ function App() {
           <ReturnsChart user={user} />
           <BenchmarkComparison user={user} />
           <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
+          {reportDataQuality && reportDataQuality.total_funds > 0 && (
+            <div className="data-quality-bar">
+              <span className="quality-label">📊 数据质量</span>
+              <span className="quality-item">
+                覆盖率 {reportDataQuality.coverage_pct}%
+                <span className="quality-detail">({reportDataQuality.ok_funds}/{reportDataQuality.total_funds})</span>
+              </span>
+              {reportDataQuality.failed_funds > 0 && (
+                <span className="quality-item warning">失败 {reportDataQuality.failed_funds}</span>
+              )}
+              {reportDataQuality.missing_funds > 0 && (
+                <span className="quality-item warning">缺失 {reportDataQuality.missing_funds}</span>
+              )}
+              {reportDataQuality.low_confidence_count > 0 && (
+                <span className="quality-item info">低置信度 {reportDataQuality.low_confidence_count}</span>
+              )}
+            </div>
+          )}
 
           <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
           <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />

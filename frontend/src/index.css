@@ -305,6 +305,42 @@ select {
   cursor: default;
 }
 
+.data-quality-bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.data-quality-bar .quality-label {
+  font-weight: 600;
+  color: var(--color-success);
+}
+
+.data-quality-bar .quality-item {
+  color: var(--text);
+}
+
+.data-quality-bar .quality-item.warning {
+  color: var(--color-warning);
+}
+
+.data-quality-bar .quality-item.info {
+  color: var(--color-info);
+}
+
+.data-quality-bar .quality-detail {
+  color: var(--muted);
+  font-size: 12px;
+  margin-left: 4px;
+}
+
 button {
   border: none;
   border-radius: var(--radius-button);
