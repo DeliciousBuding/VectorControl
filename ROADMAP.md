@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 14:38:20
+更新时间：2026-02-10 14:40:45
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。  
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -38,7 +38,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [后端Agent1] 基于 `docs/Gate-D验收证据模板.md` 补齐测速接口验收证据（见 `docs/Gate-D测速NotFound后端证据.md`，含路由命中、代理配置、服务路径与 VPS 补录命令）。
 - [ ] [前端Agent1] 基于 `docs/Gate-D验收证据模板.md` 补齐设置中心/测速页面实机验收证据（已合并 `f36d94f -> dev@943c7a9`；本地证据文档已完成：`docs/Gate-D设置中心测速前端证据.md`，待生产实机截图补录后关单）。
 - [ ] [协同] 按 `docs/P0线上故障排查SOP.md` 完成“测速 Not Found + 设置中心白屏”双故障关闭留档（含根因、修复提交、回归证据）。
-- [ ] [后端Agent1] 双故障关闭留档 v1（后端侧）：按 `docs/P0线上故障排查SOP.md` 起草 postmortem（根因/影响面/修复提交/回归证据/预防项），并给出“待前端补充截图/待总控验收”的清单。
+- [√] [后端Agent1] 双故障关闭留档 v1（后端侧）：按 `docs/P0线上故障排查SOP.md` 起草 postmortem（根因/影响面/修复提交/回归证据/预防项），并给出“待前端补充截图/待总控验收”的清单。（已完成，见 `docs/Postmortem-测速NotFound与设置中心白屏-后端.md`）
 - [ ] [前端Agent1] 双故障关闭留档 v1（前端侧）：为 `docs/Gate-D设置中心测速前端证据.md` 补齐“实机截图清单 + 占位符 + 验收勾选表”，便于后续补录关单。
 - [ ] [协同] 双故障关闭留档（可审核版本）：后端主笔 postmortem + 前端补齐实机截图清单，占位符齐全，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）
 - [ ] [协同] 本地可测试闭环：补齐 `docs/部署与运行.md` 的 Windows 本地启动步骤（后端 uvicorn 21345 + 前端 vite 5173 + 健康检查 URL），并明确“如何停止服务/如何查看日志”的最小说明。（前端已推送 `7a3f204`，待总控集成）
@@ -48,7 +48,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [后端Agent1] 定投计划配置入参校验（dca_plans）：在 `PUT /api/settings` 对 `strategy.dca_plans` 做轻量校验与归一化（id/name/amount/schedule/fund_id/paused），非法返回 422；补最小 smoke；更新契约（已合入 `origin/dev@d707642`）
 - [√] [后端Agent1] 发布预检输出编码修正（Windows 终端可读性）：不改检查逻辑，仅修复 `check_release_preflight.py` 中文输出乱码问题并补最小自测（已提交 `ebb28f9`，待总控集成）
 - [√] [前端Agent1] 本地一键启动脚本（dev_up/dev_down）：新增 `scripts/dev_up.ps1`/`scripts/dev_down.ps1` 并更新 `docs/部署与运行.md` Windows 段落引用（已提交 `ddbb0f0`，待总控集成）
-- [ ] [后端Agent1] Secrets Leak Guard v1.1：扩展常见密钥形态扫描（低误报优先）并补 `--selftest`（已于 2026-02-09 17:13:30 预告排队）
+- [√] [后端Agent1] Secrets Leak Guard v1.1：扩展常见密钥形态扫描（低误报优先）并补 --selftest（已于 2026-02-09 17:13:30 预告排队）
 - [√] [前端Agent1] 定投计划体验 v2：列表展示“下次执行日/距今天数”+ 最近一次执行结果（ok/failed），并支持首页待办一键定位到定投区；补最小回归（已合入 origin/dev@1d934c3，来源 origin/feat/frontend-agent1-dca-plans-next-run-v2@41b0a01）
 - [√] [后端Agent1] SIP 定投计划后端 v1：基于 mot-bot 思路新增 `/api/sip` CRUD + execute，并并入 `app.storage.db.init_db()` 统一建表迁移，补齐 smoke + 契约（已完成 `python3 -m compileall app` 与 storage 层本地自检；`app.api.test_sip_crud_execute_smoke` 待依赖齐全环境执行）
 - [√] [前端Agent1] SIP 定投计划前端 v1：SettingsDrawer 增加定投计划管理面板，对接 `/api/sip`，补最小回归（已完成：支持列表/新增/编辑/启停/执行记录/删除，`npm --prefix frontend run test:run -- src/components/SettingsDrawer.test.jsx` 与 `npm --prefix frontend run build` 通过）
