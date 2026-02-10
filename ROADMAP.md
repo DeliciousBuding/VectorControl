@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 14:43:15
+更新时间：2026-02-10 14:45:50
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -57,7 +57,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [后端Agent1] 图表接口稳定性 v2（资产/成本汇总字段）：为 `returns_history.data[]` 补充 `total_market_value_cny`/`total_cost_basis_cny`（按当日最后快照汇总），扩展 smoke + 契约（与 v1 同批完成）
 - [ ] [后端Agent1] 图表接口性能 v1（returns_history 聚合优化）：最大 days/DB 聚合/按日缓存（含过期策略），补最小性能 smoke + 架构说明（已于 2026-02-09 17:29:19 预告排队）
 - [ ] [前端Agent1] 收益曲线体验 v3（摘要信息）：在收益曲线面板增加累计收益/最大回撤/近30天波动摘要与口径提示，补最小回归（已于 2026-02-09 17:18:30 预告排队）
-- [ ] [前端Agent1] 系统状态面板 v2（复制内容增强）：复制状态信息包包含版本/页面URL/request_id（脱敏），补最小回归（已于 2026-02-09 17:20:05 预告排队）
+- [√] [前端Agent1] 系统状态面板 v2（复制内容增强）：复制状态信息包包含版本/页面URL/request_id（脱敏），补最小回归（已提交，测试和构建通过）
 - [ ] [前端Agent1] 收益曲线体验 v4（空数据与异常点展示）：空状态可解释、缺失天断线、异常点 marker（后端未来提供 anomalies），补最小回归（已于 2026-02-09 17:20:05 预告排队）
 - [ ] [后端Agent1] 本地验收数据种子（dev_seed_demo）：提供 demo 数据写入脚本与文档说明（仅本地 dev DB，含二次确认参数，不含任何真实凭据）（已于 2026-02-09 17:18:30 预告排队）
 - [ ] [前端Agent1] 移动端适配 v1：精选 mot-bot 思路，小步优化 SettingsDrawer/HoldingsTable/交易表单窄屏可用性（已于 2026-02-09 16:55:54 预告排队）
