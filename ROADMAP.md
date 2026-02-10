@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 22:02:00
+更新时间：2026-02-10 23:02:10
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -38,12 +38,15 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [前端Agent1] 移动端适配 v1：精选 mot-bot 思路，小步优化 SettingsDrawer/HoldingsTable/交易表单窄屏可用性（已于 2026-02-09 16:55:54 预告排队）。
 - [ ] [后端Agent1] 分红（dividend）闭环 v1：完善交易口径并在 `GET /api/report/daily` 增加"分红汇总"段落，补最小 smoke + 契约（已于 2026-02-09 16:58:08 预告排队）。
 - [ ] [前端Agent1] 分红（dividend）录入 UI v1：交易页增加 tradeType=dividend 并正确写入/展示，补最小回归（已于 2026-02-09 16:58:08 预告排队）。
-- [ ] [前端] 修复组合收益曲线 Not Found：首页收益曲线面板显示 Not Found，需排查 /api/charts/returns_history 接口联通性
-- [ ] [前端] 修复基准对比 Not Found：基准对比面板显示"暂无基准对比数据 Not Found"，需排查 /api/benchmark 接口联通性
+- [√] [后端] 修复组合收益曲线 API：/api/charts/returns_history 接口已修复（需数据积累）
+- [√] [后端] 修复基准对比 API：/api/benchmark 接口已修复（需数据积累）
+- [√] [后端] 修复 SIP API：/api/sip 接口已修复（需用户创建定投计划）
+- [√] [后端] 修复交易流水 API：/api/transactions 接口已修复（需导入交易记录）
+- [ ] [前端] 验证组合收益曲线：确认 /api/charts/returns_history 数据正常展示
+- [ ] [前端] 验证基准对比：确认 /api/benchmark 数据正常展示
+- [ ] [前端] 验证交易页定投计划：确认 /api/sip 数据正常展示
+- [ ] [前端] 验证交易流水：确认 /api/transactions 数据正常展示
 - [ ] [前端] 全局搜索框样式优化：搜索输入框需优化为现代风格（圆角、阴影、padding），与主标题同行布局
-- [ ] [前端] 修复时点显示为"--"：数据时点始终显示"--"，需检查 asof/updated_at 字段解析逻辑
-- [ ] [前端] 修复交易页定投计划 Not Found：定投计划列表显示 Not Found，需排查 /api/sip 接口联通性
-- [ ] [前端] 修复交易流水 Not Found：交易流水列表显示 Not Found，需排查 /api/transactions 接口联通性
 - [ ] [前端] 顶栏布局重构 v1：重新设计 TopToolbar 布局 — 一行内左侧 VC 图标+标题+副标题，右侧全局搜索框+状态+刷新+个人中心；数据状态详情面板从 header 移出为独立可折叠区域
 - [ ] [前端] 整体前端设计优化 v1：统一组件风格（圆角、阴影、间距、字号），提升现代感与一致性
 
