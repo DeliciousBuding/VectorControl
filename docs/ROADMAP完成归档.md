@@ -1,9 +1,11 @@
 # ROADMAP 完成归档
-> 最后更新: 2026-02-10 17:55:40 (UTC+8)
+> 最后更新: 2026-02-10 19:16:30 (UTC+8)
 
-归档日期：2026-02-10 17:55:40
-来源文件：`ROADMAP.md`（归档前版本）  
+归档日期：2026-02-10 19:16:30
+来源文件：`ROADMAP.md`（归档前版本）
 说明：仅归档已完成项（`[√]`）。未完成项已迁移到新的 `ROADMAP.md` 待办清单。
+
+---
 
 ## 1. 治理与门禁
 - [√] 统一分支策略（`main` 稳定、`dev` 迭代）。
@@ -35,7 +37,7 @@
 
 ## 5. 数据口径与可观测
 - [√] `/api/estimate` 输出覆盖率（`coverage.total/ok/failed`）。
-- [√] 昨日收益“确认值优先，估算回退”。
+- [√] 昨日收益"确认值优先，估算回退"。
 - [√] 市场分组规则固化（含 QDII 归类）。
 - [√] `as_of / updated_at / confirm_state` 展示规则固化。
 - [√] 刷新链路单请求化（`/api/estimate` 内联 `risk_overview`，前端不再二次请求风险接口）。
@@ -48,7 +50,7 @@
 
 ## 7. 文档治理与发布门禁（2026-02-07 增量）
 - [√] `README.md` 建立文档导航与 SSOT 矩阵。
-- [√] 将“main 发布前必须完成文档全量检查与完善”写入 `AGENTS.md` / `docs/Git工作流.md` / `docs/架构说明.md`。
+- [√] 将"main 发布前必须完成文档全量检查与完善"写入 `AGENTS.md` / `docs/Git工作流.md` / `docs/架构说明.md`。
 - [√] 新增 `scripts/check_docs_gate.py`：校验核心文档存在、UTF-8 无 BOM、发布模板四段完整性。
 - [√] 新增 `.githooks/pre-push`：push 前执行 `python scripts/check_docs_gate.py --strict`。
 - [√] 新增 `.github/workflows/docs-gate.yml`：PR 到 `dev/main` 自动执行严格门禁。
@@ -93,18 +95,111 @@
 - [√] 将 `data_status` 与 `/api/system/status` 固化到 Gate-D 回归清单：`docs/Gate-D验收证据模板.md` 增加必查字段与截图索引。
 - [√] 新增 `docs/状态解释验收样例.md`：沉淀接口样例、页面验收点与截图留档规范。
 - [√] 交易页新增生命周期最小图：`pending -> confirmed -> 计入收益` 三阶段可视化与当前节点高亮。
-- [√] 发布流程执行化：发布提交 `文档:` 段增加“检查范围 / 更新结论 / 延后项”强校验（`scripts/check_release_message.py`）。
+- [√] 发布流程执行化：发布提交 `文档:` 段增加"检查范围 / 更新结论 / 延后项"强校验（`scripts/check_release_message.py`）。
 - [√] 交易手工修正闭环：新增 `PATCH /api/transactions/{id}`，支持关键字段修正并写入 `audit_logs` 审计记录。
 
 ## 13. ROADMAP 二次瘦身归档（2026-02-08）
 - [√] 刷新慢优化第二阶段：落地估值快照缓存 + 基金级增量刷新，减少全量重算。
-- [√] 前端错误反馈统一收敛：登录、刷新、设置、交易关键路径统一可读错误与下一步提示。
-- [√] 发布流程执行化：每次 `main` 发布在提交说明 `文档:` 段写清“检查范围 + 更新结论 + 延后项”。
-- [√] `data_status` 第二阶段后端落地：`/api/transactions` 与 `sync_pending` 统一口径返回。
-- [√] `data_status` 第二阶段前端落地：交易页、基金详情页与图表区联动显示状态口径。
-- [√] 状态解释回归固化：`data_status` 与 `/system/status` 纳入 Gate-D 模板必查项。
-- [√] 输出 `docs/状态解释验收样例.md`：沉淀接口样例、页面验收点与留档规范。
-- [√] 交易导入规范与接口第一阶段完成：`transactions_import.yaml` + `POST /api/transactions/import_yaml` + `GET /api/transactions`。
-- [√] 交易生命周期最小图落地：交易页显示 `pending -> confirmed -> 计入收益` 当前节点。
-- [√] 风险状态条前置与持仓操作闭环落地：`Risk Status Bar` + `Edit/Audit` 快捷入口 + 历史变更记录。
-- [√] 图表纪律改造完成：收益 `0%` 基准线、成本线、Mini-Sparkline 时间范围标注与对比度增强。
+
+## 14. v1.1.0 发布归档（2026-02-10）
+### P0 稳定性与发布门禁
+- [√] [后端Agent1] 修复测速 TLS EOF 误报：`network_benchmark` 支持站点级协议/端口与 HTTPS->HTTP 回退（`backend/app/core/network_benchmark.py`）。
+- [√] [后端Agent1] 修复周末"估算中"误导：估值引擎在 `cn_hk/us_overseas` 周末按最近结算口径输出 `confirm_state=confirmed`（`backend/app/estimator/engine.py`）。
+- [√] [后端Agent1] 修复 VPS 测速 `Not Found`：完成后端路由、Nginx 转发与服务路径三段排查并给出修复提交（新增 `/api/network-benchmark/*` 兼容路由与 Nginx 历史路径重写）。
+- [√] [前端Agent1] 对齐测速接口联调与错误态兜底：确保"设置中心 -> 测速"在后端异常时可解释、不白屏，并补齐回归用例（前端错误提示已透传 `X-Request-ID` 并补齐 api 层回归用例）。
+- [√] [前端Agent1] 修复"设置中心白屏"并补齐回归用例（抽屉打开、测速模块渲染、异常兜底）。
+- [√] [后端Agent1] 基于 `docs/Gate-D验收证据模板.md` 补齐测速接口验收证据（见 `docs/Gate-D测速NotFound后端证据.md`，含路由命中、代理配置、服务路径与 VPS 补录命令）。
+- [√] [后端Agent1] Secrets Leak Guard v1：新增敏感信息正则扫描（至少覆盖 Telegram bot token 形态与飞书 webhook URL 形态），并接入 `scripts/check_release_preflight.py` 与 `.githooks/pre-push`，阻断误提交；提示需可解释且给出定位行。
+- [√] [后端Agent1] Secrets Leak Guard v1.1：扩展常见密钥形态扫描（低误报优先）并补 --selftest。
+- [√] [后端Agent1] 双故障关闭留档 v1（后端侧）：按 `docs/P0线上故障排查SOP.md` 起草 postmortem（根因/影响面/修复提交/回归证据/预防项）。
+- [√] [前端Agent1] 双故障关闭留档 v1（前端侧）：为 `docs/Gate-D设置中心测速前端证据.md` 补齐"实机截图清单 + 占位符 + 验收勾选表"。
+- [√] [后端Agent1] 增加 `/api/settings/network-benchmark/latest|run` 与兼容路径的路由级 smoke 测试，防止"接口存在但线上回归不可见"。
+- [√] [后端Agent1] 为 `POST /api/settings/network-benchmark/run` 增加入参强校验（`profile` 枚举、`timeout_seconds` 范围），避免当前静默回退导致误配置不可感知。
+- [√] [后端Agent1] 增加全局 `request_id` 中间件与 `X-Request-ID` 响应头，统一日志关联。
+- [√] [前端Agent1] 设置中心补齐飞书高级参数编辑入口（`timeout_seconds/retry_times/template`）并与契约字段对齐。
+- [√] 评估并落地 `GET /api/settings` 中敏感配置脱敏策略（如 `webhook_url` 部分掩码 + 单独"更新凭据"写接口），降低前端日志/录屏泄露风险。
+
+### 收益曲线与基准对比
+- [√] [协同] 收益曲线最小闭环：后端提供 `/api/charts/*`（基于 estimate_snapshot 聚合）+ 前端首页展示"组合收益曲线"缩略图。
+- [√] [前端Agent1] 首页收益曲线体验 v2：用 `/api/charts/returns_history` 展示大号曲线（纯 SVG，无新依赖）+ 最近 7 天 day_profit 列表 + 7/30/90 切换，补最小回归。
+- [√] [前端Agent1] 收益曲线体验 v3（摘要信息）：在收益曲线面板增加累计收益/最大回撤/近30天波动摘要与口径提示，补最小回归。
+- [√] [前端Agent1] 收益曲线体验 v4（空数据与异常点展示）：空状态可解释、缺失天断线、异常点 marker。
+- [√] [后端Agent1] 基准对比 v1：接口可用但 benchmark_return 允许为 null，明确 unknown 状态与 data_status=partial，补最小 smoke + 契约。
+- [√] [协同] 基准对比 UI v1：只展示、不评判（unknown 时不显示跑赢/跑输），补最小回归。
+
+### 定投计划（SIP）
+- [√] [后端Agent1] 定投计划配置入参校验（dca_plans）：在 `PUT /api/settings` 对 `strategy.dca_plans` 做轻量校验与归一化（id/name/amount/schedule/fund_id/paused），非法返回 422；补最小 smoke；更新契约。
+- [√] [前端Agent1] 定投计划体验 v2：列表展示"下次执行日/距今天数"+ 最近一次执行结果（ok/failed），并支持首页待办一键定位到定投区；补最小回归。
+- [√] [后端Agent1] SIP 定投计划后端 v1：基于 mot-bot 思路新增 `/api/sip` CRUD + execute，并并入 `app.storage.db.init_db()` 统一建表迁移，补齐 smoke + 契约。
+- [√] [前端Agent1] SIP 定投计划前端 v1：SettingsDrawer 增加定投计划管理面板，对接 `/api/sip`，补最小回归。
+
+### 图表接口稳定性
+- [√] [后端Agent1] 图表接口稳定性 v1：`/api/charts/returns_history` 补充市场值/成本汇总字段并明确 asof 解析口径，扩展 smoke 与契约。
+- [√] [后端Agent1] 图表接口 days 参数校验：`GET /api/charts/returns_history?days=` 仅允许 7/30/90，默认 30，非法 422 并可解释；补最小 smoke + 契约。
+- [√] [后端Agent1] 图表接口稳定性 v2（资产/成本汇总字段）：为 `returns_history.data[]` 补充 `total_market_value_cny`/`total_cost_basis_cny`（按当日最后快照汇总），扩展 smoke + 契约。
+
+### 系统状态与数据种子
+- [√] [前端Agent1] 系统状态面板 v2（复制内容增强）：复制状态信息包包含版本/页面URL/request_id（脱敏），补最小回归。
+- [√] [后端Agent1] 本地验收数据种子（dev_seed_demo）：提供 demo 数据写入脚本与文档说明（仅本地 dev DB，含二次确认参数，不含任何真实凭据）。
+
+### 开发工具与本地体验
+- [√] [后端Agent1] 发布预检输出编码修正（Windows 终端可读性）：修复 `check_release_preflight.py` 中文输出乱码问题。
+- [√] [前端Agent1] 本地一键启动脚本（dev_up/dev_down）：新增 `scripts/dev_up.ps1`/`scripts/dev_down.ps1` 并更新 `docs/部署与运行.md` Windows 段落引用。
+
+### 基金搜索闭环
+- [√] [协同] 全市场基金搜索回源 + 入库 + 全局跳转体验（总控单人开发，已完成本轮闭环）。
+- [√] Step 1（文档先行）：在本文件固化"全市场基金搜索闭环"目标、范围、验收标准与回滚点。
+- [√] Step 2（后端数据源）：新增东方财富基金检索 provider（仅返回基金类结果，6 位基金代码），补最小单测/烟测。
+- [√] Step 3（后端搜索接口）：`GET /api/funds/search` 增加"本地无命中时远端回源"并返回稳定结构；补最小 smoke。
+- [√] Step 4（后端自动入库）：将回源命中结果 upsert 到 `fund_catalog/fund_master/fund_alias`，确保 `/api/funds/{fund_id}` 可查；补最小 smoke。
+- [√] Step 5（前端交互）：全局搜索选中基金时，若不在持仓则跳转"基金中心"并打开详情；若在持仓保持原有跳转；补最小回归。
+- [√] Step 6（契约与验收）：更新 `docs/接口契约.md` 与 `docs/最新进度.md`，执行 `python scripts/check_release_preflight.py`，记录验收结论与风险。
+- [√] 验收标准：输入"非持仓基金"关键词能在搜索中看到结果；选择后可进入基金中心并加载详情；首次命中新基金可在后端库中查到；不引入新的敏感信息泄露风险。
+
+### 基金数据深化
+- [√] [后端Agent1] 打通"导入 -> 对账 -> 入账"链路：导入默认 `pending`，`sync_pending` 补全后转 `confirmed` 并进入收益主口径。
+- [√] [后端Agent1] 补齐 `fund_master`、`fund_alias` 表并迁移现有目录数据。
+- [√] [后端Agent1] 建立基金公共数据采集任务：频控、重试、幂等写入、失败隔离、任务日志。
+- [√] [后端Agent1] 完成基金详情 API 第二阶段：收益区间统计、完整性标记、异常点标识。
+- [√] [后端Agent1] 完成基金同步 API 第二阶段：异步任务化、失败重试、细粒度错误分类。
+- [√] [协同] 基金自动补全第二阶段：已完成持仓新增/编辑自动补全（代码联想+名称/市场标签回填）。
+
+### 系统状态面板
+- [√] [前端Agent1] 设置中心增加"系统状态/健康检查"面板：展示 `/api/system/status` + `/api/healthz` 结果，并提供"一键复制状态"便于线上排障。
+
+### P1.5 消息通道增强
+- [√] [后端Agent1] 完善飞书机器人推送链路：模板化消息、失败重试、发送日志可追踪。
+- [√] [后端Agent1] 预留 Telegram Bot 通道：统一消息通道抽象、配置项占位、发送器接口与开关（默认关闭）。
+- [√] [后端Agent1] Telegram Bot 实发接入（最小闭环）：实现 `telegram_sender` 真实发送、新增独立凭据写接口，补齐 sender/接口 smoke 测试与契约文档更新。
+- [√] [后端Agent1] 输出 Telegram 通道配置与排障文档。
+- [√] [后端Agent1] Telegram 运维文档补强：补齐 bot_token 安全轮换流程与操作提醒。
+- [√] [前端Agent1] 输出飞书接入手册（前端配置入口说明、权限边界、排障与回滚步骤）。
+- [√] [前端Agent1] 设置中心 Telegram 配置入口：在 SettingsDrawer 增加 Telegram 通道开关与配置。
+- [√] [后端Agent1] Telegram "发送测试消息"接口：读取已保存凭据向 chat_id 发送一条固定测试文案；返回可解释错误并补齐 smoke/契约。
+- [√] [前端Agent1] SettingsDrawer 增加"发送测试消息"按钮并展示成功/失败提示；兼容 `bot_token="<REDACTED>"` 视为已配置；补齐前端回归用例。
+- [√] [协同] 安全治理：评估并落地 `GET /api/settings` 对 `notifications.telegram.bot_token` 的脱敏与迁移方案。
+- [√] [后端Agent1] 安全治理：实现 `GET /api/settings` 对敏感字段脱敏（至少 telegram.bot_token、feishu.webhook_url），并提供兼容策略。
+- [√] [前端Agent1] 配合 `GET /api/settings` 脱敏：设置中心不依赖明文回显，保持"已配置/掩码/摘要"展示与可解释提示。
+- [√] [后端Agent1] 飞书"发送测试消息"接口：读取已保存飞书 webhook 发送一条固定测试文案；返回可解释错误并补齐 smoke/契约。
+- [√] [前端Agent1] SettingsDrawer 增加飞书"发送测试消息"按钮并展示成功/失败提示；补齐前端回归用例。
+- [√] [前端Agent1] 通知诊断面板：SettingsDrawer 增加 "通知诊断" 小面板，读取状态展示每个通道状态与最近一次测试结果。
+
+### P2 决策层与执行闭环深化
+- [√] [后端Agent1] 将 `sync_pending` 补全结果接入收益主口径与复盘报告。
+- [√] [前端Agent1] 完成交易手工修正前端闭环：交易页支持编辑发生时间/状态并展示审计链路。
+- [√] [协同] 完成 `/system/status` 增强：增加最近一次基金同步、最近一次对账统计、当前线上版本号与 commit 对照。
+
+### P3 持续改进
+- [√] [前端Agent1] 埋点体系落地：搜索转化、交易转化、定投行为、首屏效率。
+- [√] [前端Agent1] 前端性能优化收敛：高频刷新场景 `React.memo` 覆盖与 `50+` 持仓压测回归。
+
+### 总工审计（2026-02-08）
+- [√] [后端Agent1] 增加 `/api/settings/network-benchmark/latest|run` 与兼容路径的路由级 smoke 测试。
+- [√] [后端Agent1] 为 `POST /api/settings/network-benchmark/run` 增加入参强校验。
+- [√] [后端Agent1] 增加全局 `request_id` 中间件与 `X-Request-ID` 响应头。
+- [√] [前端Agent1] 设置中心补齐飞书高级参数编辑入口。
+- [√] [协同] 评估并落地 `GET /api/settings` 中敏感配置脱敏策略。
+
+---
+
+> 本次归档共迁移 **127 项**已完成任务到本文档。原始 ROADMAP.md 仅保留待办项（`[ ]`）。
