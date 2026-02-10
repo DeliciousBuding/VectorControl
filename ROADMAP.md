@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 14:36:15
+更新时间：2026-02-10 14:38:20
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。  
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -46,7 +46,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [协同] 收益曲线最小闭环：后端提供 `/api/charts/*`（基于 estimate_snapshot 聚合）+ 前端首页展示“组合收益曲线”缩略图（已合入 `origin/dev@1b74f87`）
 - [√] [前端Agent1] 首页收益曲线体验 v2：用 `/api/charts/returns_history` 展示大号曲线（纯 SVG，无新依赖）+ 最近 7 天 day_profit 列表 + 7/30/90 切换，补最小回归（已合入 `origin/dev@e98dac4`）
 - [√] [后端Agent1] 定投计划配置入参校验（dca_plans）：在 `PUT /api/settings` 对 `strategy.dca_plans` 做轻量校验与归一化（id/name/amount/schedule/fund_id/paused），非法返回 422；补最小 smoke；更新契约（已合入 `origin/dev@d707642`）
-- [ ] [后端Agent1] 发布预检输出编码修正（Windows 终端可读性）：不改检查逻辑，仅修复 `check_release_preflight.py` 中文输出乱码问题并补最小自测（已于 2026-02-09 17:13:30 预告排队）
+- [√] [后端Agent1] 发布预检输出编码修正（Windows 终端可读性）：不改检查逻辑，仅修复 `check_release_preflight.py` 中文输出乱码问题并补最小自测（已提交 `ebb28f9`，待总控集成）
 - [√] [前端Agent1] 本地一键启动脚本（dev_up/dev_down）：新增 `scripts/dev_up.ps1`/`scripts/dev_down.ps1` 并更新 `docs/部署与运行.md` Windows 段落引用（已提交 `ddbb0f0`，待总控集成）
 - [ ] [后端Agent1] Secrets Leak Guard v1.1：扩展常见密钥形态扫描（低误报优先）并补 `--selftest`（已于 2026-02-09 17:13:30 预告排队）
 - [√] [前端Agent1] 定投计划体验 v2：列表展示“下次执行日/距今天数”+ 最近一次执行结果（ok/failed），并支持首页待办一键定位到定投区；补最小回归（已合入 origin/dev@1d934c3，来源 origin/feat/frontend-agent1-dca-plans-next-run-v2@41b0a01）
