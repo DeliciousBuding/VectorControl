@@ -127,10 +127,26 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
         </div>
       </div>
 
-      {loading && <div className="chart-empty">正在加载收益曲线...</div>}
-      {!loading && error && <div className="chart-empty">{error}</div>}
+      {loading && (
+        <div className="chart-empty">
+          <p>正在加载收益曲线...</p>
+          <p className="chart-hint">请稍候，正在从服务器获取数据。</p>
+        </div>
+      )}
+      {!loading && error && (
+        <div className="chart-empty">
+          <p className="chart-error">{error}</p>
+          <p className="chart-hint">下一步：检查网络连接，或稍后重试。如问题持续，请联系管理员。</p>
+        </div>
+      )}
       {!loading && !error && history.length < 2 && (
-        <div className="chart-empty">暂无可用历史数据（请先进行几次刷新）。</div>
+        <div className="chart-empty">
+          <p>暂无足够的历史数据</p>
+          <p className="chart-hint">
+            收益曲线需要至少 2 个估值快照点。下一步：进行几次手动刷新（点击首页刷新按钮），
+            等待后台完成估值计算后再查看。
+          </p>
+        </div>
       )}
 
       {!loading && !error && history.length >= 2 && (
@@ -179,7 +195,10 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
               <span className="chart-hint">单位：CNY</span>
             </div>
             {recent7.length === 0 ? (
-              <div className="chart-empty">暂无日收益数据。</div>
+              <div className="chart-empty">
+                <p>暂无日收益数据</p>
+                <p className="chart-hint">需要至少 1 个估值快照点。下一步：进行手动刷新以触发估值计算。</p>
+              </div>
             ) : (
               <div className="watch-list" data-testid="portfolio-returns-day-profit-list">
                 {recent7.map((row) => (

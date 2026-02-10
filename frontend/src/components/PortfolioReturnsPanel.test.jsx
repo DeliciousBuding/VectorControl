@@ -78,4 +78,19 @@ describe('PortfolioReturnsPanel', () => {
     expect(within(summary).getByText('区间峰值到谷值')).toBeInTheDocument()
     expect(within(summary).getByText('日收益率标准差')).toBeInTheDocument()
   })
+
+  it('空数据时显示可解释提示和下一步建议', async () => {
+    fetchPortfolioReturnsHistory.mockResolvedValueOnce({ data: [] })
+
+    render(<PortfolioReturnsPanel user={{ id: 'u1' }} lastRefresh={1} />)
+
+    await waitFor(() => {
+      expect(fetchPortfolioReturnsHistory).toHaveBeenCalledTimes(1)
+    })
+
+    // 验证空状态提示
+    expect(screen.getByText('暂无足够的历史数据')).toBeInTheDocument()
+    expect(screen.getByText(/需要至少 2 个估值快照点/)).toBeInTheDocument()
+    expect(screen.getByText(/进行几次手动刷新/)).toBeInTheDocument()
+  })
 })
