@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 19:18:06
+更新时间：2026-02-10 22:02:00
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -38,24 +38,16 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [前端Agent1] 移动端适配 v1：精选 mot-bot 思路，小步优化 SettingsDrawer/HoldingsTable/交易表单窄屏可用性（已于 2026-02-09 16:55:54 预告排队）。
 - [ ] [后端Agent1] 分红（dividend）闭环 v1：完善交易口径并在 `GET /api/report/daily` 增加"分红汇总"段落，补最小 smoke + 契约（已于 2026-02-09 16:58:08 预告排队）。
 - [ ] [前端Agent1] 分红（dividend）录入 UI v1：交易页增加 tradeType=dividend 并正确写入/展示，补最小回归（已于 2026-02-09 16:58:08 预告排队）。
+- [ ] [前端] 修复组合收益曲线 Not Found：首页收益曲线面板显示 Not Found，需排查 /api/charts/returns_history 接口联通性
+- [ ] [前端] 修复基准对比 Not Found：基准对比面板显示"暂无基准对比数据 Not Found"，需排查 /api/benchmark 接口联通性
+- [ ] [前端] 全局搜索框样式优化：搜索输入框需优化为现代风格（圆角、阴影、padding），与主标题同行布局
+- [ ] [前端] 修复时点显示为"--"：数据时点始终显示"--"，需检查 asof/updated_at 字段解析逻辑
+- [ ] [前端] 修复交易页定投计划 Not Found：定投计划列表显示 Not Found，需排查 /api/sip 接口联通性
+- [ ] [前端] 修复交易流水 Not Found：交易流水列表显示 Not Found，需排查 /api/transactions 接口联通性
+- [ ] [前端] 顶栏布局重构 v1：重新设计 TopToolbar 布局 — 一行内左侧 VC 图标+标题+副标题，右侧全局搜索框+状态+刷新+个人中心；数据状态详情面板从 header 移出为独立可折叠区域
+- [ ] [前端] 整体前端设计优化 v1：统一组件风格（圆角、阴影、间距、字号），提升现代感与一致性
 
 ## P1（基金数据库与交易事实闭环）
-
-### 本轮单人开发计划（总控执行，单 commit 单主题）
-
-- [√] Step 1（文档先行）：在本文件固化"全市场基金搜索闭环"目标、范围、验收标准与回滚点（本条）。
-- [√] Step 2（后端数据源）：新增东方财富基金检索 provider（仅返回基金类结果，6 位基金代码），补最小单测/烟测。
-- [√] Step 3（后端搜索接口）：`GET /api/funds/search` 增加"本地无命中时远端回源"并返回稳定结构；补最小 smoke。
-- [√] Step 4（后端自动入库）：将回源命中结果 upsert 到 `fund_catalog/fund_master/fund_alias`，确保 `/api/funds/{fund_id}` 可查；补最小 smoke。
-- [√] Step 5（前端交互）：全局搜索选中基金时，若不在持仓则跳转"基金中心"并打开详情；若在持仓保持原有跳转；补最小回归。
-- [√] Step 6（契约与验收）：更新 `docs/接口契约.md` 与 `docs/最新进度.md`，执行 `python scripts/check_release_preflight.py`，记录验收结论与风险。
-
-### 本轮验收标准（完成即关单）
-
-- [√] 输入"非持仓基金"关键词（如"易方达"）能在搜索中看到结果。
-- [√] 选择结果后可进入基金中心并加载详情，不再表现为"无反应"。
-- [√] 首次命中的新基金可在后端库中查到（`fund_master` 新增），后续可直接检索命中。
-- [√] 不引入新的敏感信息落库/日志泄露风险；现有接口返回结构保持兼容。
 
 - [ ] [前端Agent1] SettingsDrawer 信息架构 v2（高频项优先）：轻量重排分组，保持可回归（已于 2026-02-09 17:24:16 预告排队）。
 - [ ] [协同] 可观测性面板 v1：前端 dev-only 面板 + 后端 `GET /api/system/diagnostics`（登录）提供可复制诊断信息（已于 2026-02-09 17:26:11 预告排队）。
