@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 14:33:40
+更新时间：2026-02-10 14:36:15
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。  
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -47,7 +47,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [前端Agent1] 首页收益曲线体验 v2：用 `/api/charts/returns_history` 展示大号曲线（纯 SVG，无新依赖）+ 最近 7 天 day_profit 列表 + 7/30/90 切换，补最小回归（已合入 `origin/dev@e98dac4`）
 - [√] [后端Agent1] 定投计划配置入参校验（dca_plans）：在 `PUT /api/settings` 对 `strategy.dca_plans` 做轻量校验与归一化（id/name/amount/schedule/fund_id/paused），非法返回 422；补最小 smoke；更新契约（已合入 `origin/dev@d707642`）
 - [ ] [后端Agent1] 发布预检输出编码修正（Windows 终端可读性）：不改检查逻辑，仅修复 `check_release_preflight.py` 中文输出乱码问题并补最小自测（已于 2026-02-09 17:13:30 预告排队）
-- [ ] [前端Agent1] 本地一键启动脚本（dev_up/dev_down）：新增 `scripts/dev_up.ps1`/`scripts/dev_down.ps1` 并更新 `docs/部署与运行.md` Windows 段落引用（已于 2026-02-09 17:13:30 预告排队）
+- [√] [前端Agent1] 本地一键启动脚本（dev_up/dev_down）：新增 `scripts/dev_up.ps1`/`scripts/dev_down.ps1` 并更新 `docs/部署与运行.md` Windows 段落引用（已提交 `ddbb0f0`，待总控集成）
 - [ ] [后端Agent1] Secrets Leak Guard v1.1：扩展常见密钥形态扫描（低误报优先）并补 `--selftest`（已于 2026-02-09 17:13:30 预告排队）
 - [√] [前端Agent1] 定投计划体验 v2：列表展示“下次执行日/距今天数”+ 最近一次执行结果（ok/failed），并支持首页待办一键定位到定投区；补最小回归（已合入 origin/dev@1d934c3，来源 origin/feat/frontend-agent1-dca-plans-next-run-v2@41b0a01）
 - [√] [后端Agent1] SIP 定投计划后端 v1：基于 mot-bot 思路新增 `/api/sip` CRUD + execute，并并入 `app.storage.db.init_db()` 统一建表迁移，补齐 smoke + 契约（已完成 `python3 -m compileall app` 与 storage 层本地自检；`app.api.test_sip_crud_execute_smoke` 待依赖齐全环境执行）
