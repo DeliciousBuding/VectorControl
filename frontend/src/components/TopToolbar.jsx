@@ -65,60 +65,56 @@ export function TopToolbar({
       </div>
 
       <div className="toolbar-actions">
-        <div className="toolbar-row toolbar-row-search">
-          <label className="toolbar-search">
-            <span>全局搜索</span>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(event) => onSearchChange(event.target.value)}
-              placeholder="输入基金代码/名称/拼音"
-            />
-            {(searchLoading || suggestions.length > 0) && (
-              <div className="toolbar-suggest">
-                {searchLoading && <div className="suggest-item muted">正在加载联想...</div>}
-                {!searchLoading && suggestions.map((item) => (
-                  <button
-                    type="button"
-                    key={item.fund_id}
-                    className="suggest-item"
-                    onClick={() => onPickSuggestion(item)}
-                  >
-                    <strong>{item.name}</strong>
-                    <span>{item.fund_id}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </label>
-        </div>
+        <label className="toolbar-search">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(event) => onSearchChange(event.target.value)}
+            placeholder="🔍 搜索基金代码/名称/拼音..."
+          />
+          {(searchLoading || suggestions.length > 0) && (
+            <div className="toolbar-suggest">
+              {searchLoading && <div className="suggest-item muted">正在加载联想...</div>}
+              {!searchLoading && suggestions.map((item) => (
+                <button
+                  type="button"
+                  key={item.fund_id}
+                  className="suggest-item"
+                  onClick={() => onPickSuggestion(item)}
+                >
+                  <strong>{item.name}</strong>
+                  <span>{item.fund_id}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </label>
 
         <div className="toolbar-row">
-          <span>当前用户：{user?.username || '--'}</span>
+          <span className="toolbar-user">👤 {user?.username || '--'}</span>
           <button type="button" className="primary" onClick={onRefresh} disabled={refreshing}>
-            {refreshing ? '刷新中...' : '刷新数据'}
+            {refreshing ? '⏳' : '🔄'}
           </button>
-          <button type="button" className={autoRefreshEnabled ? 'primary' : 'ghost'} onClick={onToggleAutoRefresh}>
-            {autoRefreshEnabled ? '自动刷新：已开启' : '自动刷新：已关闭'}
+          <button type="button" className={autoRefreshEnabled ? 'primary' : 'ghost'} onClick={onToggleAutoRefresh} title={autoRefreshEnabled ? '关闭自动刷新' : '开启自动刷新'}>
+            {autoRefreshEnabled ? '⏱️' : '⏸️'}
           </button>
-          <button type="button" className="ghost" onClick={onOpenSettings}>设置中心</button>
-          <button type="button" className="danger" onClick={onLogout}>退出登录</button>
+          <button type="button" className="ghost" onClick={onOpenSettings} title="设置中心">⚙️</button>
+          <button type="button" className="danger" onClick={onLogout} title="退出登录">🚪</button>
         </div>
+      </div>
 
-        <div className="toolbar-row toolbar-meta">
-          <StatusPill status={status} />
-          <span>上次刷新：{refreshClock}</span>
-          <span>数据时点：{asofClock}</span>
-          <span>刷新用时：{refreshElapsedMs > 0 ? `${refreshElapsedMs} ms` : '--'}</span>
-          <span>数据来源：{estimateCacheHit ? '缓存快照' : '实时拉取'}</span>
-          <span>{incrementalText}</span>
-          <span>状态：{confirmText}</span>
-          <span>覆盖率：{coverage?.ok ?? 0}/{coverage?.total ?? 0}</span>
-          <span className="toolbar-data-status" title={dataStatusNote || '暂无说明'}>
-            口径：{dataStatusText}
-          </span>
-        </div>
-
+      <div className="toolbar-meta-bar">
+        <StatusPill status={status} />
+        <span>上次刷新：{refreshClock}</span>
+        <span>数据时点：{asofClock}</span>
+        <span>刷新用时：{refreshElapsedMs > 0 ? `${refreshElapsedMs} ms` : '--'}</span>
+        <span>数据来源：{estimateCacheHit ? '缓存快照' : '实时拉取'}</span>
+        <span>{incrementalText}</span>
+        <span>状态：{confirmText}</span>
+        <span>覆盖率：{coverage?.ok ?? 0}/{coverage?.total ?? 0}</span>
+        <span className="toolbar-data-status" title={dataStatusNote || '暂无说明'}>
+          口径：{dataStatusText}
+        </span>
         <div className="toolbar-note">{marketDataHint}</div>
       </div>
     </header>
