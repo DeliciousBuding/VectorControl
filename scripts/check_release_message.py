@@ -8,18 +8,67 @@ from pathlib import Path
 RELEASE_TITLE_RE = re.compile(r"^发布[:：]\s*v\d+\.\d+\.\d+\s*-\s*\S.+$")
 SECTION_RE = re.compile(r"^(新增|修复|优化|文档)\s*[:：]\s*(.*)$")
 SECTION_NAMES = ("新增", "修复", "优化", "文档")
+NORMAL_PREFIXES = ("功能", "修复", "优化", "重构", "文档", "测试", "构建")
+NORMAL_TITLE_RE = re.compile(
+    rf"^({'|'.join(map(re.escape, NORMAL_PREFIXES))})[:：]\s+\S.+$"
+)
+ENGLISH_PREFIX_BLACKLIST = (
+    "feat",
+    "fix",
+    "docs",
+    "chore",
+    "refactor",
+    "test",
+    "style",
+    "perf",
+    "build",
+    "ci",
+    "revert",
+)
+ENGLISH_PREFIX_RE = re.compile(
+    rf"^({'|'.join(map(re.escape, ENGLISH_PREFIX_BLACKLIST))})\b",
+    flags=re.IGNORECASE,
+)
 DOC_RANGE_KEYS = ("检查范围", "巡检范围", "核对范围", "全量巡检")
 DOC_RESULT_KEYS = ("更新结论", "同步更新", "已更新", "更新项")
 DOC_DEFER_KEY = "延后项"
 DOC_NONE_VALUES = {"无", "无。", "无（已完成）", "无(已完成)", "none"}
 
 
-def _has_chinese(text: str) -> bool:
-    return bool(re.search(r"[\u4e00-\u9fff]", text))
-
-
 def _is_release_message(first_line: str) -> bool:
     return first_line.startswith("发布:") or first_line.startswith("发布：")
+
+
+def _is_merge_commit(first_line: str) -> bool:
+    return first_line.startswith("Merge")
+
+
+def _detect_blacklisted_english_prefix(first_line: str) -> str | None:
+    matched = ENGLISH_PREFIX_RE.match(first_line.strip())
+    if not matched:
+        return None
+    return matched.group(1).lower()
+
+
+def _validate_normal_title(first_line: str) -> list[str]:
+    errors: list[str] = []
+    blocked_prefix = _detect_blacklisted_english_prefix(first_line)
+    if blocked_prefix:
+        errors.append(
+            "提交标题禁止使用英文前缀“"
+            f"{blocked_prefix}”。请使用中文前缀，格式：前缀: 一句话说明"
+            "（前缀可选：功能、修复、优化、重构、文档、测试、构建）。"
+        )
+        return errors
+
+    if not NORMAL_TITLE_RE.match(first_line):
+        errors.append(
+            "普通提交标题格式错误，应为：前缀: 一句话说明"
+            "（支持“:”或“：”，且冒号后必须有空格；"
+            "前缀可选：功能、修复、优化、重构、文档、测试、构建）。"
+        )
+
+    return errors
 
 
 def _has_meaningful_content(text: str) -> bool:
@@ -157,12 +206,11 @@ def validate_message(message: str) -> list[str]:
     if not text:
         return ["提交信息不能为空。"]
 
-    if not _has_chinese(text):
-        errors.append("提交信息必须包含中文。")
-        return errors
-
     lines = normalized_message.splitlines()
     first_line = lines[0].lstrip("\ufeff").strip() if lines else ""
+
+    if _is_merge_commit(first_line):
+        return errors
 
     # 发布提交专属校验
     if _is_release_message(first_line):
@@ -174,11 +222,15 @@ def validate_message(message: str) -> list[str]:
 
         errors.extend(_validate_sections(lines))
 
+        return errors
+
+    errors.extend(_validate_normal_title(first_line))
+
     return errors
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="校验提交信息（含发布模板规则）。")
+    parser = argparse.ArgumentParser(description="校验提交信息（普通提交 + 发布模板规则）。")
     parser.add_argument("message_file", help="commit message 文件路径")
     args = parser.parse_args()
 
