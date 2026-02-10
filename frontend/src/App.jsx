@@ -45,7 +45,8 @@ const TRADE_TYPES = [
   { key: 'buy', label: '买入' },
   { key: 'dca', label: '定投' },
   { key: 'redeem', label: '赎回' },
-  { key: 'convert', label: '转换' }
+  { key: 'convert', label: '转换' },
+  { key: 'dividend', label: '分红' }
 ]
 
 function nowForDateTimeInput() {
