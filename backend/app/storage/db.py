@@ -6,7 +6,7 @@ import json
 import re
 import secrets
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from app.core.market_group import decide_market_group
@@ -701,6 +701,37 @@ def init_db() -> None:
             ON audit_logs (user_id, entity_type, entity_id, created_at DESC)
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS sip_plans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                fund_id TEXT NOT NULL,
+                fund_name TEXT NOT NULL DEFAULT '',
+                amount REAL NOT NULL DEFAULT 0,
+                frequency TEXT NOT NULL DEFAULT 'monthly',
+                day INTEGER NOT NULL DEFAULT 1,
+                enabled INTEGER NOT NULL DEFAULT 1,
+                next_date TEXT NOT NULL DEFAULT '',
+                last_executed TEXT NOT NULL DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL DEFAULT '',
+                note TEXT NOT NULL DEFAULT ''
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sip_plans_user_enabled_next
+            ON sip_plans (user_id, enabled, next_date ASC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_sip_plans_user_id
+            ON sip_plans (user_id, id DESC)
+            """
+        )
 
         _migrate_holdings(conn)
         _migrate_actions_log(conn)
@@ -827,6 +858,45 @@ def init_db() -> None:
                 "note": "TEXT NOT NULL DEFAULT ''",
                 "created_at": "TEXT NOT NULL DEFAULT ''",
             },
+        )
+        _ensure_columns(
+            conn,
+            "sip_plans",
+            {
+                "fund_name": "TEXT NOT NULL DEFAULT ''",
+                "amount": "REAL NOT NULL DEFAULT 0",
+                "frequency": "TEXT NOT NULL DEFAULT 'monthly'",
+                "day": "INTEGER NOT NULL DEFAULT 1",
+                "enabled": "INTEGER NOT NULL DEFAULT 1",
+                "next_date": "TEXT NOT NULL DEFAULT ''",
+                "last_executed": "TEXT NOT NULL DEFAULT ''",
+                "created_at": "TEXT NOT NULL DEFAULT ''",
+                "updated_at": "TEXT NOT NULL DEFAULT ''",
+                "note": "TEXT NOT NULL DEFAULT ''",
+            },
+        )
+        conn.execute(
+            """
+            UPDATE sip_plans
+            SET fund_name = COALESCE(fund_name, ''),
+                note = COALESCE(note, ''),
+                frequency = CASE
+                    WHEN lower(COALESCE(frequency, '')) IN ('weekly', 'biweekly', 'monthly')
+                        THEN lower(frequency)
+                    ELSE 'monthly'
+                END,
+                day = CASE
+                    WHEN day IS NULL OR day < 1 THEN 1
+                    ELSE day
+                END,
+                enabled = CASE
+                    WHEN enabled IS NULL OR enabled = 0 THEN 0
+                    ELSE 1
+                END,
+                created_at = COALESCE(NULLIF(created_at, ''), ?),
+                updated_at = COALESCE(NULLIF(updated_at, ''), COALESCE(NULLIF(created_at, ''), ?))
+            """,
+            (_now_iso(), _now_iso()),
         )
         conn.execute(
             """
@@ -1574,6 +1644,336 @@ def list_actions(user_id: str, date: str) -> list[dict[str, Any]]:
         }
         for row in rows
     ]
+
+
+def _normalize_sip_fund_id(value: Any) -> str:
+    text = _normalize_catalog_text(value)
+    if len(text) != 6 or not text.isdigit():
+        raise ValueError("fund_id 必须是 6 位数字基金代码")
+    return text
+
+
+def _normalize_sip_frequency(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if text not in {"weekly", "biweekly", "monthly"}:
+        raise ValueError("frequency 必须是 weekly/biweekly/monthly")
+    return text
+
+
+def _normalize_sip_day(frequency: str, value: Any) -> int:
+    try:
+        day = int(value)
+    except Exception as exc:
+        raise ValueError("day 必须是整数") from exc
+    if frequency == "monthly":
+        if day < 1 or day > 31:
+            raise ValueError("monthly 频率的 day 必须在 1-31")
+        return day
+    if day < 1 or day > 7:
+        raise ValueError("weekly/biweekly 频率的 day 必须在 1-7（1=周一）")
+    return day
+
+
+def _month_last_day(year: int, month: int) -> int:
+    if month == 12:
+        next_month = date(year + 1, 1, 1)
+    else:
+        next_month = date(year, month + 1, 1)
+    return int((next_month - timedelta(days=1)).day)
+
+
+def _calculate_next_sip_date(frequency: str, day: int, from_date: date | None = None) -> str:
+    base_date = from_date or datetime.now().astimezone().date()
+    normalized_frequency = _normalize_sip_frequency(frequency)
+    normalized_day = _normalize_sip_day(normalized_frequency, day)
+
+    if normalized_frequency == "weekly":
+        days_ahead = normalized_day - base_date.isoweekday()
+        if days_ahead <= 0:
+            days_ahead += 7
+        return (base_date + timedelta(days=days_ahead)).isoformat()
+
+    if normalized_frequency == "biweekly":
+        days_ahead = normalized_day - base_date.isoweekday()
+        if days_ahead <= 0:
+            days_ahead += 14
+        else:
+            days_ahead += 7
+        return (base_date + timedelta(days=days_ahead)).isoformat()
+
+    target_year = base_date.year
+    target_month = base_date.month
+    if base_date.day >= normalized_day:
+        if target_month == 12:
+            target_year += 1
+            target_month = 1
+        else:
+            target_month += 1
+    valid_day = min(normalized_day, _month_last_day(target_year, target_month))
+    return date(target_year, target_month, valid_day).isoformat()
+
+
+def _row_to_sip_plan(row: sqlite3.Row) -> dict[str, Any]:
+    return {
+        "id": int(row["id"]),
+        "user_id": str(row["user_id"] or ""),
+        "fund_id": str(row["fund_id"] or ""),
+        "fund_name": str(row["fund_name"] or ""),
+        "amount": _to_float(row["amount"]),
+        "frequency": str(row["frequency"] or "monthly"),
+        "day": int(row["day"] or 1),
+        "enabled": bool(row["enabled"]),
+        "next_date": str(row["next_date"] or ""),
+        "last_executed": str(row["last_executed"] or ""),
+        "created_at": str(row["created_at"] or ""),
+        "updated_at": str(row["updated_at"] or ""),
+        "note": str(row["note"] or ""),
+    }
+
+
+def create_sip_plan(
+    user_id: str,
+    fund_id: str,
+    amount: float,
+    frequency: str = "monthly",
+    day: int = 1,
+    fund_name: str = "",
+    note: str = "",
+) -> dict[str, Any]:
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        raise ValueError("user_id 不能为空")
+
+    clean_fund_id = _normalize_sip_fund_id(fund_id)
+    clean_frequency = _normalize_sip_frequency(frequency)
+    clean_day = _normalize_sip_day(clean_frequency, day)
+    clean_amount = float(amount)
+    if clean_amount <= 0:
+        raise ValueError("amount 必须大于 0")
+
+    now_iso = _now_iso()
+    next_date = _calculate_next_sip_date(clean_frequency, clean_day)
+    with connect() as conn:
+        cursor = conn.execute(
+            """
+            INSERT INTO sip_plans (
+                user_id, fund_id, fund_name, amount, frequency, day,
+                enabled, next_date, last_executed, created_at, updated_at, note
+            ) VALUES (?, ?, ?, ?, ?, ?, 1, ?, '', ?, ?, ?)
+            """,
+            (
+                clean_user_id,
+                clean_fund_id,
+                str(fund_name or "").strip(),
+                clean_amount,
+                clean_frequency,
+                clean_day,
+                next_date,
+                now_iso,
+                now_iso,
+                str(note or "").strip(),
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM sip_plans WHERE id = ? AND user_id = ? LIMIT 1",
+            (cursor.lastrowid, clean_user_id),
+        ).fetchone()
+    return _row_to_sip_plan(row) if row else {}
+
+
+def list_sip_plans(user_id: str, enabled_only: bool = False) -> list[dict[str, Any]]:
+    clean_user_id = str(user_id or "").strip()
+    if not clean_user_id:
+        return []
+    with connect() as conn:
+        if enabled_only:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM sip_plans
+                WHERE user_id = ? AND enabled = 1
+                ORDER BY date(next_date) ASC, id DESC
+                """,
+                (clean_user_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM sip_plans
+                WHERE user_id = ?
+                ORDER BY enabled DESC, date(next_date) ASC, id DESC
+                """,
+                (clean_user_id,),
+            ).fetchall()
+    return [_row_to_sip_plan(row) for row in rows]
+
+
+def get_sip_plan(user_id: str, plan_id: int) -> dict[str, Any] | None:
+    clean_user_id = str(user_id or "").strip()
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM sip_plans
+            WHERE user_id = ? AND id = ?
+            LIMIT 1
+            """,
+            (clean_user_id, int(plan_id)),
+        ).fetchone()
+    if not row:
+        return None
+    return _row_to_sip_plan(row)
+
+
+def update_sip_plan(user_id: str, plan_id: int, updates: dict[str, Any]) -> dict[str, Any] | None:
+    clean_user_id = str(user_id or "").strip()
+    with connect() as conn:
+        existing_row = conn.execute(
+            """
+            SELECT *
+            FROM sip_plans
+            WHERE user_id = ? AND id = ?
+            LIMIT 1
+            """,
+            (clean_user_id, int(plan_id)),
+        ).fetchone()
+        if not existing_row:
+            return None
+
+        existing = _row_to_sip_plan(existing_row)
+        patch: dict[str, Any] = {}
+
+        if "fund_id" in updates:
+            patch["fund_id"] = _normalize_sip_fund_id(updates.get("fund_id"))
+        if "fund_name" in updates:
+            patch["fund_name"] = str(updates.get("fund_name") or "").strip()
+        if "amount" in updates:
+            clean_amount = float(updates.get("amount"))
+            if clean_amount <= 0:
+                raise ValueError("amount 必须大于 0")
+            patch["amount"] = clean_amount
+        if "note" in updates:
+            patch["note"] = str(updates.get("note") or "").strip()
+        if "enabled" in updates:
+            patch["enabled"] = 1 if bool(updates.get("enabled")) else 0
+
+        target_frequency = str(existing.get("frequency") or "monthly")
+        target_day = int(existing.get("day") or 1)
+        if "frequency" in updates:
+            target_frequency = _normalize_sip_frequency(updates.get("frequency"))
+            patch["frequency"] = target_frequency
+        if "day" in updates:
+            target_day = _normalize_sip_day(target_frequency, updates.get("day"))
+            patch["day"] = target_day
+        elif "frequency" in updates:
+            target_day = _normalize_sip_day(target_frequency, target_day)
+            patch["day"] = target_day
+
+        if "frequency" in patch or "day" in patch:
+            patch["next_date"] = _calculate_next_sip_date(target_frequency, target_day)
+
+        if not patch:
+            return existing
+
+        patch["updated_at"] = _now_iso()
+        keys = list(patch.keys())
+        set_sql = ", ".join(f"{key} = ?" for key in keys)
+        values = [patch[key] for key in keys]
+        values.extend([clean_user_id, int(plan_id)])
+        conn.execute(
+            f"""
+            UPDATE sip_plans
+            SET {set_sql}
+            WHERE user_id = ? AND id = ?
+            """,
+            values,
+        )
+        conn.commit()
+        row = conn.execute(
+            """
+            SELECT *
+            FROM sip_plans
+            WHERE user_id = ? AND id = ?
+            LIMIT 1
+            """,
+            (clean_user_id, int(plan_id)),
+        ).fetchone()
+    return _row_to_sip_plan(row) if row else None
+
+
+def delete_sip_plan(user_id: str, plan_id: int) -> bool:
+    clean_user_id = str(user_id or "").strip()
+    with connect() as conn:
+        cursor = conn.execute(
+            "DELETE FROM sip_plans WHERE user_id = ? AND id = ?",
+            (clean_user_id, int(plan_id)),
+        )
+        conn.commit()
+    return int(cursor.rowcount or 0) > 0
+
+
+def list_upcoming_sip_plans(user_id: str, days: int = 7) -> list[dict[str, Any]]:
+    clean_user_id = str(user_id or "").strip()
+    safe_days = max(1, min(int(days), 30))
+    start_date = datetime.now().astimezone().date().isoformat()
+    end_date = (datetime.now().astimezone().date() + timedelta(days=safe_days)).isoformat()
+    with connect() as conn:
+        rows = conn.execute(
+            """
+            SELECT *
+            FROM sip_plans
+            WHERE user_id = ? AND enabled = 1
+              AND date(next_date) >= date(?)
+              AND date(next_date) <= date(?)
+            ORDER BY date(next_date) ASC, id DESC
+            """,
+            (clean_user_id, start_date, end_date),
+        ).fetchall()
+    return [_row_to_sip_plan(row) for row in rows]
+
+
+def execute_sip_plan(user_id: str, plan_id: int) -> dict[str, Any] | None:
+    clean_user_id = str(user_id or "").strip()
+    with connect() as conn:
+        row = conn.execute(
+            """
+            SELECT *
+            FROM sip_plans
+            WHERE user_id = ? AND id = ?
+            LIMIT 1
+            """,
+            (clean_user_id, int(plan_id)),
+        ).fetchone()
+        if not row:
+            return None
+        plan = _row_to_sip_plan(row)
+        now_iso = _now_iso()
+        next_date = _calculate_next_sip_date(
+            frequency=str(plan.get("frequency") or "monthly"),
+            day=int(plan.get("day") or 1),
+            from_date=datetime.now().astimezone().date(),
+        )
+        conn.execute(
+            """
+            UPDATE sip_plans
+            SET last_executed = ?, next_date = ?, updated_at = ?
+            WHERE user_id = ? AND id = ?
+            """,
+            (now_iso, next_date, now_iso, clean_user_id, int(plan_id)),
+        )
+        conn.commit()
+        updated = conn.execute(
+            """
+            SELECT *
+            FROM sip_plans
+            WHERE user_id = ? AND id = ?
+            LIMIT 1
+            """,
+            (clean_user_id, int(plan_id)),
+        ).fetchone()
+    return _row_to_sip_plan(updated) if updated else None
 
 
 def _normalize_transaction_status(status: str | None) -> str:
