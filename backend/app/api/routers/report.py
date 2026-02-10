@@ -35,12 +35,37 @@ async def get_daily_report(request: Request, date: str | None = None) -> dict:
     sync_pending = get_transactions_sync_pending_snapshot(holdings_user_id)
 
     estimate_lines: list[str] = []
+    estimate_pct_values: list[float] = []
+    low_confidence_count = 0
     for bucket in estimate.get("buckets", []):
         pct = float(bucket.get("estimate_pct", 0.0))
         confidence = bucket.get("confidence", "low")
         estimate_lines.append(f"{bucket.get('bucket')}: {pct:.2f}% ({confidence})")
+        estimate_pct_values.append(abs(pct))
+        if confidence == "low":
+            low_confidence_count += 1
     if not estimate_lines:
         estimate_lines.append("暂无估值快照")
+
+    # 数据质量摘要
+    coverage = estimate.get("coverage", {})
+    total_funds = int(coverage.get("total", 0))
+    ok_funds = int(coverage.get("ok", 0))
+    failed_funds = int(coverage.get("failed", 0))
+    missing_funds = total_funds - ok_funds - failed_funds
+
+    data_quality_lines: list[str] = []
+    if total_funds > 0:
+        quality_parts = [f"覆盖率 {ok_funds}/{total_funds}"]
+        if failed_funds > 0:
+            quality_parts.append(f"失败 {failed_funds}")
+        if missing_funds > 0:
+            quality_parts.append(f"缺失 {missing_funds}")
+        if low_confidence_count > 0:
+            quality_parts.append(f"低置信度 {low_confidence_count}")
+        data_quality_lines.append(", ".join(quality_parts))
+    else:
+        data_quality_lines.append("无持仓数据")
 
     action_lines: list[str] = []
     if not actions:
@@ -86,6 +111,7 @@ async def get_daily_report(request: Request, date: str | None = None) -> dict:
     summary_lines = [
         f"日报 {date_str}",
         "估值：" + ("; ".join(estimate_lines) if estimate_lines else "暂无"),
+        "数据质量：" + ("; ".join(data_quality_lines) if data_quality_lines else "无"),
         "执行：" + ("; ".join(action_lines) if action_lines else "无"),
         "对账：" + ("; ".join(sync_lines) if sync_lines else "无"),
         "计划：" + plan_line,
@@ -94,8 +120,17 @@ async def get_daily_report(request: Request, date: str | None = None) -> dict:
     return {
         "date": date_str,
         "summary": "\n".join(summary_lines),
+        "data_quality": {
+            "total_funds": total_funds,
+            "ok_funds": ok_funds,
+            "failed_funds": failed_funds,
+            "missing_funds": missing_funds,
+            "low_confidence_count": low_confidence_count,
+            "coverage_pct": round(ok_funds / total_funds * 100, 1) if total_funds > 0 else 0,
+        },
         "sections": [
             {"title": "估值概览", "lines": estimate_lines},
+            {"title": "数据质量", "lines": data_quality_lines},
             {"title": "执行情况", "lines": action_lines},
             {"title": "对账入账", "lines": sync_lines},
             {"title": "明日计划", "lines": [plan_line]},
