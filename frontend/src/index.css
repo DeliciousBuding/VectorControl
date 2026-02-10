@@ -307,48 +307,71 @@ select {
 
 button {
   border: none;
-  border-radius: 10px;
-  padding: 8px 12px;
-  font-weight: 700;
-  font-size: 15px;
+  border-radius: var(--radius-button);
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 14px;
   cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 button.primary {
   color: #fff;
-  background: var(--brand);
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+  box-shadow: 0 2px 8px rgba(67, 97, 238, 0.25);
+}
+
+button.primary:hover {
+  box-shadow: 0 4px 12px rgba(67, 97, 238, 0.35);
+  transform: translateY(-1px);
 }
 
 button.ghost {
-  color: var(--brand-dark);
-  background: #e8efff;
+  color: var(--brand);
+  background: rgba(67, 97, 238, 0.08);
+  border: 1px solid rgba(67, 97, 238, 0.15);
+}
+
+button.ghost:hover {
+  background: rgba(67, 97, 238, 0.15);
 }
 
 button.danger {
   color: #fff;
-  background: #dc2626;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+button.danger:hover {
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35);
 }
 
 button:hover {
-  filter: brightness(0.96);
+  filter: brightness(1.02);
 }
 
 button:disabled {
-  opacity: 0.75;
+  opacity: 0.6;
   cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
 }
 
 .status-pill {
   border-radius: 999px;
   border: 1px solid var(--line);
-  padding: 7px 12px;
+  padding: 6px 12px;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 .status-info {
-  color: #1d4ed8;
-  background: #eef4ff;
+  color: var(--color-info);
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.2);
 }
 
 .status-success {
