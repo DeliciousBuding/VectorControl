@@ -66,6 +66,43 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
   const latestTotalReturn = history.length ? history[history.length - 1].total_return : 0
   const recent7 = useMemo(() => history.slice(-7).reverse(), [history])
 
+  // v3: 计算摘要信息
+  const summary = useMemo(() => {
+    if (history.length < 2) {
+      return { maxDrawdown: 0, volatility30d: 0 }
+    }
+
+    // 最大回撤：累计收益率的峰值到谷值的最大跌幅
+    let peak = history[0].total_return
+    let maxDrawdown = 0
+    for (const row of history) {
+      if (row.total_return > peak) {
+        peak = row.total_return
+      }
+      const drawdown = peak - row.total_return
+      if (drawdown > maxDrawdown) {
+        maxDrawdown = drawdown
+      }
+    }
+
+    // 近30天波动率（日收益率标准差）
+    const recent30 = history.slice(-30)
+    const dayReturns = []
+    for (let i = 1; i < recent30.length; i++) {
+      const dailyReturn = recent30[i].total_return - recent30[i - 1].total_return
+      dayReturns.push(dailyReturn)
+    }
+    
+    let volatility30d = 0
+    if (dayReturns.length > 1) {
+      const mean = dayReturns.reduce((sum, r) => sum + r, 0) / dayReturns.length
+      const variance = dayReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / dayReturns.length
+      volatility30d = Math.sqrt(variance)
+    }
+
+    return { maxDrawdown, volatility30d }
+  }, [history])
+
   const daysOptions = [7, 30, 90]
 
   return (
@@ -90,14 +127,55 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
         </div>
       </div>
 
-      {loading && <div className="chart-empty">正在加载收益曲线...</div>}
-      {!loading && error && <div className="chart-empty">{error}</div>}
+      {loading && (
+        <div className="chart-empty">
+          <p>正在加载收益曲线...</p>
+          <p className="chart-hint">请稍候，正在从服务器获取数据。</p>
+        </div>
+      )}
+      {!loading && error && (
+        <div className="chart-empty">
+          <p className="chart-error">{error}</p>
+          <p className="chart-hint">下一步：检查网络连接，或稍后重试。如问题持续，请联系管理员。</p>
+        </div>
+      )}
       {!loading && !error && history.length < 2 && (
-        <div className="chart-empty">暂无可用历史数据（请先进行几次刷新）。</div>
+        <div className="chart-empty">
+          <p>暂无足够的历史数据</p>
+          <p className="chart-hint">
+            收益曲线需要至少 2 个估值快照点。下一步：进行几次手动刷新（点击首页刷新按钮），
+            等待后台完成估值计算后再查看。
+          </p>
+        </div>
       )}
 
       {!loading && !error && history.length >= 2 && (
         <>
+          {/* v3: 摘要信息 */}
+          <div className="chart-panel summary-panel" data-testid="portfolio-returns-summary">
+            <div className="summary-item">
+              <span className="summary-label">累计收益</span>
+              <strong className={`summary-value ${classBySign(latestTotalReturn)}`}>
+                {formatPercent(latestTotalReturn)}
+              </strong>
+              <span className="summary-note">基于估值快照</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">最大回撤</span>
+              <strong className="summary-value negative">
+                -{formatPercent(summary.maxDrawdown)}
+              </strong>
+              <span className="summary-note">区间峰值到谷值</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">近30天波动</span>
+              <strong className="summary-value">
+                {formatPercent(summary.volatility30d)}
+              </strong>
+              <span className="summary-note">日收益率标准差</span>
+            </div>
+          </div>
+
           <div className="chart-panel">
             <div className="chart-head">
               <h4>累计收益率</h4>
@@ -117,7 +195,10 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
               <span className="chart-hint">单位：CNY</span>
             </div>
             {recent7.length === 0 ? (
-              <div className="chart-empty">暂无日收益数据。</div>
+              <div className="chart-empty">
+                <p>暂无日收益数据</p>
+                <p className="chart-hint">需要至少 1 个估值快照点。下一步：进行手动刷新以触发估值计算。</p>
+              </div>
             ) : (
               <div className="watch-list" data-testid="portfolio-returns-day-profit-list">
                 {recent7.map((row) => (

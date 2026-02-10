@@ -1529,6 +1529,25 @@ button:disabled {
   margin: 0;
 }
 
+.settings-sip-form {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fbfdff;
+  display: grid;
+  gap: 10px;
+}
+
+.settings-sip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.settings-sip-note-field {
+  grid-column: 1 / -1;
+}
+
 .settings-benchmark-actions {
   display: flex;
   justify-content: flex-start;
@@ -1650,6 +1669,10 @@ button.settings-inline-btn {
   .state-grid {
     grid-template-columns: 1fr;
   }
+
+  .settings-sip-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {
@@ -1705,5 +1728,149 @@ button.settings-inline-btn {
 
   .risk-jump-btn {
     justify-self: start;
+  }
+}
+
+/* ============================================
+   MOBILE RESPONSIVE STYLES
+   ============================================ */
+
+/* Mobile devices (tablets and phones) */
+@media (max-width: 768px) {
+  .page-shell {
+    padding: 12px 10px 72px;
+  }
+
+  .brand-block h1 {
+    font-size: 28px;
+  }
+
+  .panel {
+    border-radius: 14px;
+  }
+
+  /* Hide less important columns on mobile */
+  .holdings-table .col-shares,
+  .holdings-table .col-cost,
+  .holdings-table .col-days {
+    display: none;
+  }
+
+  /* Stack summary cards vertically */
+  .summary-grid {
+    gap: 10px;
+  }
+
+  /* Larger touch targets */
+  button {
+    min-height: 44px;
+    padding: 10px 16px;
+  }
+
+  /* Better spacing for mobile */
+  .section-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .section-head h2 {
+    font-size: 18px;
+  }
+
+  /* Compact chart on mobile */
+  .returns-chart-container {
+    height: 180px !important;
+  }
+
+  /* Stack todo cards */
+  .todo-grid {
+    gap: 12px;
+  }
+
+  .todo-card {
+    padding: 16px;
+  }
+
+  .todo-card h3 {
+    font-size: 16px;
+  }
+
+  /* Improved bottom tabs for mobile */
+  .bottom-tabs {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid var(--line);
+    z-index: 1000;
+    padding: 8px 0;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Compact fund details on mobile */
+  .fund-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  /* Smaller fonts for mobile */
+  .auth-panel h2 {
+    font-size: 28px;
+  }
+
+  .auth-form label {
+    font-size: 14px;
+  }
+
+  /* Better spacing in lists */
+  .watch-list {
+    gap: 8px;
+  }
+
+  .watch-item {
+    padding: 10px 12px;
+  }
+}
+
+/* Extra small devices (phones, 480px and below) */
+@media (max-width: 480px) {
+  .page-shell {
+    padding: 10px 8px 80px;
+  }
+
+  .brand-block h1 {
+    font-size: 24px;
+  }
+
+  .panel {
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  /* Hide even more columns on very small screens */
+  .holdings-table .col-profit,
+  .holdings-table .col-rate {
+    display: none;
+  }
+
+  .holdings-table .col-name {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Compact summary cards */
+  .summary-card {
+    padding: 12px;
+  }
+
+  .summary-card h3 {
+    font-size: 13px;
+  }
+
+  .summary-card .value {
+    font-size: 20px;
   }
 }

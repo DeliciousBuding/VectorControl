@@ -5,6 +5,23 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Windows 终端 UTF-8 支持：修复中文输出乱码
+if sys.platform == "win32":
+    try:
+        import locale
+        import os
+
+        # 尝试设置控制台代码页为 UTF-8
+        os.system("chcp 65001 >nul 2>&1")
+        # 强制 Python stdout/stderr 使用 UTF-8
+        if sys.stdout.encoding != "utf-8":
+            sys.stdout.reconfigure(encoding="utf-8")
+        if sys.stderr.encoding != "utf-8":
+            sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        # 如果失败，继续执行但可能显示乱码
+        pass
+
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
@@ -86,4 +103,10 @@ def main() -> int:
 
 
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        # 最小自测：验证脚本可以正常加载并输出中文
+        print("[SELFTEST] 检查发布前预检脚本...")
+        print("[SELFTEST] 中文测试：文档门禁、后端编译、前端构建")
+        print("[SELFTEST] 脚本加载成功")
+        sys.exit(0)
     raise SystemExit(main())

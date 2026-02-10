@@ -314,3 +314,51 @@ export function fetchFundNavHistory(fundId, options = {}) {
   const suffix = query.toString() ? `?${query.toString()}` : ''
   return apiFetch(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}/nav/history${suffix}`)
 }
+
+export function fetchCumulativeReturns(days = 30) {
+  const query = new URLSearchParams({ days: String(days) })
+  return apiFetch(`/api/charts/cumulative_returns?${query.toString()}`)
+}
+
+export function fetchReturnsHistory(days = 30) {
+  const query = new URLSearchParams({ days: String(days) })
+  return apiFetch(`/api/charts/returns_history?${query.toString()}`)
+}
+
+export function fetchBenchmarkList() {
+  return apiFetch('/api/benchmark/list')
+}
+
+// SIP Plan APIs
+export function fetchSIPPlans(enabledOnly = false) {
+  const query = new URLSearchParams({ enabled_only: String(enabledOnly) })
+  return apiFetch(`/api/sip?${query.toString()}`)
+}
+
+export function createSIPPlan(payload) {
+  return apiFetch('/api/sip', { method: 'POST', body: payload })
+}
+
+export function updateSIPPlan(planId, payload) {
+  return apiFetch(`/api/sip/${encodeURIComponent(String(planId))}`, {
+    method: 'PATCH',
+    body: payload
+  })
+}
+
+export function deleteSIPPlan(planId) {
+  return apiFetch(`/api/sip/${encodeURIComponent(String(planId))}`, {
+    method: 'DELETE'
+  })
+}
+
+export function executeSIPPlan(planId) {
+  return apiFetch(`/api/sip/${encodeURIComponent(String(planId))}/execute`, {
+    method: 'POST'
+  })
+}
+
+export function fetchUpcomingSIPPlans(days = 7) {
+  const query = new URLSearchParams({ days: String(days) })
+  return apiFetch(`/api/sip/upcoming?${query.toString()}`)
+}
