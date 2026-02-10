@@ -34,7 +34,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [协同] 按 `docs/P0线上故障排查SOP.md` 完成"测速 Not Found + 设置中心白屏"双故障关闭留档（含根因、修复提交、回归证据）。
 - [ ] [协同] 双故障关闭留档（可审核版本）：后端主笔 postmortem + 前端补齐实机截图清单，占位符齐全，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）。
 - [ ] [协同] 本地可测试闭环：补齐 `docs/部署与运行.md` 的 Windows 本地启动步骤（后端 uvicorn 21345 + 前端 vite 5173 + 健康检查 URL），并明确"如何停止服务/如何查看日志"的最小说明。（前端已推送 `7a3f204`，待总控集成）。
-- [ ] [后端Agent1] 图表接口性能 v1（returns_history 聚合优化）：最大 days/DB 聚合/按日缓存（含过期策略），补最小性能 smoke + 架构说明（已于 2026-02-09 17:29:19 预告排队）。
+- [√] [后端] 图表接口性能 v1：returns_history 增加 60s TTL 缓存（已完成@bot 89703c4）
 - [√] [前端] 移动端适配 v1：精选 mot-bot 思路，小步优化 SettingsDrawer/HoldingsTable/交易表单窄屏可用性（已完成@bot dd7edf3）
 - [√] [前端] 分红（dividend）录入 UI v1：交易页增加 tradeType=dividend 并正确写入/展示（已完成@bot 06fea1b）
 - [√] [后端] 风险口径对齐 v1：GET /api/report/daily 增加 data_quality 摘要（已完成@bot 17bea90）
