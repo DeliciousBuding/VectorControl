@@ -720,8 +720,14 @@ export function SettingsDrawer({
       const healthSnapshot = healthzSnapshot ? asPlainObject(healthzSnapshot) : null
       const healthErrorSnapshot = String(healthzError || '').trim()
 
+      // v2: 增强复制内容 - 包含版本/页面URL/request_id（脱敏）
+      const pageUrl = typeof window !== 'undefined' ? window.location.href : ''
+      const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : ''
+      
       const bundle = {
         copied_at: new Date().toISOString(),
+        page_url: pageUrl,
+        user_agent: userAgent,
         system_status: snapshot,
         healthz: healthSnapshot,
         ...(statusErrorSnapshot ? { system_status_error: statusErrorSnapshot } : {}),
