@@ -66,6 +66,43 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
   const latestTotalReturn = history.length ? history[history.length - 1].total_return : 0
   const recent7 = useMemo(() => history.slice(-7).reverse(), [history])
 
+  // v3: 计算摘要信息
+  const summary = useMemo(() => {
+    if (history.length < 2) {
+      return { maxDrawdown: 0, volatility30d: 0 }
+    }
+
+    // 最大回撤：累计收益率的峰值到谷值的最大跌幅
+    let peak = history[0].total_return
+    let maxDrawdown = 0
+    for (const row of history) {
+      if (row.total_return > peak) {
+        peak = row.total_return
+      }
+      const drawdown = peak - row.total_return
+      if (drawdown > maxDrawdown) {
+        maxDrawdown = drawdown
+      }
+    }
+
+    // 近30天波动率（日收益率标准差）
+    const recent30 = history.slice(-30)
+    const dayReturns = []
+    for (let i = 1; i < recent30.length; i++) {
+      const dailyReturn = recent30[i].total_return - recent30[i - 1].total_return
+      dayReturns.push(dailyReturn)
+    }
+    
+    let volatility30d = 0
+    if (dayReturns.length > 1) {
+      const mean = dayReturns.reduce((sum, r) => sum + r, 0) / dayReturns.length
+      const variance = dayReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / dayReturns.length
+      volatility30d = Math.sqrt(variance)
+    }
+
+    return { maxDrawdown, volatility30d }
+  }, [history])
+
   const daysOptions = [7, 30, 90]
 
   return (
@@ -98,6 +135,31 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
 
       {!loading && !error && history.length >= 2 && (
         <>
+          {/* v3: 摘要信息 */}
+          <div className="chart-panel summary-panel" data-testid="portfolio-returns-summary">
+            <div className="summary-item">
+              <span className="summary-label">累计收益</span>
+              <strong className={`summary-value ${classBySign(latestTotalReturn)}`}>
+                {formatPercent(latestTotalReturn)}
+              </strong>
+              <span className="summary-note">基于估值快照</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">最大回撤</span>
+              <strong className="summary-value negative">
+                -{formatPercent(summary.maxDrawdown)}
+              </strong>
+              <span className="summary-note">区间峰值到谷值</span>
+            </div>
+            <div className="summary-item">
+              <span className="summary-label">近30天波动</span>
+              <strong className="summary-value">
+                {formatPercent(summary.volatility30d)}
+              </strong>
+              <span className="summary-note">日收益率标准差</span>
+            </div>
+          </div>
+
           <div className="chart-panel">
             <div className="chart-head">
               <h4>累计收益率</h4>
