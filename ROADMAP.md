@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 15:23:30
+更新时间：2026-02-10 15:26:45
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -59,7 +59,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [前端Agent1] 收益曲线体验 v3（摘要信息）：在收益曲线面板增加累计收益/最大回撤/近30天波动摘要与口径提示，补最小回归（已提交，测试和构建通过）
 - [√] [前端Agent1] 系统状态面板 v2（复制内容增强）：复制状态信息包包含版本/页面URL/request_id（脱敏），补最小回归（已提交，测试和构建通过）
 - [√] [前端Agent1] 收益曲线体验 v4（空数据与异常点展示）：空状态可解释、缺失天断线、异常点 marker（后端未来提供 anomalies），补最小回归（已提交，空状态已完成，异常点待后端支持）
-- [ ] [后端Agent1] 本地验收数据种子（dev_seed_demo）：提供 demo 数据写入脚本与文档说明（仅本地 dev DB，含二次确认参数，不含任何真实凭据）（已于 2026-02-09 17:18:30 预告排队）
+- [√] [后端Agent1] 本地验收数据种子（dev_seed_demo）：提供 demo 数据写入脚本与文档说明（仅本地 dev DB，含二次确认参数，不含任何真实凭据）（已提交，脚本和文档已完成）
 - [ ] [前端Agent1] 移动端适配 v1：精选 mot-bot 思路，小步优化 SettingsDrawer/HoldingsTable/交易表单窄屏可用性（已于 2026-02-09 16:55:54 预告排队）
 - [ ] [后端Agent1] 分红（dividend）闭环 v1：完善交易口径并在 `GET /api/report/daily` 增加"分红汇总"段落，补最小 smoke + 契约（已于 2026-02-09 16:58:08 预告排队）
 - [ ] [前端Agent1] 分红（dividend）录入 UI v1：交易页增加 tradeType=dividend 并正确写入/展示，补最小回归（已于 2026-02-09 16:58:08 预告排队）
