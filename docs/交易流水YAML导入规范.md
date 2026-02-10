@@ -1,6 +1,6 @@
 # 交易流水 YAML 导入规范（v1）
 
-更新时间：2026-02-07  
+> 最后更新: 2026-02-10 17:50:51 (UTC+8)
 适用范围：`POST /api/transactions/import_yaml`（规划中）
 
 本文档定义 `transactions_import.yaml` 的最小可执行规范，目标是保证导入可幂等、可审计、可补全（`pending -> confirmed`）。

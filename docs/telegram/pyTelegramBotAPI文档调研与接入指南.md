@@ -1,6 +1,5 @@
 # pyTelegramBotAPI 文档调研与接入指南
-
-更新时间：2026-02-08 14:22:30
+> 最后更新: 2026-02-10 18:23:39 (UTC+8)
 
 本文为官方资料的本地整理版（中文），用于 VectorControl 后续接入 Telegram Bot 通道。  
 目标是“可落地接入”，不是逐字镜像第三方文档。
@@ -129,4 +128,3 @@
 - `docs/telegram/Telegram通道配置与排障.md`
 - `docs/telegram/消息模板清单.md`
 - `docs/telegram/Gate-通知通道验收样例.md`
-
