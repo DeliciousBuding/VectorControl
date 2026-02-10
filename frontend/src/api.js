@@ -325,10 +325,6 @@ export function fetchReturnsHistory(days = 30) {
   return apiFetch(`/api/charts/returns_history?${query.toString()}`)
 }
 
-export function fetchBenchmarkComparison() {
-  return apiFetch('/api/benchmark/comparison')
-}
-
 export function fetchBenchmarkList() {
   return apiFetch('/api/benchmark/list')
 }

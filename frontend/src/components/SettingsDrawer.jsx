@@ -1,5 +1,16 @@
 import { useEffect, useState } from 'react'
-import { fetchHealthz, fetchNetworkBenchmarkLatest, fetchNotificationsStatus, fetchSystemStatus, runNetworkBenchmark } from '../api.js'
+import {
+  createSIPPlan,
+  deleteSIPPlan,
+  executeSIPPlan,
+  fetchHealthz,
+  fetchNetworkBenchmarkLatest,
+  fetchNotificationsStatus,
+  fetchSIPPlans,
+  fetchSystemStatus,
+  runNetworkBenchmark,
+  updateSIPPlan
+} from '../api.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
 import { TestMessageButton } from './TestMessageButton.jsx'
 
@@ -11,6 +22,22 @@ const PROFILE_OPTIONS = [
 const FEISHU_TEMPLATE_OPTIONS = [
   { value: 'title_content_metadata', label: '标题+正文+元数据' },
   { value: 'content_only', label: '仅正文' }
+]
+
+const SIP_FREQUENCY_OPTIONS = [
+  { value: 'weekly', label: '每周' },
+  { value: 'biweekly', label: '双周' },
+  { value: 'monthly', label: '每月' }
+]
+
+const SIP_WEEKLY_DAY_OPTIONS = [
+  { value: 1, label: '周一' },
+  { value: 2, label: '周二' },
+  { value: 3, label: '周三' },
+  { value: 4, label: '周四' },
+  { value: 5, label: '周五' },
+  { value: 6, label: '周六' },
+  { value: 7, label: '周日' }
 ]
 
 const DEFAULT_DRAWER_SETTINGS = {
@@ -183,6 +210,54 @@ function normalizeNotificationsStatus(payload) {
   }
 }
 
+function createEmptySIPDraft() {
+  return {
+    fund_id: '',
+    fund_name: '',
+    amount: '',
+    frequency: 'monthly',
+    day: 1,
+    note: ''
+  }
+}
+
+function getSIPDayUpperBound(frequency) {
+  return frequency === 'monthly' ? 31 : 7
+}
+
+function clampSIPDay(frequency, value) {
+  const parsed = Number(value)
+  const upper = getSIPDayUpperBound(frequency)
+  if (!Number.isFinite(parsed)) return 1
+  return Math.min(upper, Math.max(1, Math.round(parsed)))
+}
+
+function formatSIPSchedule(frequency, day) {
+  const safeDay = clampSIPDay(frequency, day)
+  if (frequency === 'monthly') return `每月 ${safeDay} 号`
+  const weekday = SIP_WEEKLY_DAY_OPTIONS.find((item) => item.value === safeDay)?.label || `周${safeDay}`
+  return frequency === 'biweekly' ? `双周 ${weekday}` : `每周 ${weekday}`
+}
+
+function formatSIPDate(value) {
+  const text = String(value || '').trim()
+  if (!text) return '--'
+  const date = new Date(text)
+  if (Number.isNaN(date.getTime())) return text
+  const month = `${date.getMonth() + 1}`.padStart(2, '0')
+  const day = `${date.getDate()}`.padStart(2, '0')
+  return `${date.getFullYear()}-${month}-${day}`
+}
+
+function formatSIPAmount(value) {
+  const amount = Number(value)
+  if (!Number.isFinite(amount)) return '--'
+  return amount.toLocaleString('zh-CN', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  })
+}
+
 export function SettingsDrawer({
   open,
   settings,
@@ -220,6 +295,15 @@ export function SettingsDrawer({
   const [telegramHistoryOpen, setTelegramHistoryOpen] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [sipPlans, setSipPlans] = useState([])
+  const [sipLoading, setSipLoading] = useState(false)
+  const [sipSaving, setSipSaving] = useState(false)
+  const [sipBusyPlanId, setSipBusyPlanId] = useState(null)
+  const [sipError, setSipError] = useState('')
+  const [sipHint, setSipHint] = useState('')
+  const [sipFormOpen, setSipFormOpen] = useState(false)
+  const [editingSipPlanId, setEditingSipPlanId] = useState(null)
+  const [sipDraft, setSipDraft] = useState(() => createEmptySIPDraft())
 
   useEffect(() => {
     const normalized = normalizeDrawerSettings(settings)
@@ -244,6 +328,11 @@ export function SettingsDrawer({
     setDiagnosticHint('')
     setDiagnosticError('')
     setSaveError('')
+    setSipError('')
+    setSipHint('')
+    setSipFormOpen(false)
+    setEditingSipPlanId(null)
+    setSipDraft(createEmptySIPDraft())
   }, [settings])
 
   useEffect(() => {
@@ -261,6 +350,33 @@ export function SettingsDrawer({
         if (!active) return
         setBenchmarkResult(null)
         setBenchmarkError(toGuidedError(error, 'settings_benchmark_load', '测速记录加载失败'))
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (!open) return
+
+    let active = true
+    setSipLoading(true)
+    setSipError('')
+    setSipHint('')
+    ;(async () => {
+      try {
+        const payload = await fetchSIPPlans(false)
+        if (!active) return
+        setSipPlans(Array.isArray(payload?.plans) ? payload.plans : [])
+      } catch (error) {
+        if (!active) return
+        setSipPlans([])
+        setSipError(toGuidedError(error, 'sip_list_load', '定投计划加载失败'))
+      } finally {
+        if (!active) return
+        setSipLoading(false)
       }
     })()
 
@@ -377,6 +493,10 @@ export function SettingsDrawer({
     : '纯文本'
   const benchmarkSummary = benchmarkResult?.summary || null
   const hasBenchmarkRows = Array.isArray(benchmarkResult?.results) && benchmarkResult.results.length > 0
+  const sipDayUpperBound = getSIPDayUpperBound(sipDraft.frequency)
+  const sipDayOptions = sipDraft.frequency === 'monthly'
+    ? Array.from({ length: 31 }, (_, index) => ({ value: index + 1, label: `${index + 1} 号` }))
+    : SIP_WEEKLY_DAY_OPTIONS
 
   const save = async () => {
     setSaveError('')
@@ -638,6 +758,146 @@ export function SettingsDrawer({
     }
   }
 
+  const refreshSIPPlans = async ({ showLoading = false } = {}) => {
+    if (showLoading) {
+      setSipLoading(true)
+    }
+    try {
+      const payload = await fetchSIPPlans(false)
+      setSipPlans(Array.isArray(payload?.plans) ? payload.plans : [])
+      setSipError('')
+      return true
+    } catch (error) {
+      setSipPlans([])
+      setSipError(toGuidedError(error, 'sip_list_refresh', '定投计划加载失败'))
+      return false
+    } finally {
+      if (showLoading) {
+        setSipLoading(false)
+      }
+    }
+  }
+
+  const resetSIPForm = () => {
+    setSipFormOpen(false)
+    setEditingSipPlanId(null)
+    setSipDraft(createEmptySIPDraft())
+  }
+
+  const startCreateSIPPlan = () => {
+    if (sipFormOpen && editingSipPlanId == null) {
+      resetSIPForm()
+      return
+    }
+    setSipFormOpen(true)
+    setEditingSipPlanId(null)
+    setSipDraft(createEmptySIPDraft())
+  }
+
+  const startEditSIPPlan = (plan) => {
+    const frequency = String(plan?.frequency || 'monthly')
+    setSipFormOpen(true)
+    setEditingSipPlanId(plan?.id ?? null)
+    setSipDraft({
+      fund_id: String(plan?.fund_id || ''),
+      fund_name: String(plan?.fund_name || ''),
+      amount: String(plan?.amount ?? ''),
+      frequency,
+      day: clampSIPDay(frequency, plan?.day ?? 1),
+      note: String(plan?.note || '')
+    })
+  }
+
+  const submitSIPPlan = async (event) => {
+    event.preventDefault()
+    setSipError('')
+    setSipHint('')
+    setSipSaving(true)
+    try {
+      const frequency = String(sipDraft.frequency || 'monthly')
+      const payload = {
+        fund_id: String(sipDraft.fund_id || '').trim(),
+        fund_name: String(sipDraft.fund_name || '').trim(),
+        amount: Number(sipDraft.amount),
+        frequency,
+        day: clampSIPDay(frequency, sipDraft.day),
+        note: String(sipDraft.note || '').trim()
+      }
+
+      if (editingSipPlanId == null) {
+        await createSIPPlan(payload)
+        setSipHint('定投计划已创建')
+      } else {
+        await updateSIPPlan(editingSipPlanId, payload)
+        setSipHint('定投计划已更新')
+      }
+      const ok = await refreshSIPPlans()
+      if (ok) {
+        resetSIPForm()
+      }
+    } catch (error) {
+      setSipError(toGuidedError(error, 'sip_save', '定投计划保存失败'))
+    } finally {
+      setSipSaving(false)
+    }
+  }
+
+  const toggleSIPPlanEnabled = async (plan) => {
+    const planId = plan?.id
+    if (planId == null) return
+
+    setSipError('')
+    setSipHint('')
+    setSipBusyPlanId(planId)
+    try {
+      await updateSIPPlan(planId, { enabled: !Boolean(plan.enabled) })
+      setSipHint(Boolean(plan.enabled) ? '定投计划已暂停' : '定投计划已启用')
+      await refreshSIPPlans()
+    } catch (error) {
+      setSipError(toGuidedError(error, 'sip_toggle', '定投计划状态更新失败'))
+    } finally {
+      setSipBusyPlanId(null)
+    }
+  }
+
+  const executeSIPPlanNow = async (planId) => {
+    if (planId == null) return
+
+    setSipError('')
+    setSipHint('')
+    setSipBusyPlanId(planId)
+    try {
+      await executeSIPPlan(planId)
+      setSipHint('已记录本次执行')
+      await refreshSIPPlans()
+    } catch (error) {
+      setSipError(toGuidedError(error, 'sip_execute', '执行记录失败'))
+    } finally {
+      setSipBusyPlanId(null)
+    }
+  }
+
+  const deleteSIPPlanById = async (planId) => {
+    if (planId == null) return
+    if (!window.confirm('确定删除该定投计划吗？')) return
+
+    setSipError('')
+    setSipHint('')
+    setSipBusyPlanId(planId)
+    try {
+      await deleteSIPPlan(planId)
+      setSipHint('定投计划已删除')
+      await refreshSIPPlans()
+      if (editingSipPlanId === planId) {
+        resetSIPForm()
+      }
+    } catch (error) {
+      setSipError(toGuidedError(error, 'sip_delete', '定投计划删除失败'))
+    } finally {
+      setSipBusyPlanId(null)
+    }
+  }
+
   return (
     <div className="settings-mask" onClick={onClose}>
       <section className="settings-drawer" onClick={(e) => e.stopPropagation()}>
@@ -683,6 +943,216 @@ export function SettingsDrawer({
               }))}
             />
           </label>
+        </div>
+
+        <div className="settings-group">
+          <h4>定投计划（SIP）</h4>
+          <div className="settings-secret-actions">
+            <button
+              type="button"
+              className="primary"
+              data-testid="sip-plan-create-toggle-btn"
+              onClick={startCreateSIPPlan}
+              disabled={sipSaving || sipBusyPlanId != null}
+            >
+              {sipFormOpen && editingSipPlanId == null ? '取消新增' : '新增计划'}
+            </button>
+            <button
+              type="button"
+              className="ghost"
+              data-testid="sip-plan-refresh-btn"
+              onClick={() => refreshSIPPlans({ showLoading: true })}
+              disabled={sipLoading || sipSaving || sipBusyPlanId != null}
+            >
+              刷新
+            </button>
+          </div>
+
+          {sipHint ? <p className="settings-note">{sipHint}</p> : null}
+          {sipError ? <p className="settings-error">{sipError}</p> : null}
+
+          {sipFormOpen ? (
+            <form className="settings-sip-form" onSubmit={submitSIPPlan}>
+              <div className="settings-sip-grid">
+                <label>
+                  <span>基金代码</span>
+                  <input
+                    required
+                    maxLength={6}
+                    pattern="\d{6}"
+                    data-testid="sip-plan-fund-id-input"
+                    value={sipDraft.fund_id}
+                    onChange={(event) => {
+                      const next = String(event.target.value || '').replace(/[^\d]/g, '').slice(0, 6)
+                      setSipDraft((prev) => ({ ...prev, fund_id: next }))
+                    }}
+                    disabled={editingSipPlanId != null}
+                    placeholder="000001"
+                  />
+                </label>
+
+                <label>
+                  <span>基金名称</span>
+                  <input
+                    data-testid="sip-plan-fund-name-input"
+                    value={sipDraft.fund_name}
+                    onChange={(event) => setSipDraft((prev) => ({ ...prev, fund_name: event.target.value }))}
+                    placeholder="可选"
+                  />
+                </label>
+
+                <label>
+                  <span>定投金额（元）</span>
+                  <input
+                    type="number"
+                    required
+                    min={0.01}
+                    step={0.01}
+                    data-testid="sip-plan-amount-input"
+                    value={sipDraft.amount}
+                    onChange={(event) => setSipDraft((prev) => ({ ...prev, amount: event.target.value }))}
+                    placeholder="1000"
+                  />
+                </label>
+
+                <label>
+                  <span>频率</span>
+                  <select
+                    data-testid="sip-plan-frequency-select"
+                    value={sipDraft.frequency}
+                    onChange={(event) => {
+                      const frequency = String(event.target.value || 'monthly')
+                      setSipDraft((prev) => ({
+                        ...prev,
+                        frequency,
+                        day: clampSIPDay(frequency, prev.day)
+                      }))
+                    }}
+                  >
+                    {SIP_FREQUENCY_OPTIONS.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label>
+                  <span>{sipDraft.frequency === 'monthly' ? '每月几号' : '周几'}</span>
+                  <select
+                    data-testid="sip-plan-day-select"
+                    value={clampSIPDay(sipDraft.frequency, sipDraft.day)}
+                    onChange={(event) => setSipDraft((prev) => ({
+                      ...prev,
+                      day: clampSIPDay(prev.frequency, event.target.value)
+                    }))}
+                  >
+                    {sipDayOptions.map((option) => (
+                      <option key={`${option.value}`} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  {sipDraft.frequency !== 'monthly' ? (
+                    <span className="settings-note">周投/双周定投仅支持 1-7（周一到周日）</span>
+                  ) : null}
+                  {sipDraft.frequency === 'monthly' && sipDayUpperBound === 31 ? (
+                    <span className="settings-note">月投支持 1-31 号</span>
+                  ) : null}
+                </label>
+
+                <label className="settings-sip-note-field">
+                  <span>备注</span>
+                  <input
+                    data-testid="sip-plan-note-input"
+                    value={sipDraft.note}
+                    onChange={(event) => setSipDraft((prev) => ({ ...prev, note: event.target.value }))}
+                    placeholder="可选"
+                  />
+                </label>
+              </div>
+
+              <div className="settings-secret-actions">
+                <button
+                  type="submit"
+                  className="primary"
+                  data-testid="sip-plan-submit-btn"
+                  disabled={sipSaving}
+                >
+                  {sipSaving ? '保存中...' : (editingSipPlanId == null ? '创建计划' : '保存修改')}
+                </button>
+                <button type="button" className="ghost" onClick={resetSIPForm} disabled={sipSaving}>
+                  取消
+                </button>
+              </div>
+            </form>
+          ) : null}
+
+          {sipLoading ? <p className="settings-note">加载中...</p> : null}
+
+          {!sipLoading && sipPlans.length === 0 ? (
+            <p className="settings-note">暂无定投计划。下一步：点击“新增计划”完成配置。</p>
+          ) : null}
+
+          {sipPlans.length > 0 ? (
+            <div className="plan-list" data-testid="sip-plan-list">
+              {sipPlans.map((plan) => {
+                const planId = plan?.id
+                const busy = sipBusyPlanId === planId
+                return (
+                  <article key={planId} className="plan-item">
+                    <div>
+                      <h4>{String(plan?.fund_id || '--')} {plan?.fund_name ? `· ${String(plan.fund_name)}` : ''}</h4>
+                      <p>
+                        金额：¥{formatSIPAmount(plan?.amount)} ｜ 频率：{formatSIPSchedule(plan?.frequency, plan?.day)}
+                      </p>
+                      <p>
+                        下次执行：{formatSIPDate(plan?.next_date)} ｜ 最近执行：{formatSIPDate(plan?.last_executed)}
+                      </p>
+                      {String(plan?.note || '').trim() ? <p>{`备注：${String(plan.note)}`}</p> : null}
+                    </div>
+                    <div className="plan-actions">
+                      <span className={plan?.enabled ? 'record-done' : 'record-pending'}>
+                        {plan?.enabled ? '启用中' : '已暂停'}
+                      </span>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => startEditSIPPlan(plan)}
+                        disabled={busy || sipSaving}
+                      >
+                        编辑
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => toggleSIPPlanEnabled(plan)}
+                        disabled={busy || sipSaving}
+                      >
+                        {plan?.enabled ? '暂停' : '启用'}
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => executeSIPPlanNow(planId)}
+                        disabled={busy || sipSaving}
+                      >
+                        记录执行
+                      </button>
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => deleteSIPPlanById(planId)}
+                        disabled={busy || sipSaving}
+                      >
+                        删除
+                      </button>
+                    </div>
+                  </article>
+                )
+              })}
+            </div>
+          ) : null}
         </div>
 
         <div className="settings-group">

@@ -1529,6 +1529,25 @@ button:disabled {
   margin: 0;
 }
 
+.settings-sip-form {
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  padding: 10px;
+  background: #fbfdff;
+  display: grid;
+  gap: 10px;
+}
+
+.settings-sip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 10px;
+}
+
+.settings-sip-note-field {
+  grid-column: 1 / -1;
+}
+
 .settings-benchmark-actions {
   display: flex;
   justify-content: flex-start;
@@ -1648,6 +1667,10 @@ button.settings-inline-btn {
   }
 
   .state-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-sip-grid {
     grid-template-columns: 1fr;
   }
 }

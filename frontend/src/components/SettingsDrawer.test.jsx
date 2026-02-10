@@ -1,14 +1,27 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { SettingsDrawer } from './SettingsDrawer.jsx'
-import { fetchHealthz, fetchNetworkBenchmarkLatest, fetchNotificationsStatus, fetchSystemStatus, runNetworkBenchmark } from '../api.js'
+import {
+  createSIPPlan,
+  fetchHealthz,
+  fetchNetworkBenchmarkLatest,
+  fetchNotificationsStatus,
+  fetchSIPPlans,
+  fetchSystemStatus,
+  runNetworkBenchmark
+} from '../api.js'
 
 vi.mock('../api.js', () => ({
+  createSIPPlan: vi.fn(),
   fetchHealthz: vi.fn(),
   fetchNetworkBenchmarkLatest: vi.fn(),
   fetchNotificationsStatus: vi.fn(),
+  fetchSIPPlans: vi.fn(),
   fetchSystemStatus: vi.fn(),
-  runNetworkBenchmark: vi.fn()
+  runNetworkBenchmark: vi.fn(),
+  updateSIPPlan: vi.fn(),
+  deleteSIPPlan: vi.fn(),
+  executeSIPPlan: vi.fn()
 }))
 
 describe('SettingsDrawer', () => {
@@ -25,6 +38,8 @@ describe('SettingsDrawer', () => {
     fetchSystemStatus.mockResolvedValue({})
     fetchHealthz.mockResolvedValue({ status: 'ok' })
     runNetworkBenchmark.mockResolvedValue({ result: null })
+    fetchSIPPlans.mockResolvedValue({ plans: [], count: 0, enabled_only: false })
+    createSIPPlan.mockResolvedValue({ plan: { id: 1 } })
   })
 
   it('可正常打开抽屉且兼容缺失设置字段', async () => {
@@ -41,6 +56,71 @@ describe('SettingsDrawer', () => {
     await waitFor(() => {
       expect(fetchNetworkBenchmarkLatest).toHaveBeenCalledTimes(1)
     })
+  })
+
+  it('SIP 面板支持创建计划并回刷列表', async () => {
+    fetchSIPPlans
+      .mockResolvedValueOnce({ plans: [], count: 0, enabled_only: false })
+      .mockResolvedValueOnce({
+        plans: [
+          {
+            id: 101,
+            fund_id: '000001',
+            fund_name: '华夏成长',
+            amount: 500,
+            frequency: 'monthly',
+            day: 15,
+            enabled: true,
+            next_date: '2026-03-15',
+            last_executed: '',
+            note: '长期'
+          }
+        ],
+        count: 1,
+        enabled_only: false
+      })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{}}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    await waitFor(() => {
+      expect(fetchSIPPlans).toHaveBeenCalledTimes(1)
+    })
+
+    fireEvent.click(screen.getByTestId('sip-plan-create-toggle-btn'))
+    fireEvent.change(screen.getByTestId('sip-plan-fund-id-input'), { target: { value: '000001' } })
+    fireEvent.change(screen.getByTestId('sip-plan-fund-name-input'), { target: { value: '华夏成长' } })
+    fireEvent.change(screen.getByTestId('sip-plan-amount-input'), { target: { value: '500' } })
+    fireEvent.change(screen.getByTestId('sip-plan-frequency-select'), { target: { value: 'monthly' } })
+    fireEvent.change(screen.getByTestId('sip-plan-day-select'), { target: { value: '15' } })
+    fireEvent.change(screen.getByTestId('sip-plan-note-input'), { target: { value: '长期' } })
+    fireEvent.click(screen.getByTestId('sip-plan-submit-btn'))
+
+    await waitFor(() => {
+      expect(createSIPPlan).toHaveBeenCalledTimes(1)
+    })
+
+    expect(createSIPPlan.mock.calls[0][0]).toMatchObject({
+      fund_id: '000001',
+      fund_name: '华夏成长',
+      amount: 500,
+      frequency: 'monthly',
+      day: 15,
+      note: '长期'
+    })
+
+    await waitFor(() => {
+      expect(fetchSIPPlans).toHaveBeenCalledTimes(2)
+    })
+
+    expect(await screen.findByText(/定投计划已创建/)).toBeInTheDocument()
+    expect(screen.getByText(/000001/)).toBeInTheDocument()
   })
 
   it('可渲染测速结果摘要与站点明细', async () => {
@@ -94,7 +174,7 @@ describe('SettingsDrawer', () => {
     )
 
     expect(await screen.findByText(/测速记录加载失败/)).toBeInTheDocument()
-    expect(screen.getByText(/下一步：/)).toBeInTheDocument()
+    expect(screen.getByText(/必要时检查后端服务状态/)).toBeInTheDocument()
   })
 
   it('测速返回脏数据时可兜底渲染并给出可解释提示', async () => {
