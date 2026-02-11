@@ -6,6 +6,7 @@ import {
   fetchHealthz,
   fetchNetworkBenchmarkLatest,
   fetchNotificationsStatus,
+  fetchSettingsAuditLogs,
   fetchSIPPlans,
   fetchSystemStatus,
   runNetworkBenchmark,
@@ -298,6 +299,9 @@ export function SettingsDrawer({
   const [saving, setSaving] = useState(false)
   const [testAllLoading, setTestAllLoading] = useState(false)
   const [testAllResult, setTestAllResult] = useState(null)
+  const [auditLogs, setAuditLogs] = useState([])
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false)
+  const [auditLogsOpen, setAuditLogsOpen] = useState(false)
   const [sipPlans, setSipPlans] = useState([])
   const [sipLoading, setSipLoading] = useState(false)
   const [sipSaving, setSipSaving] = useState(false)
@@ -739,6 +743,25 @@ export function SettingsDrawer({
     } finally {
       setTestAllLoading(false)
     }
+  }
+
+  const loadAuditLogs = async () => {
+    setAuditLogsLoading(true)
+    try {
+      const result = await fetchSettingsAuditLogs(10)
+      setAuditLogs(result?.logs || [])
+    } catch (error) {
+      console.error('Failed to load audit logs:', error)
+    } finally {
+      setAuditLogsLoading(false)
+    }
+  }
+
+  const toggleAuditLogs = async () => {
+    if (!auditLogsOpen && auditLogs.length === 0) {
+      await loadAuditLogs()
+    }
+    setAuditLogsOpen(!auditLogsOpen)
   }
 
   const handleCopySystemStatus = async () => {
@@ -1557,6 +1580,37 @@ export function SettingsDrawer({
 
           {systemPanelHint ? <p className="settings-note">{systemPanelHint}</p> : null}
           {systemPanelError ? <p className="settings-error">{systemPanelError}</p> : null}
+
+          <div className="settings-secret-actions" style={{ marginTop: '12px' }}>
+            <button
+              type="button"
+              className="ghost"
+              onClick={toggleAuditLogs}
+              disabled={auditLogsLoading}
+            >
+              {auditLogsOpen ? '收起变更记录' : '查看变更记录'}
+            </button>
+          </div>
+
+          {auditLogsOpen && (
+            <div className="settings-audit-logs">
+              {auditLogsLoading ? (
+                <p className="settings-note">加载中...</p>
+              ) : auditLogs.length === 0 ? (
+                <p className="settings-note">暂无变更记录</p>
+              ) : (
+                <ul className="audit-log-list">
+                  {auditLogs.map((log, idx) => (
+                    <li key={log.id || idx} className="audit-log-item">
+                      <span className="audit-time">{formatDiagnosticTimestamp(log.created_at)}</span>
+                      <span className="audit-action">{log.action}</span>
+                      {log.note && <span className="audit-note">{log.note}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="settings-group">

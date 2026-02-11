@@ -464,6 +464,49 @@ select {
   word-break: break-all;
 }
 
+/* Settings Audit Logs */
+.settings-audit-logs {
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.audit-log-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.audit-log-item {
+  display: flex;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.audit-log-item:last-child {
+  border-bottom: none;
+}
+
+.audit-time {
+  color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+
+.audit-action {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.audit-note {
+  color: var(--muted);
+}
+
 button {
   border: none;
   border-radius: var(--radius-button);
