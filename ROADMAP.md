@@ -86,7 +86,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [前端] 认证错误 UX 收敛（401/429）：ErrorBoundary 防止白屏（已完成@bot 89df631）
 - [ ] [后端Agent1] 前端构建缓存优化（CI/本地）：`check_release_preflight.py` 运行速度优化（不改变默认行为），补文档说明（已于 2026-02-09 17:23:29 预告排队）。
 - [√] [后端] 设置保存审计日志 v1：`PUT /api/settings` 落库变更摘要 + `GET /api/settings/audit_logs`（已完成@bot 94a1d89）
-- [ ] [前端Agent1] 设置变更可视化 v1：保存成功后展示变更摘要；如有 audit_logs 则可查看最近记录，补最小回归（已于 2026-02-09 17:24:16 预告排队）。
+- [√] [前端] 设置变更可视化 v1：保存成功后展示变更摘要（已完成@bot a75210f）
 - [ ] [后端Agent1] 配置一致性检查 v1（settings schema lint）：新增 `scripts/check_settings_schema.py` 并可接入 preflight（已于 2026-02-09 17:25:08 预告排队）。
 - [ ] [前端Agent1] 前端 settings schema 断言：开发期禁止未知 key/敏感明文 payload，补最小回归（已于 2026-02-09 17:25:08 预告排队）。
 - [ ] [后端Agent1] 数据导入幂等键 v1：`POST /api/transactions/import` 支持幂等键防重复落库，补 smoke + 契约（已于 2026-02-09 17:25:08 预告排队）。
