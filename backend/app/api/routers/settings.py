@@ -14,6 +14,7 @@ from app.core.rate_limit import InMemoryRateLimiter
 from app.notifier import NotificationPayload
 from app.notifier import feishu_sender as feishu_mod
 from app.notifier import telegram_sender as telegram_mod
+from app.notifier.base import NotifierActionError, NotifierActionResult
 from app.storage.db import get_user_settings, list_audit_logs, upsert_user_settings
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -34,17 +35,17 @@ def _test_message_error(
     http_status: int | None = None,
     error_code: Any | None = None,
     description: str | None = None,
-) -> dict[str, Any]:
+) -> NotifierActionError:
     # Keep a stable, cross-channel error shape for test_message endpoints.
     msg = str(message or "").strip()
     desc = str(description or msg).strip()
-    return {
-        "category": str(category or "").strip() or "provider_error",
-        "message": msg or desc or "unknown",
-        "http_status": int(http_status) if http_status is not None else None,
-        "error_code": error_code,
-        "description": desc or None,
-    }
+    return NotifierActionError(
+        category=str(category or "").strip() or "provider_error",
+        message=msg or desc or "unknown",
+        http_status=int(http_status) if http_status is not None else None,
+        error_code=error_code,
+        description=desc or None,
+    )
 
 
 def _now_iso_seconds() -> str:
@@ -405,7 +406,7 @@ async def put_telegram_credential(request: Request, payload: TelegramCredentialI
 
 
 @router.post("/notifications/telegram/test_message")
-async def post_telegram_test_message(request: Request) -> dict:
+async def post_telegram_test_message(request: Request) -> NotifierActionResult:
     user_id = get_holdings_user_id(request)
 
     # Cooldown check
@@ -459,7 +460,7 @@ async def post_telegram_test_message(request: Request) -> dict:
         req_payload["parse_mode"] = parse_mode
 
     max_attempts = retry_times + 1
-    last_error: dict[str, Any] | None = None
+    last_error: NotifierActionError | None = None
 
     for attempt in range(1, max_attempts + 1):
         try:
@@ -486,14 +487,14 @@ async def post_telegram_test_message(request: Request) -> dict:
                 )
                 # Record cooldown
                 _test_message_limiter.record_success(cooldown_key)
-                return {
-                    "ok": True,
-                    "sent": True,
-                    "trace_id": trace_id,
-                    "attempts": attempt,
-                    "max_attempts": max_attempts,
-                    "error": None,
-                }
+                return NotifierActionResult(
+                    ok=True,
+                    sent=True,
+                    trace_id=trace_id,
+                    attempts=attempt,
+                    max_attempts=max_attempts,
+                    error=None,
+                )
 
             error_code = resp_json.get("error_code") if isinstance(resp_json, dict) else None
             description = (
@@ -501,17 +502,19 @@ async def post_telegram_test_message(request: Request) -> dict:
                 if isinstance(resp_json, dict)
                 else ""
             )
-            category = "provider_error"
+            category = "unknown"
             try:
                 code_int = int(error_code)
             except Exception:
                 code_int = -1
             if code_int == 401:
-                category = "unauthorized"
+                category = "auth_failed"
             elif code_int == 403:
                 category = "forbidden"
-            elif code_int == 400:
-                category = "bad_request"
+            elif code_int == 400 and "chat not found" in description.lower():
+                category = "chat_not_found"
+            elif code_int == 429:
+                category = "rate_limited"
             last_error = _test_message_error(
                 category,
                 description or category,
@@ -531,7 +534,7 @@ async def post_telegram_test_message(request: Request) -> dict:
         trace_id=trace_id,
         ok=False,
         sent=False,
-        error_category=str((last_error or {}).get("category") or "unknown"),
+        error_category=str(last_error.category if last_error else "unknown"),
     )
     _persist_last_test_history(
         user_id=user_id,
@@ -539,20 +542,20 @@ async def post_telegram_test_message(request: Request) -> dict:
         trace_id=trace_id,
         ok=False,
         sent=False,
-        error_category=str((last_error or {}).get("category") or "unknown"),
+        error_category=str(last_error.category if last_error else "unknown"),
     )
-    return {
-        "ok": False,
-        "sent": False,
-        "trace_id": trace_id,
-        "attempts": max_attempts,
-        "max_attempts": max_attempts,
-        "error": last_error or _test_message_error("provider_error", "unknown"),
-    }
+    return NotifierActionResult(
+        ok=False,
+        sent=False,
+        trace_id=trace_id,
+        attempts=max_attempts,
+        max_attempts=max_attempts,
+        error=last_error or _test_message_error("provider_error", "unknown"),
+    )
 
 
 @router.post("/notifications/feishu/test_message")
-async def post_feishu_test_message(request: Request) -> dict:
+async def post_feishu_test_message(request: Request) -> NotifierActionResult:
     user_id = get_holdings_user_id(request)
 
     # Cooldown check
@@ -592,7 +595,7 @@ async def post_feishu_test_message(request: Request) -> dict:
     retry_times = feishu_mod.FeishuSender._coerce_retry_times(section.get("retry_times", feishu_mod.DEFAULT_RETRY_TIMES))
     timeout_seconds = feishu_mod.FeishuSender._coerce_timeout(section.get("timeout_seconds", feishu_mod.DEFAULT_TIMEOUT_SECONDS))
     max_attempts = retry_times + 1
-    last_error: dict[str, Any] | None = None
+    last_error: NotifierActionError | None = None
 
     for attempt in range(1, max_attempts + 1):
         try:
@@ -622,14 +625,14 @@ async def post_feishu_test_message(request: Request) -> dict:
                 )
                 # Record cooldown on success
                 _test_message_limiter.record_success(cooldown_key)
-                return {
-                    "ok": True,
-                    "sent": True,
-                    "trace_id": trace_id,
-                    "attempts": attempt,
-                    "max_attempts": max_attempts,
-                    "error": None,
-                }
+                return NotifierActionResult(
+                    ok=True,
+                    sent=True,
+                    trace_id=trace_id,
+                    attempts=attempt,
+                    max_attempts=max_attempts,
+                    error=None,
+                )
 
             provider_message = str(resp_json.get("StatusMessage") or resp_json.get("msg") or "").strip() if isinstance(resp_json, dict) else ""
             category = "provider_error"
@@ -659,7 +662,7 @@ async def post_feishu_test_message(request: Request) -> dict:
         trace_id=trace_id,
         ok=False,
         sent=False,
-        error_category=str((last_error or {}).get("category") or "unknown"),
+        error_category=str(last_error.category if last_error else "unknown"),
     )
     _persist_last_test_history(
         user_id=user_id,
@@ -667,16 +670,16 @@ async def post_feishu_test_message(request: Request) -> dict:
         trace_id=trace_id,
         ok=False,
         sent=False,
-        error_category=str((last_error or {}).get("category") or "unknown"),
+        error_category=str(last_error.category if last_error else "unknown"),
     )
-    return {
-        "ok": False,
-        "sent": False,
-        "trace_id": trace_id,
-        "attempts": max_attempts,
-        "max_attempts": max_attempts,
-        "error": last_error or _test_message_error("provider_error", "unknown"),
-    }
+    return NotifierActionResult(
+        ok=False,
+        sent=False,
+        trace_id=trace_id,
+        attempts=max_attempts,
+        max_attempts=max_attempts,
+        error=last_error or _test_message_error("provider_error", "unknown"),
+    )
 
 
 @router.get("/notifications/status")

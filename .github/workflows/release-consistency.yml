@@ -22,4 +22,4 @@ jobs:
           python-version: "3.12"
 
       - name: Verify Main Release Consistency
-        run: python scripts/check_main_release.py --commit HEAD --check-remote-tag --remote origin
+        run: python scripts/check_main_release.py

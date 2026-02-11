@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { fetchBenchmarkComparison } from '../api.js'
 import { classBySign, formatPercent } from '../utils/format.js'
-import { Spin, Alert } from 'antd'
+import { Spin } from 'antd'
 
 // 基准名称映射
 const BENCHMARK_NAMES = {
@@ -22,7 +22,6 @@ export function BenchmarkComparison({ user }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
-  const [timeRange, setTimeRange] = useState('30d') // 默认 30 天
 
   useEffect(() => {
     if (!user) {
@@ -51,9 +50,9 @@ export function BenchmarkComparison({ user }) {
 
   if (loading) {
     return (
-      <div className="p-4 bg-white rounded shadow">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm font-medium text-gray-700">基准对比</h3>
+      <div className="panel home-main">
+        <div className="section-head">
+          <h2>基准对比</h2>
         </div>
         <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Spin tip="加载中..." />
@@ -64,8 +63,10 @@ export function BenchmarkComparison({ user }) {
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 rounded text-red-600 text-center">
-        {error}
+      <div className="panel home-main">
+        <div className="chart-empty">
+          <p className="chart-error">{error}</p>
+        </div>
       </div>
     )
   }
@@ -200,15 +201,17 @@ export function BenchmarkComparison({ user }) {
   }
 
   return (
-    <div className="bg-white rounded shadow p-4">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-gray-700">基准对比</h3>
-        <span className="text-xs text-gray-500">
-          你的收益: <span className={`font-medium ${classBySign(portfolio_return)}`}>{formatPercent(portfolio_return)}</span>
-        </span>
+    <div className="panel home-main">
+      <div className="section-head">
+        <div>
+          <h2>基准对比</h2>
+          <span style={{ fontSize: '13px', color: 'var(--muted)' }}>
+             你的收益: <span className={classBySign(portfolio_return)}>{formatPercent(portfolio_return)}</span>
+          </span>
+        </div>
       </div>
       
-      <div style={{ height: '250px' }}>
+      <div style={{ height: '280px', marginTop: 16 }}>
         <ReactECharts 
           option={getOption()} 
           style={{ height: '100%', width: '100%' }}
@@ -217,25 +220,23 @@ export function BenchmarkComparison({ user }) {
         />
       </div>
 
-      {/* 基准对比摘要卡片 */}
-      <div className="grid grid-cols-3 gap-3 mt-3" style={{ marginTop: '12px' }}>
+      <div className="metric-grid" style={{ marginTop: '16px', gridTemplateColumns: 'repeat(3, 1fr)' }}>
         {Object.entries(comparison).map(([benchId, comp]) => {
           const isBest = benchId === best_benchmark
           return (
             <div
               key={benchId}
-              className={`p-3 rounded border ${
-                isBest ? 'border-blue-300 bg-blue-50' : 'border-gray-200 bg-gray-50'
-              }`}
+              className="metric-item"
+              style={isBest ? { borderColor: '#93c5fd', background: '#eff6ff' } : {}}
             >
-              <div className="text-xs text-gray-600 mb-1">
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginBottom: 4 }}>
                 {BENCHMARK_NAMES[benchId] || benchId}
-                {isBest && <span className="ml-1 text-blue-600">★</span>}
+                {isBest && <span style={{ marginLeft: 4, color: '#2563eb' }}>★</span>}
               </div>
-              <div className={`text-lg font-bold ${classBySign(comp.excess_return)}`}>
+              <strong className={`metric-main ${classBySign(comp.excess_return)}`} style={{ fontSize: '20px' }}>
                 {comp.excess_return >= 0 ? '+' : ''}{formatPercent(comp.excess_return)}
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
+              </strong>
+              <div style={{ fontSize: '12px', color: 'var(--muted)', marginTop: 4 }}>
                 {comp.outperform ? '跑赢' : '跑输'}基准
               </div>
             </div>
@@ -244,7 +245,7 @@ export function BenchmarkComparison({ user }) {
       </div>
 
       {data?.data_status?.note && (
-        <div className="text-xs text-gray-500 mt-3 text-center">
+        <div className="chart-hint" style={{ textAlign: 'center', marginTop: 12 }}>
           {data.data_status.note}
         </div>
       )}

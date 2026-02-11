@@ -22,9 +22,9 @@ class FeishuSenderSmokeTest(unittest.TestCase):
             settings={"notifications": {"feishu": {"enabled": False}}},
         )
         self.assertEqual(result.channel, "feishu")
-        self.assertEqual(bool(result.success), False)
-        self.assertEqual(bool(result.skipped), True)
-        self.assertEqual(result.code, "disabled")
+        self.assertEqual(result.ok, False)
+        self.assertEqual(result.sent, False)
+        self.assertIn("disabled", result.error)
 
     def test_missing_webhook_returns_skipped(self) -> None:
         result = self.sender.send(
@@ -32,9 +32,9 @@ class FeishuSenderSmokeTest(unittest.TestCase):
             settings={"notifications": {"feishu": {"enabled": True, "webhook_url": ""}}},
         )
         self.assertEqual(result.channel, "feishu")
-        self.assertEqual(bool(result.success), False)
-        self.assertEqual(bool(result.skipped), True)
-        self.assertEqual(result.code, "config_missing")
+        self.assertEqual(result.ok, False)
+        self.assertEqual(result.sent, False)
+        self.assertIn("missing", result.error)
 
     def test_retry_and_success(self) -> None:
         with patch("app.notifier.feishu_sender._http_post_json") as mocked_post:
@@ -48,7 +48,7 @@ class FeishuSenderSmokeTest(unittest.TestCase):
                     "notifications": {
                         "feishu": {
                             "enabled": True,
-                            "webhook_url": "https://example.com/webhook",
+                            "webhook_url": "https://open.feishu.cn/webhook",
                             "retry_times": 2,
                             "timeout_seconds": 1.5,
                             "template": "title_content_metadata",
@@ -58,10 +58,10 @@ class FeishuSenderSmokeTest(unittest.TestCase):
             )
 
         self.assertEqual(mocked_post.call_count, 2)
-        self.assertEqual(bool(result.success), True)
-        self.assertEqual(bool(result.skipped), False)
-        self.assertEqual(result.code, "ok")
-        self.assertEqual(result.provider_message_id, "msg-001")
+        self.assertEqual(result.ok, True)
+        self.assertEqual(result.sent, True)
+        self.assertEqual(result.trace_id, "msg-001")
+        self.assertEqual(result.attempts, 2)
 
     def test_exhaust_retries_returns_failed(self) -> None:
         with patch("app.notifier.feishu_sender._http_post_json") as mocked_post:
@@ -72,7 +72,7 @@ class FeishuSenderSmokeTest(unittest.TestCase):
                     "notifications": {
                         "feishu": {
                             "enabled": True,
-                            "webhook_url": "https://example.com/webhook",
+                            "webhook_url": "https://open.feishu.cn/webhook",
                             "retry_times": 1,
                         }
                     }
@@ -80,10 +80,10 @@ class FeishuSenderSmokeTest(unittest.TestCase):
             )
 
         self.assertEqual(mocked_post.call_count, 2)
-        self.assertEqual(bool(result.success), False)
-        self.assertEqual(bool(result.skipped), False)
-        self.assertEqual(result.code, "send_failed")
-        self.assertIn("attempts=2", result.message)
+        self.assertEqual(result.ok, False)
+        self.assertEqual(result.sent, False)
+        self.assertIn("feishu send failed", result.error)
+        self.assertEqual(result.attempts, 2)
 
     def test_content_only_template(self) -> None:
         with patch("app.notifier.feishu_sender._http_post_json", return_value=(200, {"StatusCode": 0})) as mocked_post:
@@ -93,14 +93,14 @@ class FeishuSenderSmokeTest(unittest.TestCase):
                     "notifications": {
                         "feishu": {
                             "enabled": True,
-                            "webhook_url": "https://example.com/webhook",
+                            "webhook_url": "https://open.feishu.cn/webhook",
                             "template": "content_only",
                         }
                     }
                 },
             )
 
-        self.assertEqual(bool(result.success), True)
+        self.assertEqual(result.ok, True)
         sent_payload = mocked_post.call_args.args[1]
         sent_text = sent_payload["content"]["text"]
         self.assertIn("profit +1.28%", sent_text)

@@ -326,6 +326,12 @@ export function SettingsDrawer({
   const [editingSipPlanId, setEditingSipPlanId] = useState(null)
   const [sipDraft, setSipDraft] = useState(() => createEmptySIPDraft())
 
+  const [internalOpen, setInternalOpen] = useState(open)
+
+  useEffect(() => {
+    setInternalOpen(open)
+  }, [open])
+
   useEffect(() => {
     const normalized = normalizeDrawerSettings(settings)
     const webhook = String(normalized.notifications?.feishu?.webhook_url || '').trim()
@@ -482,8 +488,6 @@ export function SettingsDrawer({
       active = false
     }
   }, [open])
-
-  if (!open) return null
 
   const updateDraft = (updater) => {
     setDraft((prev) => {
@@ -943,16 +947,12 @@ export function SettingsDrawer({
     }
   }
 
-  const [internalOpen, setInternalOpen] = useState(open)
-
-  useEffect(() => {
-    setInternalOpen(open)
-  }, [open])
-
   const handleClose = () => {
     setInternalOpen(false)
     if (onClose) onClose()
   }
+
+  if (!internalOpen && !open) return null
 
   return (
     <Drawer
@@ -960,7 +960,7 @@ export function SettingsDrawer({
       placement="right"
       onClose={handleClose}
       open={internalOpen}
-      width={min(540, 95)}
+      width={Math.min(540, typeof window !== 'undefined' ? window.innerWidth - 48 : 540)}
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button onClick={handleClose}>关闭</Button>
