@@ -34,7 +34,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [前端] 基于 `docs/Gate-D验收证据模板.md` 补齐设置中心/测速页面实机验收证据（已合并 `f36d94f -> dev@943c7a9`；本地证据文档已完成：`docs/Gate-D设置中心测速前端证据.md`，待生产实机截图补录后关单）。
 - [ ] [协同] 按 `docs/P0线上故障排查SOP.md` 完成"测速 Not Found + 设置中心白屏"双故障关闭留档（含根因、修复提交、回归证据）。
 - [ ] [协同] 双故障关闭留档（可审核版本）：后端主笔 postmortem + 前端补齐实机截图清单，占位符齐全，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）。
-- [ ] [协同] 本地可测试闭环：补齐 `docs/部署与运行.md` 的 Windows 本地启动步骤（后端 uvicorn 21345 + 前端 vite 5173 + 健康检查 URL），并明确"如何停止服务/如何查看日志"的最小说明。（前端已推送 `7a3f204`，待总控集成）。
+- [x] [协同] 本地可测试闭环：补齐 `docs/部署与运行.md` 的 Windows 本地启动步骤（后端 uvicorn 21345 + 前端 vite 5173 + 健康检查 URL），并明确"如何停止服务/如何查看日志"的最小说明。（已完成@bot 7a3f204）。
 
 ### 已完成 (Done)
 - [√] [后端] 图表接口性能 v1：returns_history 增加 60s TTL 缓存（已完成@bot 89703c4）
@@ -60,19 +60,19 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 
 ### 待集成 (Queue)
 - [ ] [协同] 通知通道"统一动作结果模型"：对 Telegram/飞书的 `test_message` 返回结构与错误分类做 SSOT 约束（`ok/sent/trace_id/attempts/error{category,message}`），并在 `docs/接口契约.md` 固化（前端仅依赖该结构渲染提示，不做 provider 特判）。
-- [ ] [后端] 统一 Telegram/飞书 `test_message` 返回结构与错误分类：两者返回字段完全一致（`ok/sent/trace_id/attempts/max_attempts/error{category,message}`），并同步更新 smoke + `docs/接口契约.md`。（已推送 `cca0990`，待总控集成）。
-- [ ] [后端] 飞书 webhook 治理 v1：URL 校验（仅 https；host 白名单 `open.feishu.cn`）、sender 日志脱敏（不记录明文 webhook）、补最小 smoke。（已推送 `f6be5b1`，待总控集成）。
+- [x] [后端] 统一 Telegram/飞书 `test_message` 返回结构与错误分类：两者返回字段完全一致（`ok/sent/trace_id/attempts/max_attempts/error{category,message}`），并同步更新 smoke + `docs/接口契约.md`。（已完成@bot cca0990）。
+- [x] [后端] 飞书 webhook 治理 v1：URL 校验（仅 https；host 白名单 `open.feishu.cn`）、sender 日志脱敏（不记录明文 webhook）、补最小 smoke。（已完成@bot f6be5b1）。
 - [ ] [后端] 飞书抓取治理 v2（后续）：频控、缓存过期、日志审计、失败隔离（本条不阻塞 v1）。
-- [ ] [前端] 测试消息按钮组件化：抽 `TestMessageButton` 统一 Telegram/飞书 test_message 交互与提示（trace_id + error.category/message），降低重复逻辑与回归风险。（已推送 `7c52b6f`，待总控集成）。
-- [ ] [后端] 通知诊断 status（只读脱敏）：新增 `GET /api/settings/notifications/status`，返回每个通道 `enabled/credential_configured/last_test_summary(trace_id,time,ok,sent,error_category)`；不得回显任何凭据明文。第一版允许 `last_test_summary=null`（不做持久化），但字段必须存在且契约明确。（已推送 `4d6d34b`，待总控集成）。
-- [ ] [后端] 通知诊断 status v2a（可观测性）：每次调用 `*/test_message` 后落库 `last_test_summary`（含 time/trace_id/ok/sent/error_category），并在 `GET /api/settings/notifications/status` 返回；仍不得回显任何凭据明文，契约与 smoke 补齐。（已推送 `ea4e344`，待总控集成；不阻塞 v1）。
-- [ ] [后端] 通知诊断 status v2b（历史）：在 status 中返回 `last_test_history` 最近 N 条（默认 10），用于前端展示失败趋势。（已推送 `d5332f3`，待总控集成；不阻塞 v2a）。
-- [ ] [前端] 通知诊断面板 v2a：支持一键复制 `trace_id`，并对 `last_test_summary.time` 做可读格式展示；保持统一提示格式（trace_id + error.category/message）。（已推送 `26c4c9d`，待总控集成）。
-- [ ] [前端] 通知诊断面板 v2b：展示 `last_test_history` 最近 N 条（若后端提供），支持展开/收起与复制 trace_id。（已推送 `3b2989d`，待总控集成；不阻塞 v2a）。
-- [ ] [后端] 健康检查口径一致性：提供 `/api/healthz` 与 `/api/health` 兼容（或统一为一个并同步更新 Gate 脚本与文档），补最小 smoke，并在 `docs/部署与运行.md` 明确"健康检查 URL"。（已下发，执行中）。
-- [ ] [后端] Telegram sender 日志脱敏与错误映射收敛：确保任何日志/异常链路不包含 token 明文；将 Telegram API 失败映射到稳定 `error.category` 并在契约固化；补最小 smoke。（已在 comms 预告，待总控正式下发）。
+- [x] [前端] 测试消息按钮组件化：抽 `TestMessageButton` 统一 Telegram/飞书 test_message 交互与提示（trace_id + error.category/message），降低重复逻辑与回归风险。（已完成@bot 7c52b6f）。
+- [x] [后端] 通知诊断 status（只读脱敏）：新增 `GET /api/settings/notifications/status`，返回每个通道 `enabled/credential_configured/last_test_summary(trace_id,time,ok,sent,error_category)`；不得回显任何凭据明文。第一版允许 `last_test_summary=null`（不做持久化），但字段必须存在且契约明确。（已完成@bot 4d6d34b）。
+- [x] [后端] 通知诊断 status v2a（可观测性）：每次调用 `*/test_message` 后落库 `last_test_summary`（含 time/trace_id/ok/sent/error_category），并在 `GET /api/settings/notifications/status` 返回；仍不得回显任何凭据明文，契约与 smoke 补齐。（已完成@bot ea4e344）。
+- [x] [后端] 通知诊断 status v2b（历史）：在 status 中返回 `last_test_history` 最近 N 条（默认 10），用于前端展示失败趋势。（已完成@bot d5332f3）。
+- [x] [前端] 通知诊断面板 v2a：支持一键复制 `trace_id`，并对 `last_test_summary.time` 做可读格式展示；保持统一提示格式（trace_id + error.category/message）。（已完成@bot 26c4c9d）。
+- [x] [前端] 通知诊断面板 v2b：展示 `last_test_history` 最近 N 条（若后端提供），支持展开/收起与复制 trace_id。（已完成@bot 3b2989d）。
+- [x] [后端] 健康检查口径一致性：提供 `/api/healthz` 与 `/api/health` 兼容（或统一为一个并同步更新 Gate 脚本与文档），补最小 smoke，并在 `docs/部署与运行.md` 明确"健康检查 URL"。（已完成@bot）。
+- [x] [后端] Telegram sender 日志脱敏与错误映射收敛：确保任何日志/异常链路不包含 token 明文；将 Telegram API 失败映射到稳定 `error.category` 并在契约固化；补最小 smoke。（已完成@bot）。
 - [ ] [协同] Telegram chat_id 自动发现（可选增强）：增加 inbound webhook 接收 Telegram update（带独立 secret），用于在不粘贴 token 的情况下辅助绑定 chat_id（需部署侧支持，不阻塞当前迭代）。
-- [ ] [前端] 通知诊断面板 v2c：复制诊断信息（脱敏 status JSON + 版本信息）一键带走排障证据；包含 clipboard fallback 与最小回归。（已下发，执行中）。
+- [x] [前端] 通知诊断面板 v2c：复制诊断信息（脱敏 status JSON + 版本信息）一键带走排障证据；包含 clipboard fallback 与最小回归。（已完成@bot）。
 
 ### 已完成 (Done)
 - [√] [后端] 通知诊断 v3：`POST /api/settings/notifications/test_all` 一键测试所有通道（已完成@bot 907c31f）
@@ -92,13 +92,13 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 
 ### 待集成 (Queue)
 - [ ] [后端] 分支保护治理回补：恢复 `Docs Gate / docs-gate` 与 `Release Consistency / verify-release` 的远端必需检查留档。
-- [ ] [后端] 登录安全增强：细粒度限流、失败观测、告警阈值。
+- [x] [后端] 登录安全增强：细粒度限流、失败观测、告警阈值。（已完成@bot e70e401）。
 - [ ] [后端] 前端构建缓存优化（CI/本地）：`check_release_preflight.py` 运行速度优化（不改变默认行为），补文档说明（已于 2026-02-09 17:23:29 预告排队）。
-- [ ] [后端] 数据导入幂等键 v1：`POST /api/transactions/import` 支持幂等键防重复落库，补 smoke + 契约（已于 2026-02-09 17:25:08 预告排队）。
+- [x] [后端] 数据导入幂等键 v1：`POST /api/transactions/import` 支持幂等键防重复落库，补 smoke + 契约。（已完成@bot）。
 - [ ] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已于 2026-02-09 17:26:11 预告排队）。
-- [ ] [后端] 账号安全 v1（密码策略与会话过期可见）：补最小 smoke + 契约（已于 2026-02-09 17:27:50 预告排队）。
-- [ ] [前端] 登录体验 v1（会话过期提示 + 返回原页面）：补最小回归（已于 2026-02-09 17:27:50 预告排队）。
-- [ ] [协同] 备份与恢复 runbook（本地/生产）：sqlite/volume 备份恢复步骤与验证清单（已于 2026-02-09 17:27:50 预告排队）。
+- [x] [后端] 账号安全 v1（密码策略与会话过期可见）：补最小 smoke + 契约。（已完成@bot）。
+- [x] [前端] 登录体验 v1（会话过期提示 + 返回原页面）：补最小回归。（已完成@bot）。
+- [x] [协同] 备份与恢复 runbook（本地/生产）：sqlite/volume 备份恢复步骤与验证清单。（已完成@bot）。
 
 ### 已完成 (Done)
 - [√] [后端] 登录限流 v1（最小闭环）：对 `POST /api/auth/login` 增加按 IP+username 的简单限流（返回 429 + trace_id）（已完成@bot e70e401）
