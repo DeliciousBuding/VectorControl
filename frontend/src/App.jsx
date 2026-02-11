@@ -22,6 +22,7 @@ import { cycleSortState } from './utils/holdings.js'
 import { classBySign, formatDate, formatDateTime, formatMoney, formatPercent } from './utils/format.js'
 import { toGuidedError } from './utils/errorFeedback.js'
 import { resolveGlobalSearchTarget } from './utils/searchRouting.js'
+import { ErrorBoundary } from './components/ErrorBoundary.jsx'
 import { LoginPanel } from './components/LoginPanel.jsx'
 import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
@@ -1743,7 +1744,8 @@ function App() {
   }
 
   return (
-    <div className="page-shell">
+    <ErrorBoundary>
+      <div className="page-shell">
       <TopToolbar
         user={user}
         status={status}
@@ -2974,7 +2976,8 @@ function App() {
         onSendFeishuTestMessage={async () => sendFeishuTestMessage()}
         onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
       />
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }
 
