@@ -14,7 +14,7 @@ from app.core.rate_limit import InMemoryRateLimiter
 from app.notifier import NotificationPayload
 from app.notifier import feishu_sender as feishu_mod
 from app.notifier import telegram_sender as telegram_mod
-from app.storage.db import get_user_settings, upsert_user_settings
+from app.storage.db import get_user_settings, list_audit_logs, upsert_user_settings
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 # Compatibility routes for historical service paths like `/api/network-benchmark/*`.
@@ -902,6 +902,24 @@ async def post_notifications_test_all(request: Request) -> dict:
             "passed": sum(1 for r in results.values() if r.get("ok")),
             "failed": sum(1 for r in results.values() if r.get("tested") and not r.get("ok")),
         },
+    }
+
+
+@router.get("/audit_logs")
+async def get_settings_audit_logs(request: Request, limit: int = 20) -> dict:
+    """获取设置变更审计日志"""
+    user_id = get_holdings_user_id(request)
+    safe_limit = max(1, min(int(limit), 100))
+    logs = list_audit_logs(
+        user_id=user_id,
+        entity_type="settings",
+        entity_id=user_id,
+        limit=safe_limit,
+    )
+    return {
+        "user_id": user_id,
+        "logs": logs,
+        "count": len(logs),
     }
 
 
