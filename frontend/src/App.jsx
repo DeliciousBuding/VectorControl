@@ -18,7 +18,7 @@ import {
   syncPendingTransactions,
   AUTH_EVENT_EXPIRY
 } from './api.js'
-import { Layout, Spin, Alert, Button, Input, Select, message } from 'antd'
+import { Layout, Spin, Alert, Button, Input, Select, message, Table, Tag, Tooltip, Space } from 'antd'
 import { 
   ReloadOutlined, SettingOutlined, UserOutlined,
   PlusOutlined, EditOutlined, DeleteOutlined, 
@@ -2227,45 +2227,108 @@ function App() {
             <div className="chart-empty">当前筛选条件下暂无交易流水</div>
           )}
           {transactionLogs.length > 0 && (
-            <div className="record-list">
-              {transactionLogs.map((item) => (
-                <article key={`tx-${item.id}-${item.idempotency_key}`} className="record-item">
-                  <div>
-                    <h4>{item.fund_name || item.fund_id || '--'} · {transactionActionLabel(item.action)}</h4>
-                    <p>
-                      {formatDateTime(item.occurred_at)} ｜ {item.fund_id || '--'} ｜ 单号 {item.idempotency_key || '--'}
-                    </p>
-                    {String(item.status || '') === 'confirmed' && (
-                      <p>确认时间 {formatDateTime(item.confirmed_at)} ｜ 净值 {Number(item.nav || 0).toFixed(4)} ｜ 份额 {Number(item.shares || 0).toFixed(2)}</p>
-                    )}
-                  </div>
-                  <div className="record-side">
-                    <strong>{Number(item.amount_cny || 0).toFixed(2)}</strong>
-                    <span className={String(item.status || '') === 'confirmed' ? 'record-done' : 'record-pending'}>
-                      {String(item.status || '') === 'confirmed' ? '已确认' : '待确认'}
-                    </span>
-                    <div className="record-actions">
-                      <button
-                        type="button"
-                        className="ghost"
-                        onClick={() => beginEditTransaction(item)}
-                        disabled={transactionPatchLoading}
-                      >
-                        编辑
-                      </button>
-                      <button
-                        type="button"
-                        className="ghost"
-                        onClick={() => void loadTransactionAudit(item.id)}
-                        disabled={transactionAuditLoading}
-                      >
-                        审计
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
+            <Table
+              dataSource={transactionLogs.map((item) => ({ ...item, key: `${item.id}-${item.idempotency_key}` }))}
+              columns={[
+                {
+                  title: '基金',
+                  dataIndex: 'fund_name',
+                  key: 'fund_name',
+                  render: (_, record) => (
+                    <Space direction="vertical" size={0}>
+                      <span>{record.fund_name || record.fund_id || '--'}</span>
+                      <Tag color={record.action === 'buy' ? 'blue' : record.action === 'redeem' ? 'red' : record.action === 'dividend' ? 'green' : 'default'}>
+                        {transactionActionLabel(record.action)}
+                      </Tag>
+                    </Space>
+                  ),
+                  width: 180
+                },
+                {
+                  title: '时间',
+                  dataIndex: 'occurred_at',
+                  key: 'occurred_at',
+                  render: (text) => formatDateTime(text),
+                  sorter: (a, b) => String(a.occurred_at || '').localeCompare(String(b.occurred_at || '')),
+                  width: 180
+                },
+                {
+                  title: '金额',
+                  dataIndex: 'amount_cny',
+                  key: 'amount_cny',
+                  align: 'right',
+                  render: (value) => <strong>{Number(value || 0).toFixed(2)}</strong>,
+                  width: 100
+                },
+                {
+                  title: '状态',
+                  dataIndex: 'status',
+                  key: 'status',
+                  filters: [
+                    { text: '待确认', value: 'pending' },
+                    { text: '已确认', value: 'confirmed' }
+                  ],
+                  onFilter: (value, record) => String(record.status || '') === value,
+                  render: (status) => (
+                    <Tag color={status === 'confirmed' ? 'success' : 'warning'}>
+                      {status === 'confirmed' ? '已确认' : '待确认'}
+                    </Tag>
+                  ),
+                  width: 100
+                },
+                {
+                  title: '确认信息',
+                  dataIndex: 'confirm_info',
+                  key: 'confirm_info',
+                  render: (_, record) => {
+                    if (String(record.status || '') !== 'confirmed') return '--'
+                    return (
+                      <Space direction="vertical" size={0}>
+                        <span>净值: {Number(record.nav || 0).toFixed(4)}</span>
+                        <span>份额: {Number(record.shares || 0).toFixed(2)}</span>
+                      </Space>
+                    )
+                  },
+                  width: 150
+                },
+                {
+                  title: '操作',
+                  key: 'action',
+                  fixed: 'right',
+                  width: 140,
+                  render: (_, record) => (
+                    <Space>
+                      <Tooltip title="编辑交易">
+                        <Button 
+                          type="link" 
+                          size="small" 
+                          icon={<EditOutlined />}
+                          onClick={() => beginEditTransaction(record)}
+                          disabled={transactionPatchLoading}
+                        >
+                          编辑
+                        </Button>
+                      </Tooltip>
+                      <Tooltip title="查看审计记录">
+                        <Button 
+                          type="link" 
+                          size="small" 
+                          onClick={() => void loadTransactionAudit(record.id)}
+                          disabled={transactionAuditLoading}
+                        >
+                          审计
+                        </Button>
+                      </Tooltip>
+                    </Space>
+                  )
+                }
+              ]}
+              pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }}
+              size="small"
+              scroll={{ x: 1000 }}
+              bordered
+              loading={transactionLoading}
+            />
           )}
           {editingTransactionId > 0 && (
             <section className="trade-lifecycle">
@@ -2453,46 +2516,121 @@ function App() {
           {planError && <div className="chart-empty">{planError}</div>}
           {dcaPlans.length === 0 && <div className="chart-empty">暂无定投计划，请先新增。</div>}
           {dcaPlans.length > 0 && (
-            <div className="plan-list">
-              {dcaPlans.map((plan) => {
-                const failed = dcaStatusMap[String(plan.id)] === 'failed'
-                const scheduleLabel = getDcaScheduleLabel(plan.schedule)
-                const lastRunAt = dcaLastRunAtMap[String(plan.id)]
-                const nextRunDate = plan.paused ? null : computeNextRunDate({ schedule: plan.schedule, lastRunAt })
-                const untilDays = nextRunDate ? daysUntil(nextRunDate) : null
-                const nextRunText = nextRunDate
-                  ? `${formatDate(nextRunDate)}（距今 ${untilDays ?? '--'} 天）`
-                  : '已暂停'
-                const badgeText = plan.paused ? '已暂停' : (failed ? '失败待办' : '状态正常')
-                const badgeClass = plan.paused || failed ? 'record-pending' : 'record-done'
-                return (
-                  <article key={plan.id} className="plan-item">
-                    <div>
-                      <h4>{plan.name}</h4>
-                      <p>
-                        代码：{plan.fund_id || '--'} ｜ 频率：{scheduleLabel} ｜ 金额：{Number(plan.amount || 0).toFixed(2)}
-                        <br />
-                        下次执行：{nextRunText}
-                      </p>
-                    </div>
-                    <div className="plan-actions">
-                      <span className={badgeClass}>
-                        {badgeText}
-                      </span>
-                      <button type="button" className="ghost" onClick={() => handleTogglePlan(plan.id)}>
-                        {plan.paused ? '恢复' : '暂停'}
-                      </button>
-                      <button type="button" className="ghost" onClick={() => handlePlanAction(plan, false)}>
-                        记录失败
-                      </button>
-                      <button type="button" className="primary" onClick={() => handlePlanAction(plan, true)}>
-                        标记补扣
-                      </button>
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
+            <Table
+              dataSource={dcaPlans.map((plan) => ({ ...plan, key: plan.id }))}
+              columns={[
+                {
+                  title: '计划名称',
+                  dataIndex: 'name',
+                  key: 'name',
+                  render: (text) => <strong>{text}</strong>,
+                  width: 150
+                },
+                {
+                  title: '基金代码',
+                  dataIndex: 'fund_id',
+                  key: 'fund_id',
+                  render: (text) => text || '--',
+                  width: 100
+                },
+                {
+                  title: '每期金额',
+                  dataIndex: 'amount',
+                  key: 'amount',
+                  align: 'right',
+                  render: (value) => Number(value || 0).toFixed(2),
+                  width: 100
+                },
+                {
+                  title: '频率',
+                  dataIndex: 'schedule',
+                  key: 'schedule',
+                  render: (text) => getDcaScheduleLabel(text),
+                  width: 100
+                },
+                {
+                  title: '下次执行',
+                  dataIndex: 'next_run',
+                  key: 'next_run',
+                  render: (_, record) => {
+                    const failed = dcaStatusMap[String(record.id)] === 'failed'
+                    const lastRunAt = dcaLastRunAtMap[String(record.id)]
+                    const nextRunDate = record.paused ? null : computeNextRunDate({ schedule: record.schedule, lastRunAt })
+                    const untilDays = nextRunDate ? daysUntil(nextRunDate) : null
+                    if (record.paused) {
+                      return <Tag color="default">已暂停</Tag>
+                    }
+                    if (failed) {
+                      return <Tag color="error">失败待办</Tag>
+                    }
+                    if (nextRunDate) {
+                      const nextRunText = `${formatDate(nextRunDate)}（距今 ${untilDays ?? '--'} 天）`
+                      return <Tooltip title={`距今 ${untilDays ?? '--'} 天`}>{nextRunText}</Tooltip>
+                    }
+                    return '--'
+                  },
+                  width: 180
+                },
+                {
+                  title: '状态',
+                  dataIndex: 'status',
+                  key: 'status',
+                  render: (_, record) => {
+                    const failed = dcaStatusMap[String(record.id)] === 'failed'
+                    if (record.paused) {
+                      return <Tag color="default">已暂停</Tag>
+                    }
+                    if (failed) {
+                      return <Tag color="error">失败待办</Tag>
+                    }
+                    return <Tag color="success">状态正常</Tag>
+                  },
+                  width: 100
+                },
+                {
+                  title: '操作',
+                  key: 'action',
+                  fixed: 'right',
+                  width: 220,
+                  render: (_, record) => (
+                    <Space>
+                      <Tooltip title="标记已执行">
+                        <Button 
+                          type="link" 
+                          size="small" 
+                          onClick={() => handlePlanAction(record, true)}
+                        >
+                          补扣
+                        </Button>
+                      </Tooltip>
+                      <Tooltip title="记录失败">
+                        <Button 
+                          type="link" 
+                          size="small" 
+                          danger
+                          onClick={() => handlePlanAction(record, false)}
+                        >
+                          失败
+                        </Button>
+                      </Tooltip>
+                      <Tooltip title={record.paused ? '恢复计划' : '暂停计划'}>
+                        <Button 
+                          type="link" 
+                          size="small" 
+                          onClick={() => handleTogglePlan(record.id)}
+                        >
+                          {record.paused ? '恢复' : '暂停'}
+                        </Button>
+                      </Tooltip>
+                    </Space>
+                  )
+                }
+              ]}
+              pagination={false}
+              size="small"
+              scroll={{ x: 1000 }}
+              bordered
+            />
           )}
 
           <div className="section-head trade-head">

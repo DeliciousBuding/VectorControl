@@ -1,29 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js'
-import { Line } from 'react-chartjs-2'
+import { useEffect, useState } from 'react'
+import ReactECharts from 'echarts-for-react'
 import { fetchCumulativeReturns } from '../api.js'
 import { classBySign, formatPercent } from '../utils/format.js'
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-)
+import { Segmented, Spin, Alert } from 'antd'
 
 const TIME_RANGES = [
   { key: '7', label: '7天' },
@@ -70,9 +49,13 @@ export function ReturnsChart({ user }) {
   if (loading) {
     return (
       <div className="p-4 bg-white rounded shadow">
-        <div className="animate-pulse">
-          <div className="h-4 bg-gray-200 rounded w-1/4 mb-4"></div>
-          <div className="h-48 bg-gray-100 rounded"></div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-medium text-gray-700">收益曲线</h3>
+          </div>
+        </div>
+        <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Spin tip="加载中..." />
         </div>
       </div>
     )
@@ -95,73 +78,121 @@ export function ReturnsChart({ user }) {
   }
 
   const lastReturn = data.values[data.values.length - 1] || 0
-  const chartData = {
-    labels: data.labels,
-    datasets: [
-      {
-        label: '累计收益率',
-        data: data.values,
-        borderColor: lastReturn >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)',
-        backgroundColor: lastReturn >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-        fill: true,
-        tension: 0.3,
-        pointRadius: 0,
-        pointHoverRadius: 4,
-      },
-      {
-        label: '基准线 (0%)',
-        data: Array(data.values.length).fill(0),
-        borderColor: 'rgb(156, 163, 175)',
-        borderDash: [5, 5],
-        pointRadius: 0,
-        fill: false,
-      },
-    ],
-  }
+  const isPositive = lastReturn >= 0
+  
+  // ECharts 配置
+  const getOption = () => {
+    const lineColor = isPositive ? '#52c41a' : '#ff4d4f'
+    const areaColor = {
+      type: 'linear',
+      x: 0,
+      y: 0,
+      x2: 0,
+      y2: 1,
+      colorStops: [
+        { offset: 0, color: isPositive ? 'rgba(82, 196, 26, 0.3)' : 'rgba(255, 77, 79, 0.3)' },
+        { offset: 1, color: isPositive ? 'rgba(82, 196, 26, 0.05)' : 'rgba(255, 77, 79, 0.05)' }
+      ]
+    }
 
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
-      },
+    return {
       tooltip: {
-        mode: 'index',
-        intersect: false,
-        callbacks: {
-          label: (context) => {
-            if (context.datasetIndex === 0) {
-              return `收益率: ${formatPercent(context.parsed.y)}`
-            }
-            return null
+        trigger: 'axis',
+        axisPointer: {
+          type: 'cross',
+          label: {
+            backgroundColor: '#6a7985'
+          }
+        },
+        formatter: function(params) {
+          const tooltipParams = params.find(p => p.seriesName === '累计收益率')
+          if (tooltipParams) {
+            return `${tooltipParams.axisValue}<br/>收益率: ${formatPercent(tooltipParams.value)}`
+          }
+          return ''
+        }
+      },
+      grid: {
+        left: '3%',
+        right: '4%',
+        bottom: '3%',
+        containLabel: true
+      },
+      xAxis: {
+        type: 'category',
+        boundaryGap: false,
+        data: data.labels,
+        axisLine: {
+          lineStyle: {
+            color: '#e8e8e8'
+          }
+        },
+        axisLabel: {
+          color: '#666',
+          formatter: (value) => {
+            const date = new Date(value)
+            return `${date.getMonth() + 1}/${date.getDate()}`
           },
-        },
+          interval: 'auto'
+        }
       },
-    },
-    scales: {
-      y: {
-        ticks: {
-          callback: (value) => `${value.toFixed(1)}%`,
+      yAxis: {
+        type: 'value',
+        axisLabel: {
+          formatter: (value) => `${value.toFixed(1)}%`,
+          color: '#666'
         },
-        grid: {
-          color: 'rgba(0, 0, 0, 0.05)',
-        },
+        splitLine: {
+          lineStyle: {
+            color: '#f0f0f0'
+          }
+        }
       },
-      x: {
-        grid: {
-          display: false,
+      dataZoom: [
+        {
+          type: 'inside',
+          start: 0,
+          end: 100
         },
-        ticks: {
-          maxTicksLimit: 10,
-        },
-      },
-    },
-    interaction: {
-      mode: 'nearest',
-      axis: 'x',
-      intersect: false,
-    },
+        {
+          type: 'slider',
+          start: 0,
+          end: 100,
+          height: 20,
+          bottom: 0
+        }
+      ],
+      series: [
+        {
+          name: '累计收益率',
+          type: 'line',
+          smooth: true,
+          symbol: 'none',
+          lineStyle: {
+            color: lineColor,
+            width: 2
+          },
+          areaStyle: {
+            color: areaColor
+          },
+          data: data.values,
+          markLine: {
+            silent: true,
+            symbol: 'none',
+            data: [
+              {
+                yAxis: 0,
+                lineStyle: {
+                  color: '#999',
+                  type: 'dashed',
+                  width: 1
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
   }
 
   return (
@@ -173,24 +204,20 @@ export function ReturnsChart({ user }) {
             {formatPercent(lastReturn)}
           </span>
         </div>
-        <div className="flex gap-1">
-          {TIME_RANGES.map((range) => (
-            <button
-              key={range.key}
-              onClick={() => setDays(Number(range.key))}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
-                days === Number(range.key)
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {range.label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          options={TIME_RANGES.map(range => ({ label: range.label, value: Number(range.key) }))}
+          value={days}
+          onChange={(value) => setDays(value)}
+          size="small"
+        />
       </div>
       <div style={{ height: '200px' }}>
-        <Line data={chartData} options={options} />
+        <ReactECharts 
+          option={getOption()} 
+          style={{ height: '100%', width: '100%' }}
+          notMerge={true}
+          lazyUpdate={true}
+        />
       </div>
       {data?.data_status?.note && (
         <div className="text-xs text-gray-500 mt-2 text-center">
