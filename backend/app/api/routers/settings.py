@@ -725,18 +725,41 @@ async def get_notifications_status(request: Request) -> dict:
     email_sender = str(email.get("sender", "")).strip()
     email_recipients = str(email.get("recipients", "")).strip()
 
+    # Cooldown info
+    import time
+    now = time.time()
+
+    feishu_cooldown_key = f"feishu:{user_id}"
+    telegram_cooldown_key = f"telegram:{user_id}"
+
+    feishu_cooldown_remaining = 0
+    telegram_cooldown_remaining = 0
+
+    # Check if user is in cooldown
+    feishu_allowed, feishu_retry_after = _test_message_limiter.check(feishu_cooldown_key)
+    telegram_allowed, telegram_retry_after = _test_message_limiter.check(telegram_cooldown_key)
+
+    if not feishu_allowed:
+        feishu_cooldown_remaining = feishu_retry_after
+    if not telegram_allowed:
+        telegram_cooldown_remaining = telegram_retry_after
+
     status: dict[str, Any] = {
         "feishu": {
             "enabled": bool(feishu.get("enabled", False)),
             "credential_configured": bool(feishu_webhook),
             "last_test_summary": feishu_last_test_summary,
             "last_test_history": feishu_last_test_history,
+            "cooldown_seconds": TEST_MESSAGE_COOLDOWN_SECONDS,
+            "cooldown_remaining": feishu_cooldown_remaining,
         },
         "telegram": {
             "enabled": bool(telegram.get("enabled", False)),
             "credential_configured": bool(telegram_token and telegram_chat),
             "last_test_summary": telegram_last_test_summary,
             "last_test_history": telegram_last_test_history,
+            "cooldown_seconds": TEST_MESSAGE_COOLDOWN_SECONDS,
+            "cooldown_remaining": telegram_cooldown_remaining,
         },
         "email": {
             "enabled": bool(email.get("enabled", False)),
