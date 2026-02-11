@@ -38,6 +38,7 @@ import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
 import { DataStatusBanner } from './components/DataStatusBanner.jsx'
+import { DiagnosticsPanel } from './components/DiagnosticsPanel.jsx'
 import { recordMetric } from './utils/metrics.js'
 import { computeNextRunDate, daysUntil, getDcaScheduleLabel, normalizeDcaSchedule } from './utils/dca.js'
 
@@ -1800,6 +1801,7 @@ function App() {
 
           <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
           <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
+          <DiagnosticsPanel user={user} />
           
           <section className="panel home-main">
             <div className="section-head">

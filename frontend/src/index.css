@@ -341,6 +341,63 @@ select {
   margin-left: 4px;
 }
 
+/* Dev-only Diagnostics Panel */
+.diagnostics-panel {
+  margin: 12px 0;
+  padding: 12px 16px;
+  background: rgba(255, 193, 7, 0.08);
+  border: 1px dashed rgba(255, 193, 7, 0.4);
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.diagnostics-panel .diag-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.diagnostics-panel .diag-header h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-warning);
+}
+
+.diagnostics-panel .diag-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.diagnostics-panel .diag-actions button {
+  padding: 4px 10px;
+  font-size: 11px;
+  border-radius: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.diagnostics-panel .diag-actions button:hover {
+  background: var(--bg-tertiary);
+}
+
+.diagnostics-panel .diag-content {
+  margin: 0;
+  padding: 10px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
 button {
   border: none;
   border-radius: var(--radius-button);
