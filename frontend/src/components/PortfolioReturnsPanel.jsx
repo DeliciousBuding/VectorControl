@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchPortfolioReturnsHistory } from '../api.js'
 import { classBySign, formatPercent, formatSignedMoney } from '../utils/format.js'
 import { MultiLineChart } from './MultiLineChart.jsx'
+import { Segmented } from 'antd'
 
 function toNumber(value, fallback = 0) {
   const num = Number(value)
@@ -113,17 +114,11 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
           <span>最近 {days} 天（按估值快照）</span>
         </div>
         <div className="plan-actions">
-          {daysOptions.map((item) => (
-            <button
-              key={item}
-              type="button"
-              className={days === item ? 'primary' : 'ghost'}
-              onClick={() => setDays(item)}
-              data-testid={`portfolio-returns-days-${item}`}
-            >
-              {item}天
-            </button>
-          ))}
+          <Segmented
+            options={daysOptions.map(d => ({ label: `${d}天`, value: d }))}
+            value={days}
+            onChange={setDays}
+          />
         </div>
       </div>
 

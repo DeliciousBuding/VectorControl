@@ -1,5 +1,12 @@
 import { memo, useMemo } from 'react'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
+import {
+  WalletOutlined,
+  RiseOutlined,
+  FallOutlined,
+  HistoryOutlined,
+  AppstoreOutlined
+} from '@ant-design/icons'
 
 export const SummaryCards = memo(function SummaryCards({ rows = [], loading = false }) {
   if (loading && rows.length === 0) {
@@ -34,19 +41,27 @@ export const SummaryCards = memo(function SummaryCards({ rows = [], loading = fa
   return (
     <section className="summary-grid">
       <article className="panel summary-card">
+        <WalletOutlined className="summary-icon" />
         <h3>总持仓市值</h3>
         <strong>{formatMoney(totalMarket)}</strong>
       </article>
       <article className="panel summary-card">
+        {totalDay >= 0 ? (
+          <RiseOutlined className="summary-icon" style={{ color: 'var(--color-error)', opacity: 0.1 }} />
+        ) : (
+          <FallOutlined className="summary-icon" style={{ color: 'var(--color-success)', opacity: 0.1 }} />
+        )}
         <h3>当日收益</h3>
         <strong className={classBySign(totalDay)}>{formatSignedMoney(totalDay)}</strong>
       </article>
       <article className="panel summary-card">
+        <HistoryOutlined className="summary-icon" />
         <h3>持有收益</h3>
         <strong className={classBySign(totalHolding)}>{formatSignedMoney(totalHolding)}</strong>
         <span className={classBySign(holdingRate)}>{formatPercent(holdingRate)}</span>
       </article>
       <article className="panel summary-card">
+        <AppstoreOutlined className="summary-icon" />
         <h3>持仓数量</h3>
         <strong>{rows.length} 只</strong>
       </article>

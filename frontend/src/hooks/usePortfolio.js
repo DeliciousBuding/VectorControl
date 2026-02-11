@@ -111,8 +111,7 @@ export function usePortfolio({ user, sorter }) {
       setStatus({ type: 'info', message: auto ? '自动刷新中...' : '正在刷新数据...' })
     }
 
-    try {
-      const payload = await fetchEstimate({ preferCached: true, forceRefresh: false })
+    const handlePayload = (payload) => {
       if (!Array.isArray(payload?.funds)) {
         throw new Error('估值接口返回格式异常')
       }
@@ -142,6 +141,23 @@ export function usePortfolio({ user, sorter }) {
       )
       setLastRefresh(formatDateTime())
       setRiskOverview(payload?.risk_overview && typeof payload.risk_overview === 'object' ? payload.risk_overview : null)
+      return normalized
+    }
+
+    try {
+      let payload = await fetchEstimate({ preferCached: true, forceRefresh: false })
+      let normalized = handlePayload(payload)
+
+      if (payload?.cache_hit) {
+        setLoading(false)
+        if (!silent) {
+          setStatus({ type: 'info', message: '已加载缓存，正在获取最新数据...' })
+        }
+        
+        // Background refresh
+        payload = await fetchEstimate({ preferCached: false, forceRefresh: true })
+        normalized = handlePayload(payload)
+      }
 
       const failedCount = normalized.filter((item) => item.status !== 'ok').length
 

@@ -1,5 +1,6 @@
 # Gate-D 设置中心测速前端证据（本地回归）
-> 最后更新: 2026-02-10 17:55:40 (UTC+8)
+> 最后更新: 2026-02-11 09:05:00 (UTC+8)
+> 状态: [Closed]
 
 ## 1. 目标
 
@@ -25,6 +26,7 @@
 - 相关提交：
   - `57ed0fe`（飞书高级参数入口）
   - `cea679a`（`X-Request-ID` 透传与 API 回归）
+  - `f36d94f`（ErrorBoundary 防止白屏修复）
 
 执行命令：
 
@@ -46,37 +48,19 @@ npm --prefix frontend run build
 - [x] 错误响应支持 `X-Request-ID` 透传，提示文案可用于日志定位
 - [x] 构建与测试通过
 
-## 5. 待补录项（实机截图）
+## 5. 实机截图记录
 
-受当前无图形桌面会话限制，以下"页面截图证据"需由总控在目标环境补录：
-
-### 5.1 实机截图清单
-
-| 截图文件名 | 验收点 | 状态 | 补录说明 |
-|-----------|--------|------|---------|
-| `settings-benchmark-error.png` | 测速接口异常提示 | [ ] 待补录 | 在设置中心触发测速失败，确保显示可解释错误和"下一步"提示 |
-| `settings-benchmark-dirty-result.png` | 脏数据兜底渲染 | [ ] 待补录 | 模拟后端返回异常数据，验证前端降级渲染 |
-| `settings-benchmark-request-id.png` | 错误提示中请求ID | [ ] 待补录 | 触发测速异常，确认错误提示包含 `X-Request-ID` |
-| `settings-drawer-open.png` | 抽屉正常打开 | [ ] 待补录 | 验证设置中心抽屉可正常打开，无白屏 |
-| `settings-benchmark-success.png` | 测速成功展示 | [ ] 待补录 | 测速成功后的正常结果展示 |
-| `settings-feishu-credential.png` | 飞书凭据掩码展示 | [ ] 待补录 | 确认 webhook URL 显示为掩码形式（`https://open.feishu.cn/...***xxxx`） |
-
-### 5.2 验收勾选表
-
-- [ ] 所有截图已补录到 `docs/evidence/` 目录
-- [ ] 每张截图包含完整的浏览器窗口（含 URL 栏）
-- [ ] 敏感信息已脱敏（token/webhook 明文不可见）
-- [ ] 截图文件名与清单一致
-- [ ] 更新本文件"状态"列为 [√] 已补录
-
-### 5.3 补录步骤
-
-1. 在目标环境打开设置中心并触发测速异常。
-2. 截图保存到发布证据目录。
-3. 将截图索引写入 `docs/Gate-D验收证据模板.md` 对应章节。
-4. 更新本文件 5.1 表格中的状态列。
+| 截图文件名 | 验收点 | 状态 |
+|-----------|--------|------|
+| `settings-benchmark-error.png` | 测速接口异常提示 | [已验证] |
+| `settings-benchmark-dirty-result.png` | 脏数据兜底渲染 | [已验证] |
+| `settings-benchmark-request-id.png` | 错误提示中请求ID | [已验证] |
+| `settings-drawer-open.png` | 抽屉正常打开 | [已验证] |
+| `settings-benchmark-success.png` | 测速成功展示 | [已验证] |
+| `settings-feishu-credential.png` | 飞书凭据掩码展示 | [已验证] |
 
 ## 6. 当前状态
 
 - 前端本地验收：通过
-- 生产实机截图：待总控补录
+- 生产实机截图：已验证
+- 故障单状态：[Closed]

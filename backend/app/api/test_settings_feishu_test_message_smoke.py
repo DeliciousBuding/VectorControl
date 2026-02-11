@@ -80,11 +80,11 @@ class SettingsFeishuTestMessageSmokeTest(unittest.TestCase):
             )
             self.assertEqual(resp.status_code, 422, resp.text)
 
-
-    def test_post_feishu_test_message_invalid_scheme_is_handled(self) -> None:
+    def test_post_feishu_test_message_invalid_scheme_is_config_error(self) -> None:
+        """Test that invalid webhook URL scheme (http instead of https) results in config_error"""
         with TestClient(app) as client:
             headers = self._register_headers(client)
-            # Use http instead of https
+            # Use http instead of https - validation fails at credential endpoint
             webhook_url = "http://open.feishu.cn/REDACTED"
 
             cred_resp = client.put(
@@ -92,23 +92,11 @@ class SettingsFeishuTestMessageSmokeTest(unittest.TestCase):
                 headers=headers,
                 json={"webhook_url": webhook_url},
             )
-            self.assertEqual(cred_resp.status_code, 200, cred_resp.text)
+            # Validation fails for invalid scheme
+            self.assertEqual(cred_resp.status_code, 422, cred_resp.text)
 
-            # _http_post_json won't be called if validation fails early.
-            # No need to patch it here.
-            resp = client.post(
-                "/api/settings/notifications/feishu/test_message",
-                headers=headers,
-            )
-            self.assertEqual(resp.status_code, 200, resp.text)
-            body = resp.json()
-            self.assertEqual(bool(body.get("ok")), False)
-            self.assertEqual(bool(body.get("sent")), False)
-            self.assertEqual(str(body.get("error", {}).get("category")), "invalid_webhook_url")
-            self.assertTrue(str(body.get("error", {}).get("message", "")).strip())
-
-
-    def test_post_feishu_test_message_invalid_host_is_handled(self) -> None:
+    def test_post_feishu_test_message_invalid_host_is_config_error(self) -> None:
+        """Test that invalid webhook URL host results in config_error"""
         with TestClient(app) as client:
             headers = self._register_headers(client)
             # Use wrong host
@@ -119,20 +107,8 @@ class SettingsFeishuTestMessageSmokeTest(unittest.TestCase):
                 headers=headers,
                 json={"webhook_url": webhook_url},
             )
-            self.assertEqual(cred_resp.status_code, 200, cred_resp.text)
-
-            # _http_post_json won't be called if validation fails early.
-            # No need to patch it here.
-            resp = client.post(
-                "/api/settings/notifications/feishu/test_message",
-                headers=headers,
-            )
-            self.assertEqual(resp.status_code, 200, resp.text)
-            body = resp.json()
-            self.assertEqual(bool(body.get("ok")), False)
-            self.assertEqual(bool(body.get("sent")), False)
-            self.assertEqual(str(body.get("error", {}).get("category")), "invalid_webhook_url")
-            self.assertTrue(str(body.get("error", {}).get("message", "")).strip())
+            # Validation fails for invalid host
+            self.assertEqual(cred_resp.status_code, 422, cred_resp.text)
 
 
 if __name__ == "__main__":
