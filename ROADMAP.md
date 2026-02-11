@@ -69,7 +69,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [后端Agent1] 健康检查口径一致性：提供 `/api/healthz` 与 `/api/health` 兼容（或统一为一个并同步更新 Gate 脚本与文档），补最小 smoke，并在 `docs/部署与运行.md` 明确"健康检查 URL"。（已下发，执行中）。
 - [ ] [后端Agent1] Telegram sender 日志脱敏与错误映射收敛：确保任何日志/异常链路不包含 token 明文；将 Telegram API 失败映射到稳定 `error.category` 并在契约固化；补最小 smoke。（已在 comms 预告，待总控正式下发）。
 - [√] [后端] 通知测试消息防滥用 v1（cooldown/429）：test_message 增加用户级 cooldown（已完成@bot ea258c4）
-- [ ] [前端Agent1] 通知诊断 UX v4（cooldown 展示与按钮禁用）：展示倒计时/到期时间，429 提示含 trace_id，补最小回归（已于 2026-02-09 17:29:19 预告排队）。
+- [√] [前端] 通知诊断 UX v4（cooldown 展示与按钮禁用）：展示倒计时，冷却中时按钮禁用（已完成@bot 9999eed）
 - [ ] [协同] Telegram chat_id 自动发现（可选增强）：增加 inbound webhook 接收 Telegram update（带独立 secret），用于在不粘贴 token 的情况下辅助绑定 chat_id（需部署侧支持，不阻塞当前迭代）。
 - [ ] [前端Agent1] 通知诊断面板 v2c：复制诊断信息（脱敏 status JSON + 版本信息）一键带走排障证据；包含 clipboard fallback 与最小回归。（已下发，执行中）。
 
