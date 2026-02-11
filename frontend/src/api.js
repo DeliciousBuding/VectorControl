@@ -148,6 +148,10 @@ export function fetchNotificationsStatus() {
   return apiFetch('/api/settings/notifications/status')
 }
 
+export function testAllNotifications() {
+  return apiFetch('/api/settings/notifications/test_all', { method: 'POST' })
+}
+
 export function fetchNetworkBenchmarkLatest() {
   return apiFetchWithFallback([
     '/api/settings/network-benchmark/latest',

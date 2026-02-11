@@ -9,6 +9,7 @@ import {
   fetchSIPPlans,
   fetchSystemStatus,
   runNetworkBenchmark,
+  testAllNotifications,
   updateSIPPlan
 } from '../api.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
@@ -295,6 +296,8 @@ export function SettingsDrawer({
   const [telegramHistoryOpen, setTelegramHistoryOpen] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [testAllLoading, setTestAllLoading] = useState(false)
+  const [testAllResult, setTestAllResult] = useState(null)
   const [sipPlans, setSipPlans] = useState([])
   const [sipLoading, setSipLoading] = useState(false)
   const [sipSaving, setSipSaving] = useState(false)
@@ -710,6 +713,31 @@ export function SettingsDrawer({
     } catch (error) {
       const detail = String(error?.message || '').trim()
       handleDiagnosticToast({ type: 'error', message: detail ? `复制失败：${detail}` : '复制失败' })
+    }
+  }
+
+  const handleTestAll = async () => {
+    setTestAllLoading(true)
+    setTestAllResult(null)
+    try {
+      const result = await testAllNotifications()
+      setTestAllResult(result)
+      const summary = result?.summary || {}
+      const passed = summary.passed || 0
+      const failed = summary.failed || 0
+      if (failed === 0 && passed > 0) {
+        handleDiagnosticToast({ type: 'success', message: `全部测试通过 (${passed}/${summary.tested})` })
+      } else if (passed > 0) {
+        handleDiagnosticToast({ type: 'warning', message: `部分测试通过 (${passed}/${summary.tested})，${failed} 个失败` })
+      } else {
+        handleDiagnosticToast({ type: 'error', message: '所有测试失败' })
+      }
+      await refreshNotificationsStatus()
+    } catch (error) {
+      const detail = String(error?.message || '').trim()
+      handleDiagnosticToast({ type: 'error', message: detail ? `测试失败：${detail}` : '测试失败' })
+    } finally {
+      setTestAllLoading(false)
     }
   }
 
@@ -1746,7 +1774,32 @@ export function SettingsDrawer({
                   >
                     复制诊断信息
                   </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    data-testid="diagnostic-test-all-btn"
+                    disabled={saving || testAllLoading}
+                    onClick={handleTestAll}
+                  >
+                    {testAllLoading ? '测试中...' : 'Test All'}
+                  </button>
                 </div>
+
+                {testAllResult && (
+                  <div className="settings-test-all-result">
+                    <p className="test-all-summary">
+                      测试结果：{testAllResult.summary?.passed || 0}/{testAllResult.summary?.tested || 0} 通过
+                    </p>
+                    {Object.entries(testAllResult.channels || {}).map(([channel, info]) => (
+                      <p key={channel} className={`test-all-item ${info.ok ? 'success' : 'fail'}`}>
+                        {channel === 'telegram' ? 'Telegram' : '飞书'}：
+                        {!info.enabled && '未启用'}
+                        {info.enabled && !info.credential_configured && '未配置凭据'}
+                        {info.tested && (info.ok ? '✓ 通过' : `✗ 失败${info.error?.message ? `: ${info.error.message}` : ''}`)}
+                      </p>
+                    ))}
+                  </div>
+                )}
 
                 {diagnosticHint ? <p className="settings-note">{diagnosticHint}</p> : null}
                 {diagnosticError ? <p className="settings-error">{diagnosticError}</p> : null}

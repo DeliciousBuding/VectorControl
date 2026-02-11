@@ -1790,6 +1790,31 @@ button:disabled {
   color: var(--muted);
 }
 
+.settings-test-all-result {
+  margin: 8px 0;
+  padding: 10px 12px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.test-all-summary {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.test-all-item {
+  margin: 4px 0;
+}
+
+.test-all-item.success {
+  color: var(--color-success);
+}
+
+.test-all-item.fail {
+  color: var(--color-warning);
+}
+
 button.settings-inline-btn {
   padding: 2px 8px;
   font-size: 12px;
