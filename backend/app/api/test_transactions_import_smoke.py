@@ -139,6 +139,45 @@ transactions:
             second_result = second_resp.json().get("result", {})
             self.assertEqual(int(second_result.get("conflicted", -1)), 1)
 
+    def test_api_import_idempotency(self) -> None:
+        with TestClient(app) as client:
+            token = self._register_and_token(client)
+            headers = {"Authorization": f"Bearer {token}"}
+
+            payload = {
+                "idempotency_key": "api-idem-001",
+                "fund_id": "000001",
+                "action": "buy",
+                "occurred_at": "2026-02-07T10:00:00+08:00",
+                "amount_cny": 1000,
+            }
+
+            # First import
+            resp1 = client.post("/api/transactions/import", headers=headers, json=payload)
+            self.assertEqual(resp1.status_code, 200, resp1.text)
+            self.assertEqual(resp1.json().get("result"), "added")
+
+            # Duplicate import (same key, same content)
+            resp2 = client.post("/api/transactions/import", headers=headers, json=payload)
+            self.assertEqual(resp2.status_code, 200, resp2.text)
+            self.assertEqual(resp2.json().get("result"), "skipped")
+
+            # Duplicate key, different content (conflict)
+            payload_diff = payload.copy()
+            payload_diff["amount_cny"] = 2000
+            resp3 = client.post("/api/transactions/import", headers=headers, json=payload_diff)
+            self.assertEqual(resp3.status_code, 409, resp3.text)
+
+            # Header idempotency key
+            payload_no_key = payload.copy()
+            payload_no_key.pop("idempotency_key")
+            payload_no_key["fund_id"] = "000002"
+            headers_with_key = headers.copy()
+            headers_with_key["X-Idempotency-Key"] = "api-idem-header-001"
+            resp4 = client.post("/api/transactions/import", headers=headers_with_key, json=payload_no_key)
+            self.assertEqual(resp4.status_code, 200, resp4.text)
+            self.assertEqual(resp4.json().get("result"), "added")
+
     def test_sync_pending_transitions_to_confirmed(self) -> None:
         with TestClient(app) as client:
             token = self._register_and_token(client)

@@ -16,6 +16,7 @@ import {
 import { toGuidedError } from '../utils/errorFeedback.js'
 import { assertSettingsSchema } from '../utils/assertSettingsSchema.js'
 import { TestMessageButton } from './TestMessageButton.jsx'
+import { formatDateTime } from '../utils/format.js'
 
 const PROFILE_OPTIONS = [
   { value: 'cn_fund', label: '国内基金站点' },
@@ -648,14 +649,6 @@ export function SettingsDrawer({
       setNotificationsStatus(null)
       setNotificationsStatusError(toGuidedError(error, 'notifications_status_load', '通知诊断加载失败'))
     }
-  }
-
-  const formatDiagnosticTimestamp = (value) => {
-    const text = String(value || '').trim()
-    if (!text) return ''
-    const date = new Date(text)
-    if (Number.isNaN(date.getTime())) return text
-    return date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, 'Z')
   }
 
   const copyTextToClipboard = async (text) => {
@@ -1564,7 +1557,7 @@ export function SettingsDrawer({
               commit：<code>{String(systemStatusSnapshot?.commit || '--')}</code>
             </p>
             <p data-testid="system-status-server-time">
-              服务时间：<code>{formatDiagnosticTimestamp(systemStatusSnapshot?.server_time || '') || '--'}</code>
+              服务时间：<code>{formatDateTime(systemStatusSnapshot?.server_time || '')}</code>
             </p>
             <p data-testid="system-healthz-result">
               健康检查（/api/healthz）：<code>{healthzSnapshot ? 'ok' : (healthzError ? 'failed' : '--')}</code>
@@ -1607,7 +1600,7 @@ export function SettingsDrawer({
                 <ul className="audit-log-list">
                   {auditLogs.map((log, idx) => (
                     <li key={log.id || idx} className="audit-log-item">
-                      <span className="audit-time">{formatDiagnosticTimestamp(log.created_at)}</span>
+                      <span className="audit-time">{formatDateTime(log.created_at)}</span>
                       <span className="audit-action">{log.action}</span>
                       {log.note && <span className="audit-note">{log.note}</span>}
                     </li>
@@ -1647,7 +1640,7 @@ export function SettingsDrawer({
               return {
                 ok: raw.ok === true && raw.sent === true,
                 traceId: String(raw.trace_id || '').trim(),
-                time: formatDiagnosticTimestamp(raw.time),
+                time: formatDateTime(raw.time),
                 errorCategory: String(raw.error_category || '').trim()
               }
             }
@@ -1687,7 +1680,7 @@ export function SettingsDrawer({
                 )
               }
 
-              if (parsed.time) {
+              if (parsed.time && parsed.time !== '--') {
                 pieces.push(<span key="time">{`｜时间: ${parsed.time}`}</span>)
               }
 
@@ -1731,7 +1724,7 @@ export function SettingsDrawer({
                     sent,
                     success: ok && sent,
                     traceId: String(raw.trace_id || '').trim(),
-                    time: formatDiagnosticTimestamp(raw.time),
+                    time: formatDateTime(raw.time),
                     errorCategory: String(raw.error_category || '').trim()
                   }
                 })
@@ -1762,7 +1755,7 @@ export function SettingsDrawer({
                         return (
                           <li key={`${row.traceId || 'trace'}-${idx}`} className="diagnostic-history-item">
                             <span>{row.success ? '成功' : '失败'}</span>
-                            {row.time ? <span>{`｜时间: ${row.time}`}</span> : null}
+                            {row.time && row.time !== '--' ? <span>{`｜时间: ${row.time}`}</span> : null}
                             <span>{`｜ok: ${row.ok ? 'true' : 'false'}`}</span>
                             <span>{`｜sent: ${row.sent ? 'true' : 'false'}`}</span>
                             {row.traceId ? (

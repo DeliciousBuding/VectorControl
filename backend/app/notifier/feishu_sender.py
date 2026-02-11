@@ -8,6 +8,19 @@ from urllib import request
 from urllib.error import HTTPError
 
 from .base import NotificationPayload, NotificationResult
+from urllib.parse import urlparse
+
+FEISHU_WEBHOOK_HOST = "open.feishu.cn"
+
+def _validate_feishu_webhook_url(webhook_url: str) -> None:
+    # URL validation: only allow https protocol, host whitelist open.feishu.cn
+    parsed = urlparse(webhook_url)
+    scheme = str(parsed.scheme or "").lower()
+    host = str(parsed.hostname or "").lower()
+    if scheme != "https":
+        raise ValueError("webhook_url 仅支持 https 协议")
+    if host != FEISHU_WEBHOOK_HOST:
+        raise ValueError(f"webhook_url host 必须为 {FEISHU_WEBHOOK_HOST}")
 
 LOGGER = logging.getLogger("vectorcontrol.notifier.feishu")
 DEFAULT_TIMEOUT_SECONDS = 3.0
@@ -102,6 +115,22 @@ class FeishuSender:
                 skipped=True,
                 code="config_missing",
                 message="missing feishu webhook_url",
+            )
+        try:
+            _validate_feishu_webhook_url(webhook_url)
+        except ValueError as exc:
+            # Sensitive info (webhook_url) should be masked in logs.
+            LOGGER.error(
+                "feishu webhook_url validation failed webhook_url_prefix=%s error=%s",
+                webhook_url[:10] + "***",
+                exc,
+            )
+            return NotificationResult(
+                channel=self.channel,
+                success=False,
+                skipped=False,
+                code="invalid_webhook_url",
+                message=f"invalid feishu webhook_url: {exc}",
             )
 
         trace_id = uuid.uuid4().hex[:12]

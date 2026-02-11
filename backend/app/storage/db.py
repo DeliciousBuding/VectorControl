@@ -954,8 +954,10 @@ def create_user(username: str, password: str) -> dict[str, Any]:
     clean_username = username.strip().lower()
     if len(clean_username) < 3:
         raise ValueError("用户名至少 3 个字符")
-    if len(password) < 6:
-        raise ValueError("密码至少 6 个字符")
+    if len(password) < 8:
+        raise ValueError("密码至少 8 个字符")
+    if not any(c.isdigit() for c in password) or not any(c.isalpha() for c in password):
+        raise ValueError("密码必须包含数字和字母")
 
     user_id = secrets.token_hex(12)
     created_at = _now_iso()
@@ -1035,7 +1037,7 @@ def verify_user_credentials(username: str, password: str) -> dict[str, Any] | No
     }
 
 
-def create_session(user_id: str, ttl_days: int = 14) -> str:
+def create_session(user_id: str, ttl_days: int = 7) -> str:
     token = secrets.token_urlsafe(32)
     created_at = _now_iso()
     expires_at = (datetime.now().astimezone() + timedelta(days=ttl_days)).isoformat()
@@ -1080,6 +1082,7 @@ def get_user_by_session_token(token: str) -> dict[str, Any] | None:
         "id": row["id"],
         "username": row["username"],
         "created_at": row["created_at"],
+        "expires_at": row["expires_at"],
     }
 
 

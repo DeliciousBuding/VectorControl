@@ -33,6 +33,24 @@ router = APIRouter(prefix="/api/transactions", tags=["交易流水"])
 _ALLOWED_ACTIONS = {"buy", "redeem", "sip", "switch_in", "switch_out", "dividend"}
 
 
+class TransactionImportIn(BaseModel):
+    idempotency_key: str | None = None
+    external_order_no: str | None = None
+    fund_id: str
+    fund_name: str | None = ""
+    action: str
+    occurred_at: str
+    amount_cny: float
+    status: str = "pending"
+    confirmed_at: str | None = ""
+    shares: float = 0.0
+    nav: float = 0.0
+    fee_cny: float = 0.0
+    note: str = ""
+    tags: list[str] = []
+    source: str = "api_import"
+
+
 class TransactionsImportYamlIn(BaseModel):
     yaml: str | None = None
     yaml_text: str | None = None
@@ -315,6 +333,51 @@ async def import_transactions_yaml(request: Request, payload: TransactionsImport
         "conflicts": conflicts,
         "warnings": warnings,
         "imported_at": datetime.now().astimezone().isoformat(),
+        "data_status": _build_transaction_data_status(summary),
+    }
+
+
+@router.post("/import")
+async def import_transaction(request: Request, payload: TransactionImportIn) -> dict[str, Any]:
+    user_id = get_holdings_user_id(request)
+    idempotency_key = (payload.idempotency_key or "").strip() or request.headers.get("X-Idempotency-Key", "").strip()
+
+    data = payload.model_dump()
+    if idempotency_key:
+        data["idempotency_key"] = idempotency_key
+
+    # Basic normalization to match YAML import logic
+    try:
+        data["occurred_at"] = _normalize_iso_datetime(data["occurred_at"])
+    except Exception as exc:
+        return JSONResponse({"detail": f"occurred_at 格式不正确: {exc}"}, status_code=400)
+
+    if data.get("confirmed_at"):
+        try:
+            data["confirmed_at"] = _normalize_iso_datetime(str(data["confirmed_at"]))
+        except Exception as exc:
+            return JSONResponse({"detail": f"confirmed_at 格式不正确: {exc}"}, status_code=400)
+
+    if data.get("action") not in _ALLOWED_ACTIONS:
+        return JSONResponse({"detail": "action 不在允许范围"}, status_code=400)
+
+    save_result = save_fund_transaction(user_id=user_id, payload=data)
+    save_status = str(save_result.get("result") or "").strip().lower()
+
+    if save_status == "conflict":
+        return JSONResponse(
+            {
+                "detail": str(save_result.get("reason") or "幂等键冲突"),
+                "idempotency_key": idempotency_key,
+            },
+            status_code=409,
+        )
+
+    summary = summarize_fund_transactions_by_fund(user_id=user_id, fund_id=payload.fund_id)
+    return {
+        "status": "success",
+        "result": save_status,  # added or skipped
+        "transaction": save_result.get("transaction"),
         "data_status": _build_transaction_data_status(summary),
     }
 

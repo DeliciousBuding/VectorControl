@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { apiFetch } from './api.js'
+import { apiFetch, AUTH_EVENT_EXPIRY } from './api.js'
 
 describe('apiFetch request id', () => {
   afterEach(() => {

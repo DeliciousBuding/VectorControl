@@ -15,7 +15,8 @@ import {
   patchTransaction,
   saveAction,
   searchFunds,
-  syncPendingTransactions
+  syncPendingTransactions,
+  AUTH_EVENT_EXPIRY
 } from './api.js'
 import { buildFundSeries, splitMarketGroups } from './utils/chart.js'
 import { cycleSortState } from './utils/holdings.js'

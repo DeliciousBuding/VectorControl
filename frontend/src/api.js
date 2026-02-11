@@ -1,4 +1,5 @@
 const SESSION_TOKEN_KEY = 'vectorcontrol_session_token'
+export const AUTH_EVENT_EXPIRY = 'vectorcontrol_auth_expiry'
 
 function readRequestId(headers) {
   if (!headers || typeof headers.get !== 'function') return ''

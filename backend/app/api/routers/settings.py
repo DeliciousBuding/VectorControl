@@ -487,13 +487,12 @@ async def post_telegram_test_message(request: Request) -> dict:
                 # Record cooldown
                 _test_message_limiter.record_success(cooldown_key)
                 return {
-                    "user_id": user_id,
                     "ok": True,
                     "sent": True,
                     "trace_id": trace_id,
                     "attempts": attempt,
                     "max_attempts": max_attempts,
-                    "provider_message_id": provider_message_id,
+                    "error": None,
                 }
 
             error_code = resp_json.get("error_code") if isinstance(resp_json, dict) else None
@@ -543,7 +542,6 @@ async def post_telegram_test_message(request: Request) -> dict:
         error_category=str((last_error or {}).get("category") or "unknown"),
     )
     return {
-        "user_id": user_id,
         "ok": False,
         "sent": False,
         "trace_id": trace_id,
@@ -625,13 +623,12 @@ async def post_feishu_test_message(request: Request) -> dict:
                 # Record cooldown on success
                 _test_message_limiter.record_success(cooldown_key)
                 return {
-                    "user_id": user_id,
                     "ok": True,
                     "sent": True,
                     "trace_id": trace_id,
                     "attempts": attempt,
                     "max_attempts": max_attempts,
-                    "provider_message_id": provider_message_id,
+                    "error": None,
                 }
 
             provider_message = str(resp_json.get("StatusMessage") or resp_json.get("msg") or "").strip() if isinstance(resp_json, dict) else ""
@@ -673,7 +670,6 @@ async def post_feishu_test_message(request: Request) -> dict:
         error_category=str((last_error or {}).get("category") or "unknown"),
     )
     return {
-        "user_id": user_id,
         "ok": False,
         "sent": False,
         "trace_id": trace_id,

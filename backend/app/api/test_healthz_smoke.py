@@ -16,6 +16,14 @@ class HealthzSmokeTest(unittest.TestCase):
             self.assertEqual(str(body.get("status")), "ok")
             self.assertTrue(str(body.get("service") or ""))
 
+    def test_health_ok(self) -> None:
+        with TestClient(app) as client:
+            resp = client.get("/api/health")
+            self.assertEqual(resp.status_code, 200, resp.text)
+            body = resp.json()
+            self.assertEqual(str(body.get("status")), "ok")
+            self.assertTrue(str(body.get("service") or ""))
+
 
 if __name__ == "__main__":
     unittest.main()

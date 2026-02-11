@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import logging
 import uuid
+from datetime import datetime
 
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
@@ -8,6 +10,7 @@ from starlette.responses import JSONResponse
 
 from app.api.deps import get_user_id, get_username, is_admin
 from app.core.rate_limit import LimitRule, auth_rate_limiter
+from app.core.settings import LOGGER, get_env
 from app.storage.db import (
     create_session,
     create_user,
@@ -26,6 +29,7 @@ class AuthIn(BaseModel):
 
 
 LOGIN_RULE = LimitRule(max_attempts=6, window_seconds=600, block_seconds=900)
+LOGIN_IP_FAIL_RULE = LimitRule(max_attempts=5, window_seconds=3600, block_seconds=900)
 REGISTER_RULE = LimitRule(max_attempts=8, window_seconds=600, block_seconds=900)
 
 
@@ -69,13 +73,24 @@ async def login(payload: AuthIn, request: Request) -> dict:
     ip = _client_ip(request)
     username = payload.username.strip().lower()
     login_key = f"login:{ip}:{username}"
+    ip_fail_key = f"login_fail_ip:{ip}"
     trace_id = uuid.uuid4().hex[:12]
+
+    # Check IP-level lockout
+    allowed_ip, retry_after_ip = auth_rate_limiter.check(ip_fail_key)
+    if not allowed_ip:
+        return _too_many_response(retry_after_ip, trace_id)
+
+    # Check Account-level lockout
     allowed, retry_after = auth_rate_limiter.check(login_key)
     if not allowed:
         return _too_many_response(retry_after, trace_id)
 
     user = verify_user_credentials(payload.username, payload.password)
     if not user:
+        LOGGER.warning("登录失败: IP=%s, 用户名=%s, 时间=%s", ip, payload.username, datetime.now().isoformat())
+        auth_rate_limiter.record_failure(ip_fail_key, LOGIN_IP_FAIL_RULE)
+
         account_exists = username_exists(payload.username)
         allowed, retry_after = auth_rate_limiter.record_failure(login_key, LOGIN_RULE)
         if not allowed:
@@ -85,8 +100,42 @@ async def login(payload: AuthIn, request: Request) -> dict:
         return JSONResponse({"detail": "密码错误，请重试", "trace_id": trace_id}, status_code=401)
 
     auth_rate_limiter.record_success(login_key)
-    token = create_session(user["id"])
+    auth_rate_limiter.record_success(ip_fail_key)
+
+    ttl_days = int(get_env("SESSION_TTL_DAYS", "7"))
+    token = create_session(user["id"], ttl_days=ttl_days)
     return {"token": token, "user": user}
+
+
+@router.get("/session-info")
+async def session_info(request: Request) -> dict:
+    if is_admin(request):
+        return {"remaining_seconds": 3600 * 24 * 365, "expires_at": "9999-12-31T23:59:59"}
+
+    authorization = request.headers.get("Authorization", "")
+    token = ""
+    if authorization:
+        parts = authorization.strip().split(" ", 1)
+        token = parts[1].strip() if len(parts) == 2 else parts[0].strip()
+    if not token:
+        token = request.query_params.get("token", "")
+
+    if not token:
+        return JSONResponse({"detail": "未登录"}, status_code=401)
+
+    from app.storage.db import get_user_by_session_token
+
+    user = get_user_by_session_token(token)
+    if not user or "expires_at" not in user:
+        return JSONResponse({"detail": "会话无效或已过期"}, status_code=401)
+
+    expires_at_str = user["expires_at"]
+    expires_at = datetime.fromisoformat(expires_at_str)
+    remaining = (expires_at - datetime.now().astimezone()).total_seconds()
+    return {
+        "remaining_seconds": max(0, int(remaining)),
+        "expires_at": expires_at_str,
+    }
 
 
 @router.get("/me")

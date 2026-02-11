@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toGuidedError } from '../utils/errorFeedback.js'
 
 function buildToast(label, payload) {
@@ -28,14 +28,34 @@ export function TestMessageButton({
   afterSend,
   disabled = false,
   disabledReason = '',
-  dataTestId = ''
+  dataTestId = '',
+  cooldown = 0 // 新增 cooldown 属性，单位为秒
 }) {
   const [loading, setLoading] = useState(false)
+  const [countdown, setCountdown] = useState(cooldown)
 
-  const title = disabledReason && disabled ? disabledReason : ''
+  useEffect(() => {
+    setCountdown(cooldown)
+  }, [cooldown])
+
+  useEffect(() => {
+    if (countdown <= 0) return
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => prev - 1)
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [countdown])
+
+  const isInCooldown = countdown > 0
+  const actualDisabled = disabled || loading || isInCooldown
+  const actualDisabledReason = isInCooldown ? `冷却中（${countdown}秒）` : disabledReason
+
+  const title = actualDisabledReason && actualDisabled ? actualDisabledReason : ''
 
   const handleClick = async () => {
-    if (loading || disabled) return
+    if (loading || actualDisabled) return
     if (typeof onSend !== 'function') {
       onToast?.({ type: 'error', message: `${label} 测试消息未接入。下一步：请检查前端回调与后端接口是否已集成。` })
       return
@@ -45,6 +65,8 @@ export function TestMessageButton({
     try {
       const payload = await onSend()
       onToast?.(buildToast(label, payload))
+      // 假设 onSend 成功后会更新父组件的 notificationsStatus，
+      // 从而更新 cooldown 属性，所以这里不需要手动设置 countdown
     } catch (error) {
       onToast?.({ type: 'error', message: toGuidedError(error, 'settings_save', `${label} 测试消息发送失败`) })
     } finally {
@@ -65,10 +87,14 @@ export function TestMessageButton({
       className="ghost"
       data-testid={dataTestId || undefined}
       onClick={handleClick}
-      disabled={disabled || loading}
+      disabled={actualDisabled}
       title={title}
     >
-      {loading ? '发送中...' : `${label} 发送测试消息`}
+      {loading
+        ? '发送中...'
+        : isInCooldown
+        ? `${label} 冷却中 (${countdown}s)`
+        : `${label} 发送测试消息`}
     </button>
   )
 }

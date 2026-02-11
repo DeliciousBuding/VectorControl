@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import {
+  AUTH_EVENT_EXPIRY,
   fetchMe,
   getStoredToken,
   loginUser,
@@ -35,6 +36,15 @@ export function useAuth() {
 
   useEffect(() => {
     void initSession()
+
+    const handleExpiry = (e) => {
+      console.warn('Session expired, logging out...', e.detail)
+      setStoredToken('')
+      setUser(null)
+    }
+
+    window.addEventListener(AUTH_EVENT_EXPIRY, handleExpiry)
+    return () => window.removeEventListener(AUTH_EVENT_EXPIRY, handleExpiry)
   }, [initSession])
 
   const login = useCallback(async ({ username, password, mode = 'login' }) => {

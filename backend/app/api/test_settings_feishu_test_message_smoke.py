@@ -41,7 +41,7 @@ class SettingsFeishuTestMessageSmokeTest(unittest.TestCase):
             body = resp.json()
             self.assertEqual(bool(body.get("ok")), True)
             self.assertEqual(bool(body.get("sent")), True)
-            self.assertEqual(str(body.get("provider_message_id")), "m1")
+            self.assertIsNone(body.get("error"))
             self.assertNotIn(webhook_url, json.dumps(body, ensure_ascii=False))
 
     def test_post_feishu_test_message_unauthorized_is_explainable(self) -> None:
@@ -79,6 +79,60 @@ class SettingsFeishuTestMessageSmokeTest(unittest.TestCase):
                 headers=headers,
             )
             self.assertEqual(resp.status_code, 422, resp.text)
+
+
+    def test_post_feishu_test_message_invalid_scheme_is_handled(self) -> None:
+        with TestClient(app) as client:
+            headers = self._register_headers(client)
+            # Use http instead of https
+            webhook_url = "http://open.feishu.cn/REDACTED"
+
+            cred_resp = client.put(
+                "/api/settings/notifications/feishu/webhook",
+                headers=headers,
+                json={"webhook_url": webhook_url},
+            )
+            self.assertEqual(cred_resp.status_code, 200, cred_resp.text)
+
+            # _http_post_json won't be called if validation fails early.
+            # No need to patch it here.
+            resp = client.post(
+                "/api/settings/notifications/feishu/test_message",
+                headers=headers,
+            )
+            self.assertEqual(resp.status_code, 200, resp.text)
+            body = resp.json()
+            self.assertEqual(bool(body.get("ok")), False)
+            self.assertEqual(bool(body.get("sent")), False)
+            self.assertEqual(str(body.get("error", {}).get("category")), "invalid_webhook_url")
+            self.assertTrue(str(body.get("error", {}).get("message", "")).strip())
+
+
+    def test_post_feishu_test_message_invalid_host_is_handled(self) -> None:
+        with TestClient(app) as client:
+            headers = self._register_headers(client)
+            # Use wrong host
+            webhook_url = "https://wrong.feishu.cn/REDACTED"
+
+            cred_resp = client.put(
+                "/api/settings/notifications/feishu/webhook",
+                headers=headers,
+                json={"webhook_url": webhook_url},
+            )
+            self.assertEqual(cred_resp.status_code, 200, cred_resp.text)
+
+            # _http_post_json won't be called if validation fails early.
+            # No need to patch it here.
+            resp = client.post(
+                "/api/settings/notifications/feishu/test_message",
+                headers=headers,
+            )
+            self.assertEqual(resp.status_code, 200, resp.text)
+            body = resp.json()
+            self.assertEqual(bool(body.get("ok")), False)
+            self.assertEqual(bool(body.get("sent")), False)
+            self.assertEqual(str(body.get("error", {}).get("category")), "invalid_webhook_url")
+            self.assertTrue(str(body.get("error", {}).get("message", "")).strip())
 
 
 if __name__ == "__main__":
