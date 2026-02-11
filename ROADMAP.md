@@ -50,7 +50,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ## P1（基金数据库与交易事实闭环）
 
 - [ ] [前端Agent1] SettingsDrawer 信息架构 v2（高频项优先）：轻量重排分组，保持可回归（已于 2026-02-09 17:24:16 预告排队）。
-- [ ] [协同] 可观测性面板 v1：前端 dev-only 面板 + 后端 `GET /api/system/diagnostics`（登录）提供可复制诊断信息（已于 2026-02-09 17:26:11 预告排队）。
+- [√] [协同] 可观测性面板 v1：前端 dev-only 面板 + 后端 `GET /api/system/diagnostics`（登录）提供可复制诊断信息（已完成@bot b6684d5, 0f9c6f6）
 
 ## P1.5（消息通道增强：飞书 + Telegram 预留）
 
@@ -76,7 +76,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ## P2（决策层与执行闭环深化）
 
 - [后端Agent1] 风险口径对齐 v1：`GET /api/report/daily` 增加 `data_quality` 摘要（估算/缺失/异常），补最小 smoke + 契约（已于 2026-02-09 17:27:03 预告排队）。
-- [ ] [前端Agent1] 日报可解释性 v1：展示 `data_quality` 提示与 tooltip 详情，补最小回归（已于 2026-02-09 17:27:03 预告排队）。
+- [√] [前端] 日报可解释性 v1：展示 `data_quality` 提示与 tooltip 详情（已完成@bot 2b293be）
 
 ## P3（持续改进）
 

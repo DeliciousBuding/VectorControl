@@ -1618,6 +1618,29 @@ button:disabled {
   font-size: 26px;
 }
 
+.settings-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px 8px;
+  margin-top: 16px;
+  border-bottom: 2px solid var(--color-brand);
+}
+
+.settings-section-header:first-of-type {
+  margin-top: 0;
+}
+
+.settings-section-header .section-icon {
+  font-size: 16px;
+}
+
+.settings-section-header .section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-brand);
+}
+
 .settings-group {
   border: 1px solid var(--line);
   border-radius: 12px;

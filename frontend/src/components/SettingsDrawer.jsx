@@ -912,6 +912,11 @@ export function SettingsDrawer({
           <button type="button" className="ghost" onClick={onClose}>关闭</button>
         </header>
 
+        <div className="settings-section-header">
+          <span className="section-icon">⚙️</span>
+          <span className="section-title">常用设置</span>
+        </div>
+
         <div className="settings-group">
           <h4>自动刷新</h4>
           <label>
@@ -1161,6 +1166,11 @@ export function SettingsDrawer({
           ) : null}
         </div>
 
+        <div className="settings-section-header">
+          <span className="section-icon">🔍</span>
+          <span className="section-title">网络与诊断</span>
+        </div>
+
         <div className="settings-group">
           <h4>网络测速</h4>
           <label>
@@ -1226,6 +1236,11 @@ export function SettingsDrawer({
               ))}
             </div>
           )}
+        </div>
+
+        <div className="settings-section-header">
+          <span className="section-icon">📨</span>
+          <span className="section-title">消息推送（预留）</span>
         </div>
 
         <div className="settings-group">
