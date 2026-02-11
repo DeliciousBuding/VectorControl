@@ -6,12 +6,15 @@ import {
   fetchHealthz,
   fetchNetworkBenchmarkLatest,
   fetchNotificationsStatus,
+  fetchSettingsAuditLogs,
   fetchSIPPlans,
   fetchSystemStatus,
   runNetworkBenchmark,
+  testAllNotifications,
   updateSIPPlan
 } from '../api.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
+import { assertSettingsSchema } from '../utils/assertSettingsSchema.js'
 import { TestMessageButton } from './TestMessageButton.jsx'
 
 const PROFILE_OPTIONS = [
@@ -295,6 +298,11 @@ export function SettingsDrawer({
   const [telegramHistoryOpen, setTelegramHistoryOpen] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [testAllLoading, setTestAllLoading] = useState(false)
+  const [testAllResult, setTestAllResult] = useState(null)
+  const [auditLogs, setAuditLogs] = useState([])
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false)
+  const [auditLogsOpen, setAuditLogsOpen] = useState(false)
   const [sipPlans, setSipPlans] = useState([])
   const [sipLoading, setSipLoading] = useState(false)
   const [sipSaving, setSipSaving] = useState(false)
@@ -310,6 +318,10 @@ export function SettingsDrawer({
     const webhook = String(normalized.notifications?.feishu?.webhook_url || '').trim()
     const telegramBotToken = String(normalized.notifications?.telegram?.bot_token || '').trim()
     const telegramChatId = String(normalized.notifications?.telegram?.chat_id || '').trim()
+
+    // Dev-only schema assertion
+    assertSettingsSchema(normalized, 'SettingsDrawer.useEffect[settings]')
+
     setDraft(normalized)
     setBenchmarkProfile(normalized.network_benchmark.default_profile || 'cn_fund')
     setEditingFeishuWebhook(!webhook)
@@ -713,6 +725,50 @@ export function SettingsDrawer({
     }
   }
 
+  const handleTestAll = async () => {
+    setTestAllLoading(true)
+    setTestAllResult(null)
+    try {
+      const result = await testAllNotifications()
+      setTestAllResult(result)
+      const summary = result?.summary || {}
+      const passed = summary.passed || 0
+      const failed = summary.failed || 0
+      if (failed === 0 && passed > 0) {
+        handleDiagnosticToast({ type: 'success', message: `全部测试通过 (${passed}/${summary.tested})` })
+      } else if (passed > 0) {
+        handleDiagnosticToast({ type: 'warning', message: `部分测试通过 (${passed}/${summary.tested})，${failed} 个失败` })
+      } else {
+        handleDiagnosticToast({ type: 'error', message: '所有测试失败' })
+      }
+      await refreshNotificationsStatus()
+    } catch (error) {
+      const detail = String(error?.message || '').trim()
+      handleDiagnosticToast({ type: 'error', message: detail ? `测试失败：${detail}` : '测试失败' })
+    } finally {
+      setTestAllLoading(false)
+    }
+  }
+
+  const loadAuditLogs = async () => {
+    setAuditLogsLoading(true)
+    try {
+      const result = await fetchSettingsAuditLogs(10)
+      setAuditLogs(result?.logs || [])
+    } catch (error) {
+      console.error('Failed to load audit logs:', error)
+    } finally {
+      setAuditLogsLoading(false)
+    }
+  }
+
+  const toggleAuditLogs = async () => {
+    if (!auditLogsOpen && auditLogs.length === 0) {
+      await loadAuditLogs()
+    }
+    setAuditLogsOpen(!auditLogsOpen)
+  }
+
   const handleCopySystemStatus = async () => {
     try {
       const snapshot = systemStatusSnapshot ? asPlainObject(systemStatusSnapshot) : null
@@ -911,6 +967,11 @@ export function SettingsDrawer({
           <h3>设置中心</h3>
           <button type="button" className="ghost" onClick={onClose}>关闭</button>
         </header>
+
+        <div className="settings-section-header">
+          <span className="section-icon">⚙️</span>
+          <span className="section-title">常用设置</span>
+        </div>
 
         <div className="settings-group">
           <h4>自动刷新</h4>
@@ -1161,6 +1222,11 @@ export function SettingsDrawer({
           ) : null}
         </div>
 
+        <div className="settings-section-header">
+          <span className="section-icon">🔍</span>
+          <span className="section-title">网络与诊断</span>
+        </div>
+
         <div className="settings-group">
           <h4>网络测速</h4>
           <label>
@@ -1226,6 +1292,11 @@ export function SettingsDrawer({
               ))}
             </div>
           )}
+        </div>
+
+        <div className="settings-section-header">
+          <span className="section-icon">📨</span>
+          <span className="section-title">消息推送（预留）</span>
         </div>
 
         <div className="settings-group">
@@ -1514,6 +1585,37 @@ export function SettingsDrawer({
 
           {systemPanelHint ? <p className="settings-note">{systemPanelHint}</p> : null}
           {systemPanelError ? <p className="settings-error">{systemPanelError}</p> : null}
+
+          <div className="settings-secret-actions" style={{ marginTop: '12px' }}>
+            <button
+              type="button"
+              className="ghost"
+              onClick={toggleAuditLogs}
+              disabled={auditLogsLoading}
+            >
+              {auditLogsOpen ? '收起变更记录' : '查看变更记录'}
+            </button>
+          </div>
+
+          {auditLogsOpen && (
+            <div className="settings-audit-logs">
+              {auditLogsLoading ? (
+                <p className="settings-note">加载中...</p>
+              ) : auditLogs.length === 0 ? (
+                <p className="settings-note">暂无变更记录</p>
+              ) : (
+                <ul className="audit-log-list">
+                  {auditLogs.map((log, idx) => (
+                    <li key={log.id || idx} className="audit-log-item">
+                      <span className="audit-time">{formatDiagnosticTimestamp(log.created_at)}</span>
+                      <span className="audit-action">{log.action}</span>
+                      {log.note && <span className="audit-note">{log.note}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="settings-group">
@@ -1599,12 +1701,22 @@ export function SettingsDrawer({
             const canSendFeishu = feishuCredentialConfigured && !shouldUpdateFeishuWebhook
             const canSendTelegram = telegramCredentialConfigured && Boolean(currentTelegramChatId) && !shouldUpdateTelegramCredential
 
-            const feishuDisabledReason = !feishuCredentialConfigured
+            // Cooldown handling
+            const feishuCooldownRemaining = Number(feishuStatus.cooldown_remaining || 0)
+            const telegramCooldownRemaining = Number(telegramStatus.cooldown_remaining || 0)
+            const feishuInCooldown = feishuCooldownRemaining > 0
+            const telegramInCooldown = telegramCooldownRemaining > 0
+
+            const feishuDisabledReason = feishuInCooldown
+              ? `冷却中（${feishuCooldownRemaining}秒）`
+              : (!feishuCredentialConfigured
+                ? '请先配置并保存凭据'
+                : (shouldUpdateFeishuWebhook ? '已输入新凭据，请先保存设置' : ''))
+            const telegramDisabledReason = telegramInCooldown
+              ? `冷却中（${telegramCooldownRemaining}秒）`
+              : (!telegramCredentialConfigured
               ? '请先配置并保存凭据'
-              : (shouldUpdateFeishuWebhook ? '已输入新凭据，请先保存设置' : '')
-            const telegramDisabledReason = !telegramCredentialConfigured
-              ? '请先配置并保存凭据'
-              : (!currentTelegramChatId ? 'chat_id 为空，请先配置并保存凭据' : (shouldUpdateTelegramCredential ? '已输入新凭据，请先保存设置' : ''))
+              : (!currentTelegramChatId ? 'chat_id 为空，请先配置并保存凭据' : (shouldUpdateTelegramCredential ? '已输入新凭据，请先保存设置' : '')))
 
             const parseHistory = (history) => {
               if (!Array.isArray(history)) return []
@@ -1707,7 +1819,7 @@ export function SettingsDrawer({
                   <TestMessageButton
                     label="飞书"
                     dataTestId="diagnostic-feishu-test-message-btn"
-                    disabled={saving || !canSendFeishu}
+                    disabled={saving || !canSendFeishu || feishuInCooldown}
                     disabledReason={feishuDisabledReason}
                     onSend={onSendFeishuTestMessage}
                     onToast={handleDiagnosticToast}
@@ -1716,7 +1828,7 @@ export function SettingsDrawer({
                   <TestMessageButton
                     label="Telegram"
                     dataTestId="diagnostic-telegram-test-message-btn"
-                    disabled={saving || !canSendTelegram}
+                    disabled={saving || !canSendTelegram || telegramInCooldown}
                     disabledReason={telegramDisabledReason}
                     onSend={onSendTelegramTestMessage}
                     onToast={handleDiagnosticToast}
@@ -1731,7 +1843,32 @@ export function SettingsDrawer({
                   >
                     复制诊断信息
                   </button>
+                  <button
+                    type="button"
+                    className="ghost"
+                    data-testid="diagnostic-test-all-btn"
+                    disabled={saving || testAllLoading}
+                    onClick={handleTestAll}
+                  >
+                    {testAllLoading ? '测试中...' : 'Test All'}
+                  </button>
                 </div>
+
+                {testAllResult && (
+                  <div className="settings-test-all-result">
+                    <p className="test-all-summary">
+                      测试结果：{testAllResult.summary?.passed || 0}/{testAllResult.summary?.tested || 0} 通过
+                    </p>
+                    {Object.entries(testAllResult.channels || {}).map(([channel, info]) => (
+                      <p key={channel} className={`test-all-item ${info.ok ? 'success' : 'fail'}`}>
+                        {channel === 'telegram' ? 'Telegram' : '飞书'}：
+                        {!info.enabled && '未启用'}
+                        {info.enabled && !info.credential_configured && '未配置凭据'}
+                        {info.tested && (info.ok ? '✓ 通过' : `✗ 失败${info.error?.message ? `: ${info.error.message}` : ''}`)}
+                      </p>
+                    ))}
+                  </div>
+                )}
 
                 {diagnosticHint ? <p className="settings-note">{diagnosticHint}</p> : null}
                 {diagnosticError ? <p className="settings-error">{diagnosticError}</p> : null}

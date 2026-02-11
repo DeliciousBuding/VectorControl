@@ -6,44 +6,42 @@ dev_seed_demo.py - 本地开发环境演示数据种子脚本
 安全：仅允许在本地 dev DB 执行，不含任何真实凭据，需二次确认。
 
 用法：
-    python scripts/dev_seed_demo.py --db ./dev.db --confirm
+    python scripts/dev_seed_demo.py --db ./backend/data/app.db --confirm
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import sqlite3
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
 # 演示数据（不含真实凭据）
-DEMO_USER = {
-    "id": 1,
-    "username": "demo_user",
-    "email": "demo@example.com",
-}
+DEMO_USER_ID = "demo_seed_user_001"
+DEMO_USERNAME = "demo_user"
 
 DEMO_FUNDS = [
-    {"fund_id": "000001", "name": "华夏成长混合", "market_group": "cn_fund"},
-    {"fund_id": "050003", "name": "博时精选股票", "market_group": "cn_fund"},
-    {"fund_id": "510300", "name": "沪深300ETF", "market_group": "cn_fund"},
+    {"fund_id": "000001", "name": "华夏成长混合", "market_group": "cn_hk", "bucket": "国内权益"},
+    {"fund_id": "050003", "name": "博时精选股票", "market_group": "cn_hk", "bucket": "国内权益"},
+    {"fund_id": "510300", "name": "沪深300ETF", "market_group": "cn_hk", "bucket": "指数基金"},
 ]
 
 DEMO_HOLDINGS = [
-    {"user_id": 1, "fund_id": "000001", "shares": "1000.00", "cost_basis": "1.500", "notes": "定投标的"},
-    {"user_id": 1, "fund_id": "050003", "shares": "500.00", "cost_basis": "2.000", "notes": "主动管理"},
-    {"user_id": 1, "fund_id": "510300", "shares": "2000.00", "cost_basis": "4.000", "notes": "宽基指数"},
+    {"fund_id": "000001", "name": "华夏成长混合", "shares": 1000.00, "cost_basis_cny": 15000.00, "market_value_cny": 16000.00, "bucket": "国内权益", "market_group": "cn_hk"},
+    {"fund_id": "050003", "name": "博时精选股票", "shares": 500.00, "cost_basis_cny": 10000.00, "market_value_cny": 9500.00, "bucket": "国内权益", "market_group": "cn_hk"},
+    {"fund_id": "510300", "name": "沪深300ETF", "shares": 2000.00, "cost_basis_cny": 8000.00, "market_value_cny": 8500.00, "bucket": "指数基金", "market_group": "cn_hk"},
 ]
 
 DEMO_TRANSACTIONS = [
-    {"user_id": 1, "fund_id": "000001", "type": "buy", "shares": "1000.00", "price": "1.500", "status": "confirmed"},
-    {"user_id": 1, "fund_id": "050003", "type": "buy", "shares": "500.00", "price": "2.000", "status": "confirmed"},
-    {"user_id": 1, "fund_id": "510300", "type": "buy", "shares": "2000.00", "price": "4.000", "status": "confirmed"},
+    {"fund_id": "000001", "fund_name": "华夏成长混合", "action": "buy", "amount_cny": 15000.00, "status": "confirmed"},
+    {"fund_id": "050003", "fund_name": "博时精选股票", "action": "buy", "amount_cny": 10000.00, "status": "confirmed"},
+    {"fund_id": "510300", "fund_name": "沪深300ETF", "action": "buy", "amount_cny": 8000.00, "status": "pending"},
 ]
 
 DEMO_SIP_PLANS = [
-    {"user_id": 1, "fund_id": "000001", "amount": "1000.00", "frequency": "monthly", "day": 1, "enabled": True},
+    {"fund_id": "000001", "fund_name": "华夏成长混合", "amount": 1000.00, "frequency": "monthly", "day": 1, "enabled": 1},
 ]
 
 
@@ -53,7 +51,7 @@ def confirm_action(db_path: str) -> bool:
     print("⚠️  警告：即将向数据库写入演示数据")
     print("=" * 60)
     print(f"目标数据库: {db_path}")
-    print(f"演示用户: {DEMO_USER['username']}")
+    print(f"演示用户ID: {DEMO_USER_ID}")
     print(f"演示基金数: {len(DEMO_FUNDS)}")
     print(f"演示持仓数: {len(DEMO_HOLDINGS)}")
     print(f"演示交易数: {len(DEMO_TRANSACTIONS)}")
@@ -78,52 +76,89 @@ def seed_demo_data(db_path: str) -> bool:
     cursor = conn.cursor()
     
     try:
-        # 用户
-        cursor.execute("""
-            INSERT OR REPLACE INTO users (id, username, email)
-            VALUES (?, ?, ?)
-        """, (DEMO_USER["id"], DEMO_USER["username"], DEMO_USER["email"]))
+        now = datetime.now().isoformat()
         
-        # 基金
+        # 用户 (使用已存在的用户或创建新的)
+        cursor.execute("SELECT id FROM user_accounts WHERE id = ?", (DEMO_USER_ID,))
+        if not cursor.fetchone():
+            cursor.execute("""
+                INSERT INTO user_accounts (id, username, password_hash, created_at)
+                VALUES (?, ?, ?, ?)
+            """, (DEMO_USER_ID, DEMO_USERNAME, "demo_placeholder_hash", now))
+        
+        # 基金目录
         for fund in DEMO_FUNDS:
             cursor.execute("""
-                INSERT OR REPLACE INTO fund_catalog (fund_id, name, market_group)
+                INSERT OR REPLACE INTO fund_catalog (fund_id, name, updated_at)
                 VALUES (?, ?, ?)
-            """, (fund["fund_id"], fund["name"], fund["market_group"]))
+            """, (fund["fund_id"], fund["name"], now))
         
-        # 持仓
+        # 基金主数据
+        for fund in DEMO_FUNDS:
+            cursor.execute("""
+                INSERT OR REPLACE INTO fund_master (fund_id, name, market_group, bucket, updated_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (fund["fund_id"], fund["name"], fund["market_group"], fund.get("bucket", ""), now))
+        
+        # 持仓 - 先删除旧数据
+        cursor.execute("DELETE FROM holdings WHERE user_id = ?", (DEMO_USER_ID,))
         for holding in DEMO_HOLDINGS:
             cursor.execute("""
-                INSERT OR REPLACE INTO holdings (user_id, fund_id, shares, cost_basis, notes)
-                VALUES (?, ?, ?, ?, ?)
-            """, (holding["user_id"], holding["fund_id"], holding["shares"], 
-                  holding["cost_basis"], holding["notes"]))
+                INSERT INTO holdings (user_id, fund_id, name, bucket, market_value_cny, cost_basis_cny, shares, cost, start_date, tags_json, market_group, archived, archived_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (DEMO_USER_ID, holding["fund_id"], holding["name"], holding["bucket"],
+                  holding["market_value_cny"], holding["cost_basis_cny"], holding["shares"],
+                  holding["cost_basis_cny"], now, "[]", holding["market_group"], 0, ""))
         
         # 交易
         base_date = datetime.now() - timedelta(days=30)
         for i, txn in enumerate(DEMO_TRANSACTIONS):
             txn_date = base_date + timedelta(days=i * 7)
+            idempotency_key = f"seed_{DEMO_USER_ID}_{txn['fund_id']}_{i}"
             cursor.execute("""
-                INSERT INTO fund_transactions (user_id, fund_id, type, shares, price, status, executed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (txn["user_id"], txn["fund_id"], txn["type"], txn["shares"],
-                  txn["price"], txn["status"], txn_date.isoformat()))
+                INSERT INTO fund_transactions (user_id, idempotency_key, fund_id, fund_name, action, occurred_at, amount_cny, status, shares, nav, fee_cny, note, tags_json, source, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (DEMO_USER_ID, idempotency_key, txn["fund_id"], txn["fund_name"], txn["action"],
+                  txn_date.isoformat(), txn["amount_cny"], txn["status"], 0, 0, 0, "", "[]", "seed", now, now))
         
         # 定投计划
+        cursor.execute("DELETE FROM sip_plans WHERE user_id = ?", (DEMO_USER_ID,))
         for sip in DEMO_SIP_PLANS:
+            next_date = (datetime.now() + timedelta(days=30)).strftime("%Y-%m-%d")
             cursor.execute("""
-                INSERT OR REPLACE INTO sip_plans (user_id, fund_id, amount, frequency, day, enabled)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (sip["user_id"], sip["fund_id"], sip["amount"], 
-                  sip["frequency"], sip["day"], sip["enabled"]))
+                INSERT INTO sip_plans (user_id, fund_id, fund_name, amount, frequency, day, enabled, next_date, last_executed, created_at, updated_at, note)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (DEMO_USER_ID, sip["fund_id"], sip["fund_name"], sip["amount"],
+                  sip["frequency"], sip["day"], sip["enabled"], next_date, "", now, now, "演示定投计划"))
+        
+        # 估值快照 - 创建多个历史快照用于收益曲线
+        for days_ago in range(30, 0, -1):
+            snapshot_date = (datetime.now() - timedelta(days=days_ago)).strftime("%Y-%m-%d")
+            asof = f"{snapshot_date}T15:00:00"
+            # 模拟收益增长
+            total_return = (30 - days_ago) * 0.1  # 从 0% 增长到 3%
+            payload = {
+                "total_market_value_cny": 33000 + (30 - days_ago) * 100,
+                "total_cost_basis_cny": 33000,
+                "day_profit_cny": 50 if days_ago < 30 else 0,
+                "total_return": total_return,
+            }
+            cursor.execute("""
+                INSERT INTO estimate_snapshot (user_id, asof, payload_json)
+                VALUES (?, ?, ?)
+            """, (DEMO_USER_ID, asof, json.dumps(payload)))
         
         conn.commit()
         print("\n✅ 演示数据写入成功")
+        print(f"   用户ID: {DEMO_USER_ID}")
+        print(f"   用户名: {DEMO_USERNAME}")
         return True
         
     except Exception as e:
         conn.rollback()
         print(f"\n❌ 写入失败: {e}")
+        import traceback
+        traceback.print_exc()
         return False
     finally:
         conn.close()
@@ -144,22 +179,21 @@ def main() -> int:
     
     if args.dry_run:
         print("🔍 DRY RUN - 以下是将执行的写入操作：")
-        print(f"  用户: {DEMO_USER}")
+        print(f"  用户ID: {DEMO_USER_ID}")
         print(f"  基金: {len(DEMO_FUNDS)} 条")
         print(f"  持仓: {len(DEMO_HOLDINGS)} 条")
         print(f"  交易: {len(DEMO_TRANSACTIONS)} 条")
         print(f"  定投: {len(DEMO_SIP_PLANS)} 条")
+        print(f"  估值快照: 30 条")
         return 0
     
     if not args.confirm:
         if not confirm_action(str(db_path)):
-            print("❌ 操作已取消")
+            print("❌ 已取消")
             return 1
     
-    if seed_demo_data(str(db_path)):
-        return 0
-    else:
-        return 1
+    success = seed_demo_data(str(db_path))
+    return 0 if success else 1
 
 
 if __name__ == "__main__":

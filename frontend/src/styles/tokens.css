@@ -6,21 +6,21 @@
   --color-text-primary: #111827;
   --color-text-secondary: #6b7280;
   --color-text-tertiary: #9ca3af;
-  --color-accent: #1d4ed8;
-  --color-accent-strong: #1e3a8a;
-  --color-success: #0f766e;
-  --color-warning: #d97706;
-  --color-error: #dc2626;
-  --color-info: #0369a1;
+  --color-accent: #4361ee;
+  --color-accent-strong: #3a0ca3;
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-error: #ef4444;
+  --color-info: #3b82f6;
 
   /* 图表颜色 Token */
-  --chart-up: #dc2626;
-  --chart-down: #0f766e;
+  --chart-up: #ef4444;
+  --chart-down: #10b981;
   --chart-neutral: #64748b;
   --chart-grid: #e2e8f0;
   --chart-benchmark-up: #ef4444;
-  --chart-benchmark-down: #14b8a6;
-  --chart-user-up: #b91c1c;
+  --chart-benchmark-down: #10b981;
+  --chart-user-up: #dc2626;
   --chart-user-down: #0d9488;
 
   /* 字号与行高 Token */
@@ -42,11 +42,12 @@
   --space-8: 32px;
 
   /* 圆角与阴影 Token */
-  --radius-card: 12px;
-  --radius-button: 10px;
-  --radius-input: 8px;
-  --shadow-elevation-1: 0 8px 20px rgba(15, 23, 42, 0.06);
-  --shadow-elevation-2: 0 18px 38px rgba(15, 23, 42, 0.09);
+  --radius-card: 16px;
+  --radius-button: 12px;
+  --radius-input: 12px;
+  --shadow-elevation-1: 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-elevation-2: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --shadow-elevation-3: 0 16px 48px rgba(15, 23, 42, 0.14);
 }
 
 :root {
@@ -54,15 +55,15 @@
    * 兼容变量：保持历史样式不回归。
    * 新样式优先使用上面的标准 Token。
    */
-  --bg: #eef3fb;
+  --bg: #f1f5f9;
   --panel: var(--color-bg);
-  --line: #d7e0ef;
+  --line: #e2e8f0;
   --text: var(--color-text-primary);
-  --muted: #60708f;
+  --muted: #64748b;
   --brand: var(--color-accent);
   --brand-dark: var(--color-accent-strong);
   --green: var(--color-success);
   --red: var(--color-error);
   --warn: var(--color-warning);
-  --shadow: var(--shadow-elevation-2);
+  --shadow: var(--shadow-elevation-1);
 }

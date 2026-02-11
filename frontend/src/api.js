@@ -148,6 +148,14 @@ export function fetchNotificationsStatus() {
   return apiFetch('/api/settings/notifications/status')
 }
 
+export function testAllNotifications() {
+  return apiFetch('/api/settings/notifications/test_all', { method: 'POST' })
+}
+
+export function fetchSettingsAuditLogs(limit = 20) {
+  return apiFetch(`/api/settings/audit_logs?limit=${encodeURIComponent(String(limit))}`)
+}
+
 export function fetchNetworkBenchmarkLatest() {
   return apiFetchWithFallback([
     '/api/settings/network-benchmark/latest',

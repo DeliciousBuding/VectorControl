@@ -4,7 +4,13 @@ export function asNumber(value, fallback = 0) {
 }
 
 export function formatDateTime(value = new Date()) {
-  const date = value instanceof Date ? value : new Date(value)
+  let text = String(value || '').trim()
+  if (!text) return '--'
+
+  // 处理 ISO 8601 格式：替换 Z 为 +00:00，处理无时区的情况
+  text = text.replace(/Z$/i, '+00:00')
+
+  const date = new Date(text)
   if (Number.isNaN(date.getTime())) return '--'
   return date.toLocaleString('zh-CN', { hour12: false })
 }

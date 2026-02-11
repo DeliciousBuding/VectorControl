@@ -10,16 +10,21 @@ from urllib.parse import urlparse
 
 from app.api.deps import get_holdings_user_id
 from app.core.network_benchmark import DEFAULT_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, run_network_benchmark
+from app.core.rate_limit import InMemoryRateLimiter
 from app.notifier import NotificationPayload
 from app.notifier import feishu_sender as feishu_mod
 from app.notifier import telegram_sender as telegram_mod
-from app.storage.db import get_user_settings, upsert_user_settings
+from app.storage.db import get_user_settings, list_audit_logs, upsert_user_settings
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 # Compatibility routes for historical service paths like `/api/network-benchmark/*`.
 compat_router = APIRouter(prefix="/api", tags=["settings-compat"], include_in_schema=False)
 MIN_TIMEOUT_SECONDS = 0.5
 REDACTED = "<REDACTED>"
+
+# Test message cooldown: 60 seconds per user per channel
+_test_message_limiter = InMemoryRateLimiter()
+TEST_MESSAGE_COOLDOWN_SECONDS = 60
 
 
 def _test_message_error(
@@ -401,6 +406,22 @@ async def put_telegram_credential(request: Request, payload: TelegramCredentialI
 
 @router.post("/notifications/telegram/test_message")
 async def post_telegram_test_message(request: Request) -> dict:
+    user_id = get_holdings_user_id(request)
+
+    # Cooldown check
+    cooldown_key = f"telegram:{user_id}"
+    allowed, retry_after = _test_message_limiter.check(cooldown_key)
+    if not allowed:
+        trace_id = uuid.uuid4().hex[:12]
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": f"请求过于频繁，请在 {retry_after} 秒后重试",
+                "retry_after": retry_after,
+                "trace_id": trace_id,
+            },
+        )
+
     # Send a fixed test message using saved telegram credentials (bot_token/chat_id).
     # Safety: never echo bot_token in response.
     user_id = get_holdings_user_id(request)
@@ -463,6 +484,8 @@ async def post_telegram_test_message(request: Request) -> dict:
                     sent=True,
                     error_category=None,
                 )
+                # Record cooldown
+                _test_message_limiter.record_success(cooldown_key)
                 return {
                     "user_id": user_id,
                     "ok": True,
@@ -532,9 +555,24 @@ async def post_telegram_test_message(request: Request) -> dict:
 
 @router.post("/notifications/feishu/test_message")
 async def post_feishu_test_message(request: Request) -> dict:
+    user_id = get_holdings_user_id(request)
+
+    # Cooldown check
+    cooldown_key = f"feishu:{user_id}"
+    allowed, retry_after = _test_message_limiter.check(cooldown_key)
+    if not allowed:
+        trace_id = uuid.uuid4().hex[:12]
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": f"请求过于频繁，请在 {retry_after} 秒后重试",
+                "retry_after": retry_after,
+                "trace_id": trace_id,
+            },
+        )
+
     # Send a fixed test message using saved feishu webhook_url.
     # Safety: never echo webhook_url in response.
-    user_id = get_holdings_user_id(request)
     settings = get_user_settings(user_id)
     notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
     section = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
@@ -584,6 +622,8 @@ async def post_feishu_test_message(request: Request) -> dict:
                     sent=True,
                     error_category=None,
                 )
+                # Record cooldown on success
+                _test_message_limiter.record_success(cooldown_key)
                 return {
                     "user_id": user_id,
                     "ok": True,
@@ -685,18 +725,41 @@ async def get_notifications_status(request: Request) -> dict:
     email_sender = str(email.get("sender", "")).strip()
     email_recipients = str(email.get("recipients", "")).strip()
 
+    # Cooldown info
+    import time
+    now = time.time()
+
+    feishu_cooldown_key = f"feishu:{user_id}"
+    telegram_cooldown_key = f"telegram:{user_id}"
+
+    feishu_cooldown_remaining = 0
+    telegram_cooldown_remaining = 0
+
+    # Check if user is in cooldown
+    feishu_allowed, feishu_retry_after = _test_message_limiter.check(feishu_cooldown_key)
+    telegram_allowed, telegram_retry_after = _test_message_limiter.check(telegram_cooldown_key)
+
+    if not feishu_allowed:
+        feishu_cooldown_remaining = feishu_retry_after
+    if not telegram_allowed:
+        telegram_cooldown_remaining = telegram_retry_after
+
     status: dict[str, Any] = {
         "feishu": {
             "enabled": bool(feishu.get("enabled", False)),
             "credential_configured": bool(feishu_webhook),
             "last_test_summary": feishu_last_test_summary,
             "last_test_history": feishu_last_test_history,
+            "cooldown_seconds": TEST_MESSAGE_COOLDOWN_SECONDS,
+            "cooldown_remaining": feishu_cooldown_remaining,
         },
         "telegram": {
             "enabled": bool(telegram.get("enabled", False)),
             "credential_configured": bool(telegram_token and telegram_chat),
             "last_test_summary": telegram_last_test_summary,
             "last_test_history": telegram_last_test_history,
+            "cooldown_seconds": TEST_MESSAGE_COOLDOWN_SECONDS,
+            "cooldown_remaining": telegram_cooldown_remaining,
         },
         "email": {
             "enabled": bool(email.get("enabled", False)),
@@ -746,6 +809,118 @@ async def post_network_benchmark_run(request: Request, payload: NetworkBenchmark
         )
 
     return {"user_id": user_id, "result": result}
+
+
+@router.post("/notifications/test_all")
+async def post_notifications_test_all(request: Request) -> dict:
+    """一键测试所有通知通道（Telegram、飞书）"""
+    user_id = get_holdings_user_id(request)
+    settings = get_user_settings(user_id)
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+
+    results: dict[str, Any] = {}
+
+    # 测试 Telegram
+    telegram_section = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+    telegram_enabled = bool(telegram_section.get("enabled"))
+    telegram_bot_token = str(telegram_section.get("bot_token", "")).strip()
+    telegram_chat_id = str(telegram_section.get("chat_id", "")).strip()
+
+    telegram_result: dict[str, Any] = {
+        "enabled": telegram_enabled,
+        "credential_configured": bool(telegram_bot_token and telegram_chat_id),
+        "tested": False,
+        "ok": False,
+        "sent": False,
+        "trace_id": None,
+        "error": None,
+    }
+
+    if telegram_enabled and telegram_bot_token and telegram_chat_id:
+        try:
+            # 复用现有逻辑
+            telegram_result["tested"] = True
+            telegram_result["trace_id"] = uuid.uuid4().hex[:12]
+            # 简化：直接调用 test_message 端点逻辑
+            test_resp = await post_telegram_test_message(request)
+            telegram_result["ok"] = test_resp.get("ok", False)
+            telegram_result["sent"] = test_resp.get("sent", False)
+            telegram_result["trace_id"] = test_resp.get("trace_id")
+            telegram_result["error"] = test_resp.get("error")
+        except HTTPException as e:
+            telegram_result["error"] = {"category": "http_error", "message": str(e.detail)}
+        except Exception as e:
+            telegram_result["error"] = {"category": "unknown", "message": str(e)}
+    else:
+        telegram_result["error"] = {"category": "not_configured", "message": "Telegram 未配置或未启用"}
+
+    results["telegram"] = telegram_result
+
+    # 测试飞书
+    feishu_section = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
+    feishu_enabled = bool(feishu_section.get("enabled"))
+    feishu_webhook = str(feishu_section.get("webhook_url", "")).strip()
+
+    feishu_result: dict[str, Any] = {
+        "enabled": feishu_enabled,
+        "credential_configured": bool(feishu_webhook),
+        "tested": False,
+        "ok": False,
+        "sent": False,
+        "trace_id": None,
+        "error": None,
+    }
+
+    if feishu_enabled and feishu_webhook:
+        try:
+            feishu_result["tested"] = True
+            test_resp = await post_feishu_test_message(request)
+            feishu_result["ok"] = test_resp.get("ok", False)
+            feishu_result["sent"] = test_resp.get("sent", False)
+            feishu_result["trace_id"] = test_resp.get("trace_id")
+            feishu_result["error"] = test_resp.get("error")
+        except HTTPException as e:
+            feishu_result["error"] = {"category": "http_error", "message": str(e.detail)}
+        except Exception as e:
+            feishu_result["error"] = {"category": "unknown", "message": str(e)}
+    else:
+        feishu_result["error"] = {"category": "not_configured", "message": "飞书未配置或未启用"}
+
+    results["feishu"] = feishu_result
+
+    # 汇总
+    all_ok = all(r.get("ok", False) for r in results.values() if r.get("tested"))
+    any_tested = any(r.get("tested", False) for r in results.values())
+
+    return {
+        "user_id": user_id,
+        "ok": all_ok if any_tested else False,
+        "channels": results,
+        "summary": {
+            "total": len(results),
+            "tested": sum(1 for r in results.values() if r.get("tested")),
+            "passed": sum(1 for r in results.values() if r.get("ok")),
+            "failed": sum(1 for r in results.values() if r.get("tested") and not r.get("ok")),
+        },
+    }
+
+
+@router.get("/audit_logs")
+async def get_settings_audit_logs(request: Request, limit: int = 20) -> dict:
+    """获取设置变更审计日志"""
+    user_id = get_holdings_user_id(request)
+    safe_limit = max(1, min(int(limit), 100))
+    logs = list_audit_logs(
+        user_id=user_id,
+        entity_type="settings",
+        entity_id=user_id,
+        limit=safe_limit,
+    )
+    return {
+        "user_id": user_id,
+        "logs": logs,
+        "count": len(logs),
+    }
 
 
 # Legacy compatibility: /network_benchmark/run

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 from datetime import datetime, timezone
 from typing import Any
@@ -11,6 +12,34 @@ from app.storage.db import list_estimate_snapshots
 
 router = APIRouter(prefix="/api/charts", tags=["图表"])
 ALLOWED_RETURNS_HISTORY_DAYS = {7, 30, 90}
+
+# 简单的 TTL 缓存（用户 -> (timestamp, data)）
+_returns_history_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+_CACHE_TTL_SECONDS = 60  # 缓存 60 秒
+
+
+def _get_cached_returns_history(user_id: str) -> dict[str, Any] | None:
+    """获取缓存的收益率历史数据"""
+    entry = _returns_history_cache.get(user_id)
+    if entry is None:
+        return None
+    timestamp, data = entry
+    if time.time() - timestamp > _CACHE_TTL_SECONDS:
+        # 缓存过期，清除
+        _returns_history_cache.pop(user_id, None)
+        return None
+    return data
+
+
+def _set_cached_returns_history(user_id: str, data: dict[str, Any]) -> None:
+    """设置缓存的收益率历史数据"""
+    _returns_history_cache[user_id] = (time.time(), data)
+    # 清理过期缓存（最多保留 100 个用户）
+    if len(_returns_history_cache) > 100:
+        now = time.time()
+        expired = [uid for uid, (ts, _) in _returns_history_cache.items() if now - ts > _CACHE_TTL_SECONDS]
+        for uid in expired:
+            _returns_history_cache.pop(uid, None)
 
 
 def _to_float(value: Any) -> float | None:
@@ -100,7 +129,7 @@ async def get_returns_history(
     request: Request,
     days: int | None = Query(default=None, description="仅允许 7/30/90，默认 30"),
 ) -> dict[str, Any]:
-    """获取历史收益率曲线数据"""
+    """获取历史收益率曲线数据（带 60 秒 TTL 缓存）"""
     user_id = get_snapshot_user_id(request)
 
     if days is None:
@@ -108,6 +137,12 @@ async def get_returns_history(
     elif int(days) not in ALLOWED_RETURNS_HISTORY_DAYS:
         trace_id = uuid.uuid4().hex[:12]
         raise HTTPException(status_code=422, detail=f"days 参数非法，仅允许 7/30/90 (trace_id={trace_id})")
+
+    # 尝试从缓存获取
+    cache_key = f"{user_id}:{days}"
+    cached = _get_cached_returns_history(cache_key)
+    if cached is not None:
+        return cached
 
     # 获取足够多的历史快照：按每日至多 2 个估算快照粗略估算。
     limit = min(days * 2, 500)
@@ -153,7 +188,7 @@ async def get_returns_history(
     if len(data) > days:
         data = data[-days:]
 
-    return {
+    result = {
         "data": data,
         "count": len(data),
         "days": days,
@@ -163,6 +198,9 @@ async def get_returns_history(
             note=f"包含最近 {len(data)} 天的收益率数据",
         ),
     }
+    # 存入缓存
+    _set_cached_returns_history(cache_key, result)
+    return result
 
 
 @router.get("/cumulative_returns")

@@ -6,3 +6,4 @@ deploy/nginx/site.rendered.conf
 deploy/certbot/
 deploy/data/
 deploy/backups/
+backend/.venv/

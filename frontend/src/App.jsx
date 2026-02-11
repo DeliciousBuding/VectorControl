@@ -22,6 +22,7 @@ import { cycleSortState } from './utils/holdings.js'
 import { classBySign, formatDate, formatDateTime, formatMoney, formatPercent } from './utils/format.js'
 import { toGuidedError } from './utils/errorFeedback.js'
 import { resolveGlobalSearchTarget } from './utils/searchRouting.js'
+import { ErrorBoundary } from './components/ErrorBoundary.jsx'
 import { LoginPanel } from './components/LoginPanel.jsx'
 import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
@@ -38,6 +39,7 @@ import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
 import { DataStatusBanner } from './components/DataStatusBanner.jsx'
+import { DiagnosticsPanel } from './components/DiagnosticsPanel.jsx'
 import { recordMetric } from './utils/metrics.js'
 import { computeNextRunDate, daysUntil, getDcaScheduleLabel, normalizeDcaSchedule } from './utils/dca.js'
 
@@ -45,7 +47,8 @@ const TRADE_TYPES = [
   { key: 'buy', label: '买入' },
   { key: 'dca', label: '定投' },
   { key: 'redeem', label: '赎回' },
-  { key: 'convert', label: '转换' }
+  { key: 'convert', label: '转换' },
+  { key: 'dividend', label: '分红' }
 ]
 
 function nowForDateTimeInput() {
@@ -329,6 +332,7 @@ function App() {
   const [ruleSubmitting, setRuleSubmitting] = useState(false)
   const [ruleError, setRuleError] = useState('')
   const [reportSummary, setReportSummary] = useState('')
+  const [reportDataQuality, setReportDataQuality] = useState(null)
   const [assetReadyMs, setAssetReadyMs] = useState(0)
   const [assetTimedOut, setAssetTimedOut] = useState(false)
   const [skeletonLock, setSkeletonLock] = useState(false)
@@ -1165,9 +1169,15 @@ function App() {
 
       try {
         const report = await fetchDailyReport()
-        if (mounted) setReportSummary(String(report?.summary || ''))
+        if (mounted) {
+          setReportSummary(String(report?.summary || ''))
+          setReportDataQuality(report?.data_quality || null)
+        }
       } catch {
-        if (mounted) setReportSummary('')
+        if (mounted) {
+          setReportSummary('')
+          setReportDataQuality(null)
+        }
       }
     }
 
@@ -1734,7 +1744,8 @@ function App() {
   }
 
   return (
-    <div className="page-shell">
+    <ErrorBoundary>
+      <div className="page-shell">
       <TopToolbar
         user={user}
         status={status}
@@ -1771,9 +1782,28 @@ function App() {
           <ReturnsChart user={user} />
           <BenchmarkComparison user={user} />
           <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
+          {reportDataQuality && reportDataQuality.total_funds > 0 && (
+            <div className="data-quality-bar">
+              <span className="quality-label">📊 数据质量</span>
+              <span className="quality-item">
+                覆盖率 {reportDataQuality.coverage_pct}%
+                <span className="quality-detail">({reportDataQuality.ok_funds}/{reportDataQuality.total_funds})</span>
+              </span>
+              {reportDataQuality.failed_funds > 0 && (
+                <span className="quality-item warning">失败 {reportDataQuality.failed_funds}</span>
+              )}
+              {reportDataQuality.missing_funds > 0 && (
+                <span className="quality-item warning">缺失 {reportDataQuality.missing_funds}</span>
+              )}
+              {reportDataQuality.low_confidence_count > 0 && (
+                <span className="quality-item info">低置信度 {reportDataQuality.low_confidence_count}</span>
+              )}
+            </div>
+          )}
 
           <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
           <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
+          <DiagnosticsPanel user={user} />
           
           <section className="panel home-main">
             <div className="section-head">
@@ -2946,7 +2976,8 @@ function App() {
         onSendFeishuTestMessage={async () => sendFeishuTestMessage()}
         onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
       />
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }
 

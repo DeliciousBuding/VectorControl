@@ -2829,8 +2829,15 @@ def get_user_settings(user_id: str) -> dict[str, Any]:
     return _merge_dict(defaults, loaded)
 
 
-def upsert_user_settings(user_id: str, incoming: dict[str, Any]) -> dict[str, Any]:
-    settings = _merge_dict(get_user_settings(user_id), incoming)
+def upsert_user_settings(
+    user_id: str,
+    incoming: dict[str, Any],
+    actor_user_id: str = "",
+    actor_username: str = "",
+) -> dict[str, Any]:
+    clean_user_id = str(user_id or "").strip()
+    before = get_user_settings(clean_user_id)
+    settings = _merge_dict(before, incoming)
     payload = json.dumps(settings, ensure_ascii=False)
     with connect() as conn:
         conn.execute(
@@ -2841,10 +2848,48 @@ def upsert_user_settings(user_id: str, incoming: dict[str, Any]) -> dict[str, An
                 settings_json = excluded.settings_json,
                 updated_at = excluded.updated_at
             """,
-            (user_id, payload, _now_iso()),
+            (clean_user_id, payload, _now_iso()),
+        )
+        # 记录审计日志
+        _insert_audit_log(
+            conn=conn,
+            user_id=clean_user_id,
+            actor_user_id=actor_user_id or clean_user_id,
+            actor_username=actor_username,
+            entity_type="settings",
+            entity_id=clean_user_id,
+            action="update",
+            before=_sanitize_settings_for_audit(before),
+            after=_sanitize_settings_for_audit(settings),
+            note="settings update",
         )
         conn.commit()
     return settings
+
+
+def _sanitize_settings_for_audit(settings: dict[str, Any]) -> dict[str, Any]:
+    """脱敏设置数据用于审计日志（不记录凭据明文）"""
+    if not isinstance(settings, dict):
+        return {}
+    result = {}
+    for key, value in settings.items():
+        if key == "notifications" and isinstance(value, dict):
+            notif = {}
+            for channel, cfg in value.items():
+                if isinstance(cfg, dict):
+                    sanitized = {}
+                    for k, v in cfg.items():
+                        if k in ("webhook_url", "bot_token", "chat_id", "smtp_password"):
+                            sanitized[k] = "<REDACTED>" if v else ""
+                        else:
+                            sanitized[k] = v
+                    notif[channel] = sanitized
+                else:
+                    notif[channel] = cfg
+            result[key] = notif
+        else:
+            result[key] = value
+    return result
 
 
 def get_user_profile(user_id: str) -> dict[str, Any]:

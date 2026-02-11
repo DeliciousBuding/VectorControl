@@ -132,3 +132,52 @@ async def get_system_status(request: Request) -> dict:
         },
         "snapshot": snapshot,
     }
+
+
+@router.get("/diagnostics")
+async def get_system_diagnostics(request: Request) -> dict:
+    """获取可复制的系统诊断信息（用于问题排查）"""
+    version = _read_version()
+    commit = _read_commit_short()
+    release_compare = _build_release_compare()
+    user_id = get_user_id(request)
+    username = get_username(request)
+
+    # 构建可复制的诊断文本
+    diag_lines = [
+        "=== VectorControl Diagnostics ===",
+        f"Time: {datetime.now().astimezone().isoformat()}",
+        f"Service: vectorcontrol-backend",
+        f"Version: {version}",
+        f"Commit: {commit}",
+        f"Python: {platform.python_version()}",
+        f"Platform: {platform.system()} {platform.release()}",
+        "",
+        "=== Release Compare ===",
+        f"Status: {release_compare.get('compare_with_online', {}).get('status', 'unknown')}",
+        f"Ahead: {release_compare.get('compare_with_online', {}).get('ahead', 0)}",
+        f"Behind: {release_compare.get('compare_with_online', {}).get('behind', 0)}",
+        "",
+        "=== User Info ===",
+        f"Username: {username}",
+        f"User ID: {user_id[:8]}..." if len(user_id) > 8 else f"User ID: {user_id}",
+        "",
+        "=== END ===",
+    ]
+
+    return {
+        "diagnostic_text": "\n".join(diag_lines),
+        "structured": {
+            "service": "vectorcontrol-backend",
+            "version": version,
+            "commit": commit,
+            "server_time": datetime.now().astimezone().isoformat(),
+            "python_version": platform.python_version(),
+            "platform": f"{platform.system()} {platform.release()}",
+            "release": release_compare,
+            "user": {
+                "username": username,
+                "user_id_short": user_id[:8] + "..." if len(user_id) > 8 else user_id,
+            },
+        },
+    }

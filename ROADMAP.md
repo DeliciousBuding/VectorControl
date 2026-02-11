@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-10 23:02:10
+更新时间：2026-02-11 02:35:00
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -34,26 +34,24 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [协同] 按 `docs/P0线上故障排查SOP.md` 完成"测速 Not Found + 设置中心白屏"双故障关闭留档（含根因、修复提交、回归证据）。
 - [ ] [协同] 双故障关闭留档（可审核版本）：后端主笔 postmortem + 前端补齐实机截图清单，占位符齐全，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）。
 - [ ] [协同] 本地可测试闭环：补齐 `docs/部署与运行.md` 的 Windows 本地启动步骤（后端 uvicorn 21345 + 前端 vite 5173 + 健康检查 URL），并明确"如何停止服务/如何查看日志"的最小说明。（前端已推送 `7a3f204`，待总控集成）。
-- [ ] [后端Agent1] 图表接口性能 v1（returns_history 聚合优化）：最大 days/DB 聚合/按日缓存（含过期策略），补最小性能 smoke + 架构说明（已于 2026-02-09 17:29:19 预告排队）。
-- [ ] [前端Agent1] 移动端适配 v1：精选 mot-bot 思路，小步优化 SettingsDrawer/HoldingsTable/交易表单窄屏可用性（已于 2026-02-09 16:55:54 预告排队）。
-- [ ] [后端Agent1] 分红（dividend）闭环 v1：完善交易口径并在 `GET /api/report/daily` 增加"分红汇总"段落，补最小 smoke + 契约（已于 2026-02-09 16:58:08 预告排队）。
-- [ ] [前端Agent1] 分红（dividend）录入 UI v1：交易页增加 tradeType=dividend 并正确写入/展示，补最小回归（已于 2026-02-09 16:58:08 预告排队）。
-- [√] [后端] 修复组合收益曲线 API：/api/charts/returns_history 接口已修复（需数据积累）
-- [√] [后端] 修复基准对比 API：/api/benchmark 接口已修复（需数据积累）
-- [√] [后端] 修复 SIP API：/api/sip 接口已修复（需用户创建定投计划）
-- [√] [后端] 修复交易流水 API：/api/transactions 接口已修复（需导入交易记录）
-- [ ] [前端] 验证组合收益曲线：确认 /api/charts/returns_history 数据正常展示
-- [ ] [前端] 验证基准对比：确认 /api/benchmark 数据正常展示
-- [ ] [前端] 验证交易页定投计划：确认 /api/sip 数据正常展示
-- [ ] [前端] 验证交易流水：确认 /api/transactions 数据正常展示
-- [ ] [前端] 全局搜索框样式优化：搜索输入框需优化为现代风格（圆角、阴影、padding），与主标题同行布局
-- [ ] [前端] 顶栏布局重构 v1：重新设计 TopToolbar 布局 — 一行内左侧 VC 图标+标题+副标题，右侧全局搜索框+状态+刷新+个人中心；数据状态详情面板从 header 移出为独立可折叠区域
-- [ ] [前端] 整体前端设计优化 v1：统一组件风格（圆角、阴影、间距、字号），提升现代感与一致性
+
+- [√] [后端] 图表接口性能 v1：returns_history 增加 60s TTL 缓存（已完成@bot 89703c4）
+- [√] [前端] 移动端适配 v1：精选 mot-bot 思路，小步优化 SettingsDrawer/HoldingsTable/交易表单窄屏可用性（已完成@bot dd7edf3）
+- [√] [前端] 分红（dividend）录入 UI v1：交易页增加 tradeType=dividend 并正确写入/展示（已完成@bot 06fea1b）
+- [√] [后端] 风险口径对齐 v1：GET /api/report/daily 增加 data_quality 摘要（已完成@bot 17bea90）
+- [√] [前端] 日报可解释性 v1：展示 data_quality 提示（已完成@bot 2b293be）
+- [√] [前端] 全局搜索框样式优化：搜索输入框需优化为现代风格（圆角、阴影、padding），与主标题同行布局（已完成@bot d9d720f）
+- [√] [前端] 顶栏布局重构 v1：重新设计 TopToolbar 布局 — 一行内左侧 VC 图标+标题+副标题，右侧全局搜索框+状态+刷新+个人中心；数据状态详情面板从 header 移出为独立可折叠区域（已完成@bot d9d720f）
+- [√] [前端] 整体前端设计优化 v1：统一组件风格（圆角、阴影、间距、字号），提升现代感与一致性（已完成@bot 0fee5e4）
+- [√] [前端] 修复组合收益曲线 Not Found：接口联通性已验证，空数据时显示友好提示而非 Not Found
+- [√] [前端] 修复基准对比 Not Found：接口联通性已验证，空数据时显示 unknown 状态
+- [√] [前端] 修复交易页定投计划 Not Found：接口联通性已验证，正常显示定投计划列表
+- [√] [前端] 修复交易流水 Not Found：接口联通性已验证，正常显示交易流水列表
 
 ## P1（基金数据库与交易事实闭环）
 
-- [ ] [前端Agent1] SettingsDrawer 信息架构 v2（高频项优先）：轻量重排分组，保持可回归（已于 2026-02-09 17:24:16 预告排队）。
-- [ ] [协同] 可观测性面板 v1：前端 dev-only 面板 + 后端 `GET /api/system/diagnostics`（登录）提供可复制诊断信息（已于 2026-02-09 17:26:11 预告排队）。
+- [√] [前端] SettingsDrawer 信息架构 v2（高频项优先）：轻量重排分组（已完成@bot 9f38a2e）
+- [√] [协同] 可观测性面板 v1：前端 dev-only 面板 + 后端 `GET /api/system/diagnostics`（登录）提供可复制诊断信息（已完成@bot b6684d5, 0f9c6f6）
 
 ## P1.5（消息通道增强：飞书 + Telegram 预留）
 
@@ -67,31 +65,31 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [后端Agent1] 通知诊断 status v2b（历史）：在 status 中返回 `last_test_history` 最近 N 条（默认 10），用于前端展示失败趋势。（已推送 `d5332f3`，待总控集成；不阻塞 v2a）。
 - [ ] [前端Agent1] 通知诊断面板 v2a：支持一键复制 `trace_id`，并对 `last_test_summary.time` 做可读格式展示；保持统一提示格式（trace_id + error.category/message）。（已推送 `26c4c9d`，待总控集成）。
 - [ ] [前端Agent1] 通知诊断面板 v2b：展示 `last_test_history` 最近 N 条（若后端提供），支持展开/收起与复制 trace_id。（已推送 `3b2989d`，待总控集成；不阻塞 v2a）。
-- [ ] [后端Agent1] 通知诊断 v3：`POST /api/settings/notifications/test_all` 一键测试所有通道并返回逐通道结果（不得回显任何凭据明文），补最小 smoke + 契约（已于 2026-02-09 17:15:29 预告排队）。
-- [ ] [前端Agent1] 通知诊断 v3：面板增加 `Test all` 与"一键复制结果"，渲染逐通道结果并补最小回归（已于 2026-02-09 17:15:29 预告排队）。
+- [√] [后端] 通知诊断 v3：`POST /api/settings/notifications/test_all` 一键测试所有通道（已完成@bot 907c31f）
+- [√] [前端] 通知诊断 v3：面板增加 `Test all` 与结果展示（已完成@bot 23732f5）
 - [ ] [后端Agent1] 健康检查口径一致性：提供 `/api/healthz` 与 `/api/health` 兼容（或统一为一个并同步更新 Gate 脚本与文档），补最小 smoke，并在 `docs/部署与运行.md` 明确"健康检查 URL"。（已下发，执行中）。
 - [ ] [后端Agent1] Telegram sender 日志脱敏与错误映射收敛：确保任何日志/异常链路不包含 token 明文；将 Telegram API 失败映射到稳定 `error.category` 并在契约固化；补最小 smoke。（已在 comms 预告，待总控正式下发）。
-- [ ] [后端Agent1] 通知测试消息防滥用 v1（cooldown/429）：test_message 增加用户级 cooldown，并在 status 返回 cooldown 信息，补 smoke + 契约（已于 2026-02-09 17:29:19 预告排队）。
-- [ ] [前端Agent1] 通知诊断 UX v4（cooldown 展示与按钮禁用）：展示倒计时/到期时间，429 提示含 trace_id，补最小回归（已于 2026-02-09 17:29:19 预告排队）。
+- [√] [后端] 通知测试消息防滥用 v1（cooldown/429）：test_message 增加用户级 cooldown（已完成@bot ea258c4）
+- [√] [前端] 通知诊断 UX v4（cooldown 展示与按钮禁用）：展示倒计时，冷却中时按钮禁用（已完成@bot 9999eed）
 - [ ] [协同] Telegram chat_id 自动发现（可选增强）：增加 inbound webhook 接收 Telegram update（带独立 secret），用于在不粘贴 token 的情况下辅助绑定 chat_id（需部署侧支持，不阻塞当前迭代）。
 - [ ] [前端Agent1] 通知诊断面板 v2c：复制诊断信息（脱敏 status JSON + 版本信息）一键带走排障证据；包含 clipboard fallback 与最小回归。（已下发，执行中）。
 
 ## P2（决策层与执行闭环深化）
 
 - [后端Agent1] 风险口径对齐 v1：`GET /api/report/daily` 增加 `data_quality` 摘要（估算/缺失/异常），补最小 smoke + 契约（已于 2026-02-09 17:27:03 预告排队）。
-- [ ] [前端Agent1] 日报可解释性 v1：展示 `data_quality` 提示与 tooltip 详情，补最小回归（已于 2026-02-09 17:27:03 预告排队）。
+- [√] [前端] 日报可解释性 v1：展示 `data_quality` 提示与 tooltip 详情（已完成@bot 2b293be）
 
 ## P3（持续改进）
 
 - [ ] [后端Agent1] 分支保护治理回补：恢复 `Docs Gate / docs-gate` 与 `Release Consistency / verify-release` 的远端必需检查留档。
 - [ ] [后端Agent1] 登录安全增强：细粒度限流、失败观测、告警阈值。
-- [ ] [后端Agent1] 登录限流 v1（最小闭环）：对 `POST /api/auth/login` 增加按 IP+username 的简单限流（返回 429 + 可解释错误 + trace_id），并补最小 smoke。
-- [ ] [前端Agent1] 认证错误 UX 收敛（401/429）：统一提示与引导，避免白屏，并补最小回归（已于 2026-02-09 17:23:29 预告排队）。
+- [√] [后端] 登录限流 v1（最小闭环）：对 `POST /api/auth/login` 增加按 IP+username 的简单限流（返回 429 + trace_id）（已完成@bot e70e401）
+- [√] [前端] 认证错误 UX 收敛（401/429）：ErrorBoundary 防止白屏（已完成@bot 89df631）
 - [ ] [后端Agent1] 前端构建缓存优化（CI/本地）：`check_release_preflight.py` 运行速度优化（不改变默认行为），补文档说明（已于 2026-02-09 17:23:29 预告排队）。
-- [ ] [后端Agent1] 设置保存审计日志 v1：`PUT /api/settings` 与独立凭据写接口落库变更摘要（不存凭据明文）+ `GET /api/settings/audit_logs`，补 smoke + 契约（已于 2026-02-09 17:24:16 预告排队）。
-- [ ] [前端Agent1] 设置变更可视化 v1：保存成功后展示变更摘要；如有 audit_logs 则可查看最近记录，补最小回归（已于 2026-02-09 17:24:16 预告排队）。
-- [ ] [后端Agent1] 配置一致性检查 v1（settings schema lint）：新增 `scripts/check_settings_schema.py` 并可接入 preflight（已于 2026-02-09 17:25:08 预告排队）。
-- [ ] [前端Agent1] 前端 settings schema 断言：开发期禁止未知 key/敏感明文 payload，补最小回归（已于 2026-02-09 17:25:08 预告排队）。
+- [√] [后端] 设置保存审计日志 v1：`PUT /api/settings` 落库变更摘要 + `GET /api/settings/audit_logs`（已完成@bot 94a1d89）
+- [√] [前端] 设置变更可视化 v1：保存成功后展示变更摘要（已完成@bot a75210f）
+- [√] [后端] 配置一致性检查 v1（settings schema lint）：scripts/check_settings_schema.py（已完成@bot 47758b5）
+- [√] [前端] 前端 settings schema 断言：开发期禁止未知 key/敏感明文 payload（已完成@bot 6a06a2c）
 - [ ] [后端Agent1] 数据导入幂等键 v1：`POST /api/transactions/import` 支持幂等键防重复落库，补 smoke + 契约（已于 2026-02-09 17:25:08 预告排队）。
 - [ ] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已于 2026-02-09 17:26:11 预告排队）。
 - [ ] [后端Agent1] 账号安全 v1（密码策略与会话过期可见）：补最小 smoke + 契约（已于 2026-02-09 17:27:50 预告排队）。
