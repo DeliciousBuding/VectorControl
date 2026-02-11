@@ -406,6 +406,22 @@ async def put_telegram_credential(request: Request, payload: TelegramCredentialI
 
 @router.post("/notifications/telegram/test_message")
 async def post_telegram_test_message(request: Request) -> dict:
+    user_id = get_holdings_user_id(request)
+
+    # Cooldown check
+    cooldown_key = f"telegram:{user_id}"
+    allowed, retry_after = _test_message_limiter.check(cooldown_key)
+    if not allowed:
+        trace_id = uuid.uuid4().hex[:12]
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": f"请求过于频繁，请在 {retry_after} 秒后重试",
+                "retry_after": retry_after,
+                "trace_id": trace_id,
+            },
+        )
+
     # Send a fixed test message using saved telegram credentials (bot_token/chat_id).
     # Safety: never echo bot_token in response.
     user_id = get_holdings_user_id(request)
@@ -468,6 +484,8 @@ async def post_telegram_test_message(request: Request) -> dict:
                     sent=True,
                     error_category=None,
                 )
+                # Record cooldown
+                _test_message_limiter.record_success(cooldown_key)
                 return {
                     "user_id": user_id,
                     "ok": True,
@@ -537,9 +555,24 @@ async def post_telegram_test_message(request: Request) -> dict:
 
 @router.post("/notifications/feishu/test_message")
 async def post_feishu_test_message(request: Request) -> dict:
+    user_id = get_holdings_user_id(request)
+
+    # Cooldown check
+    cooldown_key = f"feishu:{user_id}"
+    allowed, retry_after = _test_message_limiter.check(cooldown_key)
+    if not allowed:
+        trace_id = uuid.uuid4().hex[:12]
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "message": f"请求过于频繁，请在 {retry_after} 秒后重试",
+                "retry_after": retry_after,
+                "trace_id": trace_id,
+            },
+        )
+
     # Send a fixed test message using saved feishu webhook_url.
     # Safety: never echo webhook_url in response.
-    user_id = get_holdings_user_id(request)
     settings = get_user_settings(user_id)
     notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
     section = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
@@ -589,6 +622,8 @@ async def post_feishu_test_message(request: Request) -> dict:
                     sent=True,
                     error_category=None,
                 )
+                # Record cooldown on success
+                _test_message_limiter.record_success(cooldown_key)
                 return {
                     "user_id": user_id,
                     "ok": True,
