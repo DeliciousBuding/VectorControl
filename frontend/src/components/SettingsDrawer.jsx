@@ -1642,12 +1642,22 @@ export function SettingsDrawer({
             const canSendFeishu = feishuCredentialConfigured && !shouldUpdateFeishuWebhook
             const canSendTelegram = telegramCredentialConfigured && Boolean(currentTelegramChatId) && !shouldUpdateTelegramCredential
 
-            const feishuDisabledReason = !feishuCredentialConfigured
+            // Cooldown handling
+            const feishuCooldownRemaining = Number(feishuStatus.cooldown_remaining || 0)
+            const telegramCooldownRemaining = Number(telegramStatus.cooldown_remaining || 0)
+            const feishuInCooldown = feishuCooldownRemaining > 0
+            const telegramInCooldown = telegramCooldownRemaining > 0
+
+            const feishuDisabledReason = feishuInCooldown
+              ? `冷却中（${feishuCooldownRemaining}秒）`
+              : (!feishuCredentialConfigured
+                ? '请先配置并保存凭据'
+                : (shouldUpdateFeishuWebhook ? '已输入新凭据，请先保存设置' : ''))
+            const telegramDisabledReason = telegramInCooldown
+              ? `冷却中（${telegramCooldownRemaining}秒）`
+              : (!telegramCredentialConfigured
               ? '请先配置并保存凭据'
-              : (shouldUpdateFeishuWebhook ? '已输入新凭据，请先保存设置' : '')
-            const telegramDisabledReason = !telegramCredentialConfigured
-              ? '请先配置并保存凭据'
-              : (!currentTelegramChatId ? 'chat_id 为空，请先配置并保存凭据' : (shouldUpdateTelegramCredential ? '已输入新凭据，请先保存设置' : ''))
+              : (!currentTelegramChatId ? 'chat_id 为空，请先配置并保存凭据' : (shouldUpdateTelegramCredential ? '已输入新凭据，请先保存设置' : '')))
 
             const parseHistory = (history) => {
               if (!Array.isArray(history)) return []
@@ -1750,7 +1760,7 @@ export function SettingsDrawer({
                   <TestMessageButton
                     label="飞书"
                     dataTestId="diagnostic-feishu-test-message-btn"
-                    disabled={saving || !canSendFeishu}
+                    disabled={saving || !canSendFeishu || feishuInCooldown}
                     disabledReason={feishuDisabledReason}
                     onSend={onSendFeishuTestMessage}
                     onToast={handleDiagnosticToast}
@@ -1759,7 +1769,7 @@ export function SettingsDrawer({
                   <TestMessageButton
                     label="Telegram"
                     dataTestId="diagnostic-telegram-test-message-btn"
-                    disabled={saving || !canSendTelegram}
+                    disabled={saving || !canSendTelegram || telegramInCooldown}
                     disabledReason={telegramDisabledReason}
                     onSend={onSendTelegramTestMessage}
                     onToast={handleDiagnosticToast}
