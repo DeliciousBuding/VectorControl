@@ -17,6 +17,18 @@ import { toGuidedError } from '../utils/errorFeedback.js'
 import { assertSettingsSchema } from '../utils/assertSettingsSchema.js'
 import { TestMessageButton } from './TestMessageButton.jsx'
 import { formatDateTime } from '../utils/format.js'
+import { 
+  Drawer, Tabs, Form, Input, Switch, Button, 
+  Select, Collapse, Timeline, Tag, Space,
+  Table, Tooltip, Spin, Alert, message 
+} from 'antd'
+import {
+  SettingOutlined, ExperimentOutlined, BellOutlined,
+  CheckCircleOutlined, CloseCircleOutlined,
+  ClockCircleOutlined, CopyOutlined, PlayCircleOutlined,
+  PlusOutlined, DeleteOutlined, EditOutlined,
+  PauseCircleOutlined, CheckOutlined, HistoryOutlined
+} from '@ant-design/icons'
 
 const PROFILE_OPTIONS = [
   { value: 'cn_fund', label: '国内基金站点' },
@@ -651,28 +663,6 @@ export function SettingsDrawer({
     }
   }
 
-  const copyTextToClipboard = async (text) => {
-    const value = String(text || '')
-    if (!value) return false
-
-    if (navigator?.clipboard?.writeText) {
-      await navigator.clipboard.writeText(value)
-      return true
-    }
-
-    // Legacy fallback for older browsers / non-secure contexts.
-    const textarea = document.createElement('textarea')
-    textarea.value = value
-    textarea.setAttribute('readonly', '')
-    textarea.style.position = 'fixed'
-    textarea.style.left = '-9999px'
-    document.body.appendChild(textarea)
-    textarea.select()
-    const ok = document.execCommand('copy')
-    document.body.removeChild(textarea)
-    return ok
-  }
-
   const handleCopyDiagnosticBundle = async () => {
     try {
       const statusSnapshot = notificationsStatus ? asPlainObject(notificationsStatus) : null
@@ -953,13 +943,33 @@ export function SettingsDrawer({
     }
   }
 
+  const [internalOpen, setInternalOpen] = useState(open)
+
+  useEffect(() => {
+    setInternalOpen(open)
+  }, [open])
+
+  const handleClose = () => {
+    setInternalOpen(false)
+    if (onClose) onClose()
+  }
+
   return (
-    <div className="settings-mask" onClick={onClose}>
-      <section className="settings-drawer" onClick={(e) => e.stopPropagation()}>
-        <header>
-          <h3>设置中心</h3>
-          <button type="button" className="ghost" onClick={onClose}>关闭</button>
-        </header>
+    <Drawer
+      title="设置中心"
+      placement="right"
+      onClose={handleClose}
+      open={internalOpen}
+      width={min(540, 95)}
+      footer={
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+          <Button onClick={handleClose}>关闭</Button>
+          <Button type="primary" onClick={save} loading={saving}>
+            {saving ? '保存中...' : '保存设置'}
+          </Button>
+        </div>
+      }
+    >
 
         <div className="settings-section-header">
           <span className="section-icon">⚙️</span>
@@ -1902,13 +1912,9 @@ export function SettingsDrawer({
           </label>
         </div>
 
-        <footer>
+        <div>
           {saveError && <p className="settings-error">{saveError}</p>}
-          <button type="button" className="primary" onClick={save} disabled={saving} data-testid="settings-save-btn">
-            {saving ? '保存中...' : '保存设置'}
-          </button>
-        </footer>
-      </section>
-    </div>
-  )
-}
+        </div>
+      </Drawer>
+    )
+  }

@@ -18,6 +18,12 @@ import {
   syncPendingTransactions,
   AUTH_EVENT_EXPIRY
 } from './api.js'
+import { Layout, Spin, Alert, Button, Input, Select, message } from 'antd'
+import { 
+  ReloadOutlined, SettingOutlined, UserOutlined,
+  PlusOutlined, EditOutlined, DeleteOutlined, 
+  CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined 
+} from '@ant-design/icons'
 import { buildFundSeries, splitMarketGroups } from './utils/chart.js'
 import { cycleSortState } from './utils/holdings.js'
 import { classBySign, formatDate, formatDateTime, formatMoney, formatPercent } from './utils/format.js'
@@ -1730,24 +1736,22 @@ function App() {
 
   if (!authReady) {
     return (
-      <div className="page-shell">
-        <section className="panel loading-panel">正在初始化会话...</section>
+      <div className="page-shell" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
+        <Spin size="large" tip="正在初始化会话..." />
       </div>
     )
   }
 
   if (!user) {
     return (
-      <div className="page-shell">
-        <LoginPanel loading={authLoading} onSubmit={onAuthSubmit} />
-      </div>
+      <LoginPanel loading={authLoading} onSubmit={onAuthSubmit} />
     )
   }
 
   return (
     <ErrorBoundary>
-      <div className="page-shell">
-      <TopToolbar
+      <Layout className="page-shell" style={{ minHeight: '100vh' }}>
+        <TopToolbar
         user={user}
         status={status}
         refreshing={loading}
@@ -2977,7 +2981,7 @@ function App() {
         onSendFeishuTestMessage={async () => sendFeishuTestMessage()}
         onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
       />
-      </div>
+      </Layout>
     </ErrorBoundary>
   )
 }
