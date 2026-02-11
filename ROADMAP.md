@@ -83,7 +83,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [后端Agent1] 分支保护治理回补：恢复 `Docs Gate / docs-gate` 与 `Release Consistency / verify-release` 的远端必需检查留档。
 - [ ] [后端Agent1] 登录安全增强：细粒度限流、失败观测、告警阈值。
 - [√] [后端] 登录限流 v1（最小闭环）：对 `POST /api/auth/login` 增加按 IP+username 的简单限流（返回 429 + trace_id）（已完成@bot e70e401）
-- [ ] [前端Agent1] 认证错误 UX 收敛（401/429）：统一提示与引导，避免白屏，并补最小回归（已于 2026-02-09 17:23:29 预告排队）。
+- [√] [前端] 认证错误 UX 收敛（401/429）：ErrorBoundary 防止白屏（已完成@bot 89df631）
 - [ ] [后端Agent1] 前端构建缓存优化（CI/本地）：`check_release_preflight.py` 运行速度优化（不改变默认行为），补文档说明（已于 2026-02-09 17:23:29 预告排队）。
 - [ ] [后端Agent1] 设置保存审计日志 v1：`PUT /api/settings` 与独立凭据写接口落库变更摘要（不存凭据明文）+ `GET /api/settings/audit_logs`，补 smoke + 契约（已于 2026-02-09 17:24:16 预告排队）。
 - [ ] [前端Agent1] 设置变更可视化 v1：保存成功后展示变更摘要；如有 audit_logs 则可查看最近记录，补最小回归（已于 2026-02-09 17:24:16 预告排队）。
