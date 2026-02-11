@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import uuid
+
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from starlette.responses import JSONResponse
@@ -33,9 +35,10 @@ def _client_ip(request: Request) -> str:
     return "unknown"
 
 
-def _too_many_response(retry_after: int) -> JSONResponse:
+def _too_many_response(retry_after: int, trace_id: str | None = None) -> JSONResponse:
+    tid = trace_id or uuid.uuid4().hex[:12]
     return JSONResponse(
-        {"detail": f"请求过于频繁，请在 {retry_after} 秒后重试"},
+        {"detail": f"请求过于频繁，请在 {retry_after} 秒后重试", "trace_id": tid},
         status_code=429,
         headers={"Retry-After": str(retry_after)},
     )
@@ -45,15 +48,16 @@ def _too_many_response(retry_after: int) -> JSONResponse:
 async def register(payload: AuthIn, request: Request) -> dict:
     ip = _client_ip(request)
     register_key = f"register:{ip}"
+    trace_id = uuid.uuid4().hex[:12]
     allowed, retry_after = auth_rate_limiter.check(register_key)
     if not allowed:
-        return _too_many_response(retry_after)
+        return _too_many_response(retry_after, trace_id)
 
     try:
         user = create_user(payload.username, payload.password)
     except ValueError as exc:
         auth_rate_limiter.record_failure(register_key, REGISTER_RULE)
-        return JSONResponse({"detail": str(exc)}, status_code=400)
+        return JSONResponse({"detail": str(exc), "trace_id": trace_id}, status_code=400)
 
     auth_rate_limiter.record_success(register_key)
     token = create_session(user["id"])
@@ -65,19 +69,20 @@ async def login(payload: AuthIn, request: Request) -> dict:
     ip = _client_ip(request)
     username = payload.username.strip().lower()
     login_key = f"login:{ip}:{username}"
+    trace_id = uuid.uuid4().hex[:12]
     allowed, retry_after = auth_rate_limiter.check(login_key)
     if not allowed:
-        return _too_many_response(retry_after)
+        return _too_many_response(retry_after, trace_id)
 
     user = verify_user_credentials(payload.username, payload.password)
     if not user:
         account_exists = username_exists(payload.username)
         allowed, retry_after = auth_rate_limiter.record_failure(login_key, LOGIN_RULE)
         if not allowed:
-            return _too_many_response(retry_after)
+            return _too_many_response(retry_after, trace_id)
         if not account_exists:
-            return JSONResponse({"detail": "账号不存在，请先注册"}, status_code=404)
-        return JSONResponse({"detail": "密码错误，请重试"}, status_code=401)
+            return JSONResponse({"detail": "账号不存在，请先注册", "trace_id": trace_id}, status_code=404)
+        return JSONResponse({"detail": "密码错误，请重试", "trace_id": trace_id}, status_code=401)
 
     auth_rate_limiter.record_success(login_key)
     token = create_session(user["id"])

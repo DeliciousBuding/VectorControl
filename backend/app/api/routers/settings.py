@@ -10,6 +10,7 @@ from urllib.parse import urlparse
 
 from app.api.deps import get_holdings_user_id
 from app.core.network_benchmark import DEFAULT_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, run_network_benchmark
+from app.core.rate_limit import InMemoryRateLimiter
 from app.notifier import NotificationPayload
 from app.notifier import feishu_sender as feishu_mod
 from app.notifier import telegram_sender as telegram_mod
@@ -20,6 +21,10 @@ router = APIRouter(prefix="/api/settings", tags=["settings"])
 compat_router = APIRouter(prefix="/api", tags=["settings-compat"], include_in_schema=False)
 MIN_TIMEOUT_SECONDS = 0.5
 REDACTED = "<REDACTED>"
+
+# Test message cooldown: 60 seconds per user per channel
+_test_message_limiter = InMemoryRateLimiter()
+TEST_MESSAGE_COOLDOWN_SECONDS = 60
 
 
 def _test_message_error(
