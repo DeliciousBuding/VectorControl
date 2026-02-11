@@ -748,6 +748,100 @@ async def post_network_benchmark_run(request: Request, payload: NetworkBenchmark
     return {"user_id": user_id, "result": result}
 
 
+@router.post("/notifications/test_all")
+async def post_notifications_test_all(request: Request) -> dict:
+    """一键测试所有通知通道（Telegram、飞书）"""
+    user_id = get_holdings_user_id(request)
+    settings = get_user_settings(user_id)
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+
+    results: dict[str, Any] = {}
+
+    # 测试 Telegram
+    telegram_section = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+    telegram_enabled = bool(telegram_section.get("enabled"))
+    telegram_bot_token = str(telegram_section.get("bot_token", "")).strip()
+    telegram_chat_id = str(telegram_section.get("chat_id", "")).strip()
+
+    telegram_result: dict[str, Any] = {
+        "enabled": telegram_enabled,
+        "credential_configured": bool(telegram_bot_token and telegram_chat_id),
+        "tested": False,
+        "ok": False,
+        "sent": False,
+        "trace_id": None,
+        "error": None,
+    }
+
+    if telegram_enabled and telegram_bot_token and telegram_chat_id:
+        try:
+            # 复用现有逻辑
+            telegram_result["tested"] = True
+            telegram_result["trace_id"] = uuid.uuid4().hex[:12]
+            # 简化：直接调用 test_message 端点逻辑
+            test_resp = await post_telegram_test_message(request)
+            telegram_result["ok"] = test_resp.get("ok", False)
+            telegram_result["sent"] = test_resp.get("sent", False)
+            telegram_result["trace_id"] = test_resp.get("trace_id")
+            telegram_result["error"] = test_resp.get("error")
+        except HTTPException as e:
+            telegram_result["error"] = {"category": "http_error", "message": str(e.detail)}
+        except Exception as e:
+            telegram_result["error"] = {"category": "unknown", "message": str(e)}
+    else:
+        telegram_result["error"] = {"category": "not_configured", "message": "Telegram 未配置或未启用"}
+
+    results["telegram"] = telegram_result
+
+    # 测试飞书
+    feishu_section = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
+    feishu_enabled = bool(feishu_section.get("enabled"))
+    feishu_webhook = str(feishu_section.get("webhook_url", "")).strip()
+
+    feishu_result: dict[str, Any] = {
+        "enabled": feishu_enabled,
+        "credential_configured": bool(feishu_webhook),
+        "tested": False,
+        "ok": False,
+        "sent": False,
+        "trace_id": None,
+        "error": None,
+    }
+
+    if feishu_enabled and feishu_webhook:
+        try:
+            feishu_result["tested"] = True
+            test_resp = await post_feishu_test_message(request)
+            feishu_result["ok"] = test_resp.get("ok", False)
+            feishu_result["sent"] = test_resp.get("sent", False)
+            feishu_result["trace_id"] = test_resp.get("trace_id")
+            feishu_result["error"] = test_resp.get("error")
+        except HTTPException as e:
+            feishu_result["error"] = {"category": "http_error", "message": str(e.detail)}
+        except Exception as e:
+            feishu_result["error"] = {"category": "unknown", "message": str(e)}
+    else:
+        feishu_result["error"] = {"category": "not_configured", "message": "飞书未配置或未启用"}
+
+    results["feishu"] = feishu_result
+
+    # 汇总
+    all_ok = all(r.get("ok", False) for r in results.values() if r.get("tested"))
+    any_tested = any(r.get("tested", False) for r in results.values())
+
+    return {
+        "user_id": user_id,
+        "ok": all_ok if any_tested else False,
+        "channels": results,
+        "summary": {
+            "total": len(results),
+            "tested": sum(1 for r in results.values() if r.get("tested")),
+            "passed": sum(1 for r in results.values() if r.get("ok")),
+            "failed": sum(1 for r in results.values() if r.get("tested") and not r.get("ok")),
+        },
+    }
+
+
 # Legacy compatibility: /network_benchmark/run
 @router.post("/network_benchmark/run", include_in_schema=False)
 async def post_network_benchmark_run_legacy(request: Request, payload: NetworkBenchmarkRunIn) -> dict:

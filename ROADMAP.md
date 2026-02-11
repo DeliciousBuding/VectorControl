@@ -49,7 +49,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 
 ## P1（基金数据库与交易事实闭环）
 
-- [ ] [前端Agent1] SettingsDrawer 信息架构 v2（高频项优先）：轻量重排分组，保持可回归（已于 2026-02-09 17:24:16 预告排队）。
+- [√] [前端] SettingsDrawer 信息架构 v2（高频项优先）：轻量重排分组（已完成@bot 9f38a2e）
 - [√] [协同] 可观测性面板 v1：前端 dev-only 面板 + 后端 `GET /api/system/diagnostics`（登录）提供可复制诊断信息（已完成@bot b6684d5, 0f9c6f6）
 
 ## P1.5（消息通道增强：飞书 + Telegram 预留）
