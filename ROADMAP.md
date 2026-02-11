@@ -64,8 +64,8 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [后端Agent1] 通知诊断 status v2b（历史）：在 status 中返回 `last_test_history` 最近 N 条（默认 10），用于前端展示失败趋势。（已推送 `d5332f3`，待总控集成；不阻塞 v2a）。
 - [ ] [前端Agent1] 通知诊断面板 v2a：支持一键复制 `trace_id`，并对 `last_test_summary.time` 做可读格式展示；保持统一提示格式（trace_id + error.category/message）。（已推送 `26c4c9d`，待总控集成）。
 - [ ] [前端Agent1] 通知诊断面板 v2b：展示 `last_test_history` 最近 N 条（若后端提供），支持展开/收起与复制 trace_id。（已推送 `3b2989d`，待总控集成；不阻塞 v2a）。
-- [ ] [后端Agent1] 通知诊断 v3：`POST /api/settings/notifications/test_all` 一键测试所有通道并返回逐通道结果（不得回显任何凭据明文），补最小 smoke + 契约（已于 2026-02-09 17:15:29 预告排队）。
-- [ ] [前端Agent1] 通知诊断 v3：面板增加 `Test all` 与"一键复制结果"，渲染逐通道结果并补最小回归（已于 2026-02-09 17:15:29 预告排队）。
+- [√] [后端] 通知诊断 v3：`POST /api/settings/notifications/test_all` 一键测试所有通道（已完成@bot 907c31f）
+- [√] [前端] 通知诊断 v3：面板增加 `Test all` 与结果展示（已完成@bot 23732f5）
 - [ ] [后端Agent1] 健康检查口径一致性：提供 `/api/healthz` 与 `/api/health` 兼容（或统一为一个并同步更新 Gate 脚本与文档），补最小 smoke，并在 `docs/部署与运行.md` 明确"健康检查 URL"。（已下发，执行中）。
 - [ ] [后端Agent1] Telegram sender 日志脱敏与错误映射收敛：确保任何日志/异常链路不包含 token 明文；将 Telegram API 失败映射到稳定 `error.category` 并在契约固化；补最小 smoke。（已在 comms 预告，待总控正式下发）。
 - [ ] [后端Agent1] 通知测试消息防滥用 v1（cooldown/429）：test_message 增加用户级 cooldown，并在 status 返回 cooldown 信息，补 smoke + 契约（已于 2026-02-09 17:29:19 预告排队）。
