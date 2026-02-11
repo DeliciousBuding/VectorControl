@@ -14,6 +14,7 @@ import {
   updateSIPPlan
 } from '../api.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
+import { assertSettingsSchema } from '../utils/assertSettingsSchema.js'
 import { TestMessageButton } from './TestMessageButton.jsx'
 
 const PROFILE_OPTIONS = [
@@ -317,6 +318,10 @@ export function SettingsDrawer({
     const webhook = String(normalized.notifications?.feishu?.webhook_url || '').trim()
     const telegramBotToken = String(normalized.notifications?.telegram?.bot_token || '').trim()
     const telegramChatId = String(normalized.notifications?.telegram?.chat_id || '').trim()
+
+    // Dev-only schema assertion
+    assertSettingsSchema(normalized, 'SettingsDrawer.useEffect[settings]')
+
     setDraft(normalized)
     setBenchmarkProfile(normalized.network_benchmark.default_profile || 'cn_fund')
     setEditingFeishuWebhook(!webhook)
