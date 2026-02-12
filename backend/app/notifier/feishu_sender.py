@@ -8,7 +8,7 @@ from urllib import request
 from urllib.error import HTTPError
 
 from .base import NotificationPayload, NotificationResult, NotificationActionError
-from ..core.rate_limit import _feishu_rate_limiter
+from .feishu_governance import get_feishu_governance
 from urllib.parse import urlparse
 
 FEISHU_WEBHOOK_HOST = "open.feishu.cn"
@@ -95,8 +95,8 @@ class FeishuSender:
             return text[: MAX_TEXT_LENGTH - 3] + "..."
         return text
 
-    @_feishu_rate_limiter
     def send(self, payload: NotificationPayload, settings: dict[str, Any] | None = None) -> NotificationResult:
+        governance = get_feishu_governance()
         notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
         section = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
         enabled = bool(section.get("enabled", False))
@@ -160,6 +160,63 @@ class FeishuSender:
         }
         max_attempts = retry_times + 1
 
+        allowed, retry_after = governance.check_rate_limit()
+        if not allowed:
+            LOGGER.warning(
+                "feishu rate limited trace_id=%s retry_after=%d",
+                trace_id,
+                retry_after,
+            )
+            return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=0,
+                max_attempts=max_attempts,
+                error=NotificationActionError(
+                    category="rate_limit",
+                    message=f"飞书通知频率限制，请 {retry_after} 秒后重试",
+                ),
+                channel=self.channel,
+            )
+
+        circuit_allowed, circuit_reason = governance.check_circuit()
+        if not circuit_allowed:
+            LOGGER.warning(
+                "feishu circuit open trace_id=%s reason=%s",
+                trace_id,
+                circuit_reason,
+            )
+            return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=0,
+                max_attempts=max_attempts,
+                error=NotificationActionError(
+                    category="circuit_open",
+                    message=f"飞书通知熔断保护中: {circuit_reason}",
+                ),
+                channel=self.channel,
+            )
+
+        cache_entry = governance.check_cache(text)
+        if cache_entry:
+            LOGGER.info(
+                "feishu cache hit trace_id=%s content_hash=%s",
+                trace_id,
+                cache_entry.content_hash,
+            )
+            return NotificationResult(
+                ok=True,
+                sent=True,
+                trace_id=trace_id,
+                attempts=0,
+                max_attempts=max_attempts,
+                error=None,
+                channel=self.channel,
+            )
+
         for attempt in range(1, max_attempts + 1):
             try:
                 status_code, response_json = _http_post_json(
@@ -174,6 +231,8 @@ class FeishuSender:
                         or (response_json.get("data") or {}).get("message_id")
                         or trace_id
                     )
+                    governance.record_success(text, trace_id)
+                    governance.add_to_cache(text)
                     LOGGER.info(
                         "feishu notify success trace_id=%s attempt=%s provider_message_id=%s",
                         trace_id,
@@ -226,6 +285,8 @@ class FeishuSender:
                         error_category = "timeout"
                     elif "network" in exc_str.lower() or "connection" in exc_str.lower():
                         error_category = "network_error"
+                    
+                    governance.record_failure(text, trace_id, error_category, exc_str)
                     
                     return NotificationResult(
                         ok=False,

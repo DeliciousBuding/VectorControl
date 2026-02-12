@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import datetime
 import json
@@ -1118,4 +1118,23 @@ async def get_discovered_chat_ids(request: Request) -> dict:
     return {
         "discovered_chat_ids": discovered,
         "count": len(discovered),
+    }
+
+
+@router.get("/notifications/feishu/governance")
+async def get_feishu_governance_stats(request: Request) -> dict:
+    """
+    获取飞书通知治理统计信息
+
+    返回频控、缓存、熔断器状态和审计日志
+    """
+    from app.notifier.feishu_governance import get_feishu_governance
+    
+    user_id = get_holdings_user_id(request)
+    governance = get_feishu_governance()
+    stats = governance.get_stats()
+    
+    return {
+        "user_id": user_id,
+        "governance": stats,
     }
