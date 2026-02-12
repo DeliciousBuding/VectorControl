@@ -12,8 +12,27 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: 'dist'
+    outDir: 'dist',
+    sourcemap: false,
+    minify: 'esbuild',
+    target: 'es2020',
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom')) {
+              return 'vendor';
+            }
+            if (id.includes('recharts')) {
+              return 'recharts';
+            }
+          }
+        },
+      },
+    },
   },
+  cacheDir: 'node_modules/.vite',
   test: {
     environment: 'jsdom',
     globals: true,
