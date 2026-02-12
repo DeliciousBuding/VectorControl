@@ -33,7 +33,8 @@ class NotificationResult(BaseModel):
                     "sent": True,
                     "trace_id": "abc123",
                     "attempts": 1,
-                    "error": "",
+                    "max_attempts": 3,
+                    "error": None,
                     "channel": "feishu",
                 },
                 {
@@ -41,7 +42,14 @@ class NotificationResult(BaseModel):
                     "sent": False,
                     "trace_id": "def456",
                     "attempts": 3,
-                    "error": "连接超时",
+                    "max_attempts": 3,
+                    "error": {
+                        "category": "network_error",
+                        "message": "连接超时",
+                        "http_status": None,
+                        "error_code": None,
+                        "description": None,
+                    },
                     "channel": "telegram",
                 },
             ]
@@ -52,8 +60,9 @@ class NotificationResult(BaseModel):
     sent: bool = Field(..., description="是否成功发送消息到服务商")
     trace_id: str = Field(..., description="用于日志关联的追踪ID")
     attempts: int = Field(1, description="实际尝试次数")
-    error: str = Field("", description="错误详情（仅在 ok=False 时存在）")
-    channel: str = Field(..., description="通知通道名称")
+    max_attempts: int = Field(3, description="最大尝试次数")
+    error: Optional[NotificationActionError] = Field(None, description="错误详情（仅在 ok=False 时存在）")
+    channel: str = Field("", description="通知通道名称")
 
 
 class NotificationSender(Protocol):

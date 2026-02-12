@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import logging
@@ -7,7 +7,7 @@ from typing import Any
 from urllib import request
 from urllib.error import HTTPError
 
-from .base import NotificationPayload, NotificationResult
+from .base import NotificationPayload, NotificationResult, NotificationActionError
 from ..core.rate_limit import _feishu_rate_limiter
 from urllib.parse import urlparse
 
@@ -108,7 +108,11 @@ class FeishuSender:
                 sent=False,
                 trace_id=trace_id,
                 attempts=1,
-                error="feishu channel disabled",
+                max_attempts=1,
+                error=NotificationActionError(
+                    category="config_error",
+                    message="feishu channel disabled",
+                ),
                 channel=self.channel,
             )
 
@@ -119,13 +123,16 @@ class FeishuSender:
                 sent=False,
                 trace_id=trace_id,
                 attempts=1,
-                error="missing feishu webhook_url",
+                max_attempts=1,
+                error=NotificationActionError(
+                    category="config_error",
+                    message="missing feishu webhook_url",
+                ),
                 channel=self.channel,
             )
         try:
             _validate_feishu_webhook_url(webhook_url)
         except ValueError as exc:
-            # Sensitive info (webhook_url) should be masked in logs.
             LOGGER.error(
                 "feishu webhook_url validation failed webhook_url_prefix=%s error=%s",
                 webhook_url[:10] + "***",
@@ -136,7 +143,11 @@ class FeishuSender:
                 sent=False,
                 trace_id=trace_id,
                 attempts=1,
-                error=f"invalid feishu webhook_url: {exc}",
+                max_attempts=1,
+                error=NotificationActionError(
+                    category="config_error",
+                    message=f"invalid feishu webhook_url: {exc}",
+                ),
                 channel=self.channel,
             )
 
@@ -174,7 +185,8 @@ class FeishuSender:
                         sent=True,
                         trace_id=provider_message_id,
                         attempts=attempt,
-                        error="",
+                        max_attempts=max_attempts,
+                        error=None,
                         channel=self.channel,
                     )
 
@@ -183,7 +195,16 @@ class FeishuSender:
                     or response_json.get("msg")
                     or f"http_status={status_code}"
                 ).strip()
-                raise RuntimeError(f"provider_error code={provider_code} message={provider_message}")
+                
+                error_category = "provider_error"
+                if int(status_code) == 401:
+                    error_category = "unauthorized"
+                elif int(status_code) == 403:
+                    error_category = "forbidden"
+                elif int(status_code) == 400:
+                    error_category = "bad_request"
+                
+                raise RuntimeError(f"{error_category} code={provider_code} message={provider_message}")
             except Exception as exc:
                 LOGGER.warning(
                     "feishu notify failed trace_id=%s attempt=%s/%s err_class=%s",
@@ -193,12 +214,29 @@ class FeishuSender:
                     exc.__class__.__name__,
                 )
                 if attempt >= max_attempts:
+                    exc_str = str(exc)
+                    error_category = "provider_error"
+                    if "unauthorized" in exc_str.lower():
+                        error_category = "unauthorized"
+                    elif "forbidden" in exc_str.lower():
+                        error_category = "forbidden"
+                    elif "bad_request" in exc_str.lower():
+                        error_category = "bad_request"
+                    elif "timeout" in exc_str.lower() or isinstance(exc, TimeoutError):
+                        error_category = "timeout"
+                    elif "network" in exc_str.lower() or "connection" in exc_str.lower():
+                        error_category = "network_error"
+                    
                     return NotificationResult(
                         ok=False,
                         sent=False,
                         trace_id=trace_id,
                         attempts=max_attempts,
-                        error=f"feishu send failed after {max_attempts} attempts: {exc}",
+                        max_attempts=max_attempts,
+                        error=NotificationActionError(
+                            category=error_category,
+                            message=f"feishu send failed after {max_attempts} attempts: {exc}",
+                        ),
                         channel=self.channel,
                     )
 
@@ -207,6 +245,10 @@ class FeishuSender:
             sent=False,
             trace_id=trace_id,
             attempts=max_attempts,
-            error=f"feishu send failed after {max_attempts} attempts",
+            max_attempts=max_attempts,
+            error=NotificationActionError(
+                category="unknown",
+                message=f"feishu send failed after {max_attempts} attempts",
+            ),
             channel=self.channel,
         )

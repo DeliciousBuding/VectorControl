@@ -7,7 +7,7 @@ import uuid
 from typing import Any
 from urllib import request
 
-from .base import NotificationPayload, NotificationResult
+from .base import NotificationPayload, NotificationResult, NotificationActionError
 
 LOGGER = logging.getLogger("vectorcontrol.notifier.telegram")
 DEFAULT_TIMEOUT_SECONDS = 3.0
@@ -108,7 +108,11 @@ class TelegramSender:
                 sent=False,
                 trace_id=trace_id,
                 attempts=1,
-                error="telegram channel disabled",
+                max_attempts=1,
+                error=NotificationActionError(
+                    category="config_error",
+                    message="telegram channel disabled",
+                ),
                 channel=self.channel,
             )
 
@@ -120,7 +124,11 @@ class TelegramSender:
                 sent=False,
                 trace_id=trace_id,
                 attempts=1,
-                error="missing telegram bot_token or chat_id",
+                max_attempts=1,
+                error=NotificationActionError(
+                    category="config_error",
+                    message="missing telegram bot_token or chat_id",
+                ),
                 channel=self.channel,
             )
 
@@ -162,7 +170,8 @@ class TelegramSender:
                         sent=True,
                         trace_id=provider_message_id,
                         attempts=attempt,
-                        error="",
+                        max_attempts=max_attempts,
+                        error=None,
                         channel=self.channel,
                     )
 
@@ -170,6 +179,16 @@ class TelegramSender:
                 error_code = int(resp_json.get("error_code") or -1)
 
                 error_message = f"telegram error: {description}" if description else f"telegram error code: {error_code}"
+                
+                error_category = "provider_error"
+                if error_code == 401:
+                    error_category = "auth_failed"
+                elif error_code == 403:
+                    error_category = "forbidden"
+                elif error_code == 400 and "chat not found" in description.lower():
+                    error_category = "chat_not_found"
+                elif error_code == 429:
+                    error_category = "rate_limited"
 
                 LOGGER.warning(
                     "telegram notify failed trace_id=%s attempt=%s/%s token_prefix=%s error=%s",
@@ -185,7 +204,14 @@ class TelegramSender:
                         sent=False,
                         trace_id=trace_id,
                         attempts=max_attempts,
-                        error=f"telegram send failed after {max_attempts} attempts: {error_message}",
+                        max_attempts=max_attempts,
+                        error=NotificationActionError(
+                            category=error_category,
+                            message=error_message,
+                            http_status=int(status_code),
+                            error_code=error_code,
+                            description=description or None,
+                        ),
                         channel=self.channel,
                     )
             except TimeoutError:
@@ -202,7 +228,11 @@ class TelegramSender:
                         sent=False,
                         trace_id=trace_id,
                         attempts=max_attempts,
-                        error=f"telegram send failed after {max_attempts} attempts: timeout",
+                        max_attempts=max_attempts,
+                        error=NotificationActionError(
+                            category="timeout",
+                            message=f"telegram send failed after {max_attempts} attempts: timeout",
+                        ),
                         channel=self.channel,
                     )
             except Exception as exc:
@@ -220,7 +250,11 @@ class TelegramSender:
                         sent=False,
                         trace_id=trace_id,
                         attempts=max_attempts,
-                        error=f"telegram send failed after {max_attempts} attempts: {exc}",
+                        max_attempts=max_attempts,
+                        error=NotificationActionError(
+                            category="network_error",
+                            message=f"telegram send failed after {max_attempts} attempts: {exc}",
+                        ),
                         channel=self.channel,
                     )
 
@@ -229,6 +263,10 @@ class TelegramSender:
             sent=False,
             trace_id=trace_id,
             attempts=max_attempts,
-            error=f"telegram send failed after {max_attempts} attempts",
+            max_attempts=max_attempts,
+            error=NotificationActionError(
+                category="unknown",
+                message=f"telegram send failed after {max_attempts} attempts",
+            ),
             channel=self.channel,
         )
