@@ -383,3 +383,18 @@ async def get_log_files(request: Request) -> dict:
         "files": sorted(files, key=lambda x: x["modified_at"], reverse=True),
         "count": len(files),
     }
+
+
+@router.get("/request-stats")
+async def get_request_stats(request: Request) -> dict:
+    """获取 API 请求统计"""
+    from app.main import _request_stats
+    return _request_stats.get_stats()
+
+
+@router.post("/request-stats/reset")
+async def reset_request_stats(request: Request) -> dict:
+    """重置 API 请求统计"""
+    from app.main import _request_stats
+    _request_stats.reset()
+    return {"success": True, "message": "请求统计已重置"}

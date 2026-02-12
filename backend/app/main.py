@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import contextvars
 import logging
+import time
 import uuid
+from collections import defaultdict
+from threading import Lock
 
 from fastapi import FastAPI, Request
 from starlette.responses import JSONResponse
@@ -39,6 +42,66 @@ _REQUEST_ID_CONTEXT: contextvars.ContextVar[str] = contextvars.ContextVar(
     default=DEFAULT_REQUEST_ID,
 )
 _DEFAULT_LOG_RECORD_FACTORY = logging.getLogRecordFactory()
+
+
+class RequestStats:
+    """请求统计器"""
+    
+    def __init__(self):
+        self._lock = Lock()
+        self._total_requests = 0
+        self._total_errors = 0
+        self._path_stats: dict[str, dict] = defaultdict(lambda: {"count": 0, "total_ms": 0.0, "errors": 0})
+        self._start_time = time.time()
+    
+    def record(self, path: str, elapsed_ms: float, is_error: bool) -> None:
+        with self._lock:
+            self._total_requests += 1
+            if is_error:
+                self._total_errors += 1
+            
+            path_key = path.split("?")[0][:100]
+            self._path_stats[path_key]["count"] += 1
+            self._path_stats[path_key]["total_ms"] += elapsed_ms
+            if is_error:
+                self._path_stats[path_key]["errors"] += 1
+    
+    def get_stats(self) -> dict:
+        with self._lock:
+            uptime_seconds = time.time() - self._start_time
+            
+            top_paths = sorted(
+                [
+                    {
+                        "path": path,
+                        "count": stats["count"],
+                        "avg_ms": stats["total_ms"] / stats["count"] if stats["count"] > 0 else 0,
+                        "errors": stats["errors"],
+                    }
+                    for path, stats in self._path_stats.items()
+                ],
+                key=lambda x: x["count"],
+                reverse=True,
+            )[:20]
+            
+            return {
+                "uptime_seconds": int(uptime_seconds),
+                "total_requests": self._total_requests,
+                "total_errors": self._total_errors,
+                "error_rate": self._total_errors / self._total_requests if self._total_requests > 0 else 0,
+                "requests_per_second": self._total_requests / uptime_seconds if uptime_seconds > 0 else 0,
+                "top_paths": top_paths,
+            }
+    
+    def reset(self) -> None:
+        with self._lock:
+            self._total_requests = 0
+            self._total_errors = 0
+            self._path_stats.clear()
+            self._start_time = time.time()
+
+
+_request_stats = RequestStats()
 
 
 def _request_id_record_factory(*args, **kwargs):
@@ -112,9 +175,18 @@ async def request_id_middleware(request: Request, call_next):
     request_id = _resolve_request_id(request)
     request.state.request_id = request_id
     context_token = _REQUEST_ID_CONTEXT.set(request_id)
+    start_time = time.time()
+    is_error = False
     try:
         response = await call_next(request)
+        if response.status_code >= 400:
+            is_error = True
+    except Exception:
+        is_error = True
+        raise
     finally:
+        elapsed_ms = (time.time() - start_time) * 1000
+        _request_stats.record(request.url.path, elapsed_ms, is_error)
         _REQUEST_ID_CONTEXT.reset(context_token)
     response.headers[REQUEST_ID_HEADER] = request_id
     return response
