@@ -181,3 +181,132 @@ async def get_system_diagnostics(request: Request) -> dict:
             },
         },
     }
+
+
+@router.get("/backup/status")
+async def get_backup_status(request: Request) -> dict:
+    """获取数据备份状态"""
+    from app.core.settings import DATA_DIR
+    from app.storage.db import DB_PATH
+    
+    backup_dir = DATA_DIR / "backups"
+    backups = []
+    
+    if backup_dir.exists():
+        for backup_file in sorted(backup_dir.glob("*.db"), key=lambda x: x.stat().st_mtime, reverse=True):
+            stat = backup_file.stat()
+            backups.append({
+                "filename": backup_file.name,
+                "size_bytes": stat.st_size,
+                "created_at": datetime.fromtimestamp(stat.st_mtime).astimezone().isoformat(),
+            })
+    
+    return {
+        "db_path": str(DB_PATH),
+        "db_exists": DB_PATH.exists(),
+        "backup_dir": str(backup_dir),
+        "backup_count": len(backups),
+        "backups": backups[:20],
+    }
+
+
+@router.post("/backup/create")
+async def create_backup(request: Request) -> dict:
+    """创建数据备份"""
+    import shutil
+    from app.core.settings import DATA_DIR
+    from app.storage.db import DB_PATH
+    
+    if not DB_PATH.exists():
+        return {
+            "success": False,
+            "error": "数据库文件不存在",
+        }
+    
+    backup_dir = DATA_DIR / "backups"
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_filename = f"app_backup_{timestamp}.db"
+    backup_path = backup_dir / backup_filename
+    
+    try:
+        shutil.copy2(DB_PATH, backup_path)
+        stat = backup_path.stat()
+        
+        return {
+            "success": True,
+            "backup": {
+                "filename": backup_filename,
+                "path": str(backup_path),
+                "size_bytes": stat.st_size,
+                "created_at": datetime.now().astimezone().isoformat(),
+            },
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@router.post("/backup/restore")
+async def restore_backup(request: Request, backup_filename: str) -> dict:
+    """从备份恢复数据"""
+    import shutil
+    from app.core.settings import DATA_DIR
+    from app.storage.db import DB_PATH
+    
+    backup_dir = DATA_DIR / "backups"
+    backup_path = backup_dir / backup_filename
+    
+    if not backup_path.exists():
+        return {
+            "success": False,
+            "error": f"备份文件不存在: {backup_filename}",
+        }
+    
+    try:
+        if DB_PATH.exists():
+            pre_restore_backup = DB_PATH.with_suffix(".db.pre_restore")
+            shutil.copy2(DB_PATH, pre_restore_backup)
+        
+        shutil.copy2(backup_path, DB_PATH)
+        
+        return {
+            "success": True,
+            "restored_from": backup_filename,
+            "restored_at": datetime.now().astimezone().isoformat(),
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@router.delete("/backup/{backup_filename}")
+async def delete_backup(request: Request, backup_filename: str) -> dict:
+    """删除备份文件"""
+    from app.core.settings import DATA_DIR
+    
+    backup_dir = DATA_DIR / "backups"
+    backup_path = backup_dir / backup_filename
+    
+    if not backup_path.exists():
+        return {
+            "success": False,
+            "error": f"备份文件不存在: {backup_filename}",
+        }
+    
+    try:
+        backup_path.unlink()
+        return {
+            "success": True,
+            "deleted": backup_filename,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }

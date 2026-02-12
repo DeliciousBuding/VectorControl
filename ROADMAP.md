@@ -71,7 +71,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [x] [前端] 通知诊断面板 v2b：展示 `last_test_history` 最近 N 条（若后端提供），支持展开/收起与复制 trace_id。（已完成@bot 3b2989d）。
 - [x] [后端] 健康检查口径一致性：提供 `/api/healthz` 与 `/api/health` 兼容（或统一为一个并同步更新 Gate 脚本与文档），补最小 smoke，并在 `docs/部署与运行.md` 明确"健康检查 URL"。（已完成@bot）。
 - [x] [后端] Telegram sender 日志脱敏与错误映射收敛：确保任何日志/异常链路不包含 token 明文；将 Telegram API 失败映射到稳定 `error.category` 并在契约固化；补最小 smoke。（已完成@bot）。
-- [ ] [协同] Telegram chat_id 自动发现（可选增强）：增加 inbound webhook 接收 Telegram update（带独立 secret），用于在不粘贴 token 的情况下辅助绑定 chat_id（需部署侧支持，不阻塞当前迭代）。
+- [x] [协同] Telegram chat_id 自动发现：增加 inbound webhook 接收 Telegram update（带独立 secret），用于在不粘贴 token 的情况下辅助绑定 chat_id。（已完成@bot）
 - [x] [前端] 通知诊断面板 v2c：复制诊断信息（脱敏 status JSON + 版本信息）一键带走排障证据；包含 clipboard fallback 与最小回归。（已完成@bot）。
 
 ### 已完成 (Done)
