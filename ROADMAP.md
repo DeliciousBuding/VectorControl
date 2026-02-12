@@ -59,10 +59,10 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ## P1.5（消息通道增强：飞书 + Telegram 预留）
 
 ### 待集成 (Queue)
-- [ ] [协同] 通知通道"统一动作结果模型"：对 Telegram/飞书的 `test_message` 返回结构与错误分类做 SSOT 约束（`ok/sent/trace_id/attempts/error{category,message}`），并在 `docs/接口契约.md` 固化（前端仅依赖该结构渲染提示，不做 provider 特判）。
+- [x] [协同] 通知通道"统一动作结果模型"：对 Telegram/飞书的 `test_message` 返回结构与错误分类做 SSOT 约束（`ok/sent/trace_id/attempts/error{category,message}`），并在 `docs/接口契约.md` 固化（前端仅依赖该结构渲染提示，不做 provider 特判）。（已完成@bot 3951b38）
 - [x] [后端] 统一 Telegram/飞书 `test_message` 返回结构与错误分类：两者返回字段完全一致（`ok/sent/trace_id/attempts/max_attempts/error{category,message}`），并同步更新 smoke + `docs/接口契约.md`。（已完成@bot cca0990）。
 - [x] [后端] 飞书 webhook 治理 v1：URL 校验（仅 https；host 白名单 `open.feishu.cn`）、sender 日志脱敏（不记录明文 webhook）、补最小 smoke。（已完成@bot f6be5b1）。
-- [ ] [后端] 飞书抓取治理 v2（后续）：频控、缓存过期、日志审计、失败隔离（本条不阻塞 v1）。
+- [x] [后端] 飞书抓取治理 v2：频控、缓存过期、日志审计、失败隔离。（已完成@bot 98c7db3）
 - [x] [前端] 测试消息按钮组件化：抽 `TestMessageButton` 统一 Telegram/飞书 test_message 交互与提示（trace_id + error.category/message），降低重复逻辑与回归风险。（已完成@bot 7c52b6f）。
 - [x] [后端] 通知诊断 status（只读脱敏）：新增 `GET /api/settings/notifications/status`，返回每个通道 `enabled/credential_configured/last_test_summary(trace_id,time,ok,sent,error_category)`；不得回显任何凭据明文。第一版允许 `last_test_summary=null`（不做持久化），但字段必须存在且契约明确。（已完成@bot 4d6d34b）。
 - [x] [后端] 通知诊断 status v2a（可观测性）：每次调用 `*/test_message` 后落库 `last_test_summary`（含 time/trace_id/ok/sent/error_category），并在 `GET /api/settings/notifications/status` 返回；仍不得回显任何凭据明文，契约与 smoke 补齐。（已完成@bot ea4e344）。
@@ -91,11 +91,11 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ## P3（持续改进）
 
 ### 待集成 (Queue)
-- [ ] [后端] 分支保护治理回补：恢复 `Docs Gate / docs-gate` 与 `Release Consistency / verify-release` 的远端必需检查留档。
+- [x] [后端] 分支保护治理回补：恢复 `Docs Gate / docs-gate` 与 `Release Consistency / verify-release` 的远端必需检查留档。（已完成@bot 7ab1937）
 - [x] [后端] 登录安全增强：细粒度限流、失败观测、告警阈值。（已完成@bot e70e401）。
-- [ ] [后端] 前端构建缓存优化（CI/本地）：`check_release_preflight.py` 运行速度优化（不改变默认行为），补文档说明（已于 2026-02-09 17:23:29 预告排队）。
+- [x] [后端] 前端构建缓存优化（CI/本地）：`check_release_preflight.py` 运行速度优化（不改变默认行为），补文档说明。（已完成@bot 153f93b）
 - [x] [后端] 数据导入幂等键 v1：`POST /api/transactions/import` 支持幂等键防重复落库，补 smoke + 契约。（已完成@bot）。
-- [ ] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已于 2026-02-09 17:26:11 预告排队）。
+- [x] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）。（已完成@bot 46e4f8f）
 - [x] [后端] 账号安全 v1（密码策略与会话过期可见）：补最小 smoke + 契约。（已完成@bot）。
 - [x] [前端] 登录体验 v1（会话过期提示 + 返回原页面）：补最小回归。（已完成@bot）。
 - [x] [协同] 备份与恢复 runbook（本地/生产）：sqlite/volume 备份恢复步骤与验证清单。（已完成@bot）。
