@@ -5,3 +5,16 @@ API_TOKEN not set; generated runtime token: AAC-aEXTJq8HRmvhIEgvcedgVrYRCnCQ
 INFO:     Started server process [67696]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
+DEBUG: Middleware Path=/api/settings/notifications/telegram/webhook
+2026-02-12 13:37:59,168 INFO vectorcontrol.telegram_webhook [request_id=4d30b51daadb408dae47297a7253d450]: telegram_webhook trace_id=d1ce1537ef37 received chat_id=987654321 text=/start
+2026-02-12 13:37:59,182 INFO vectorcontrol.telegram_webhook [request_id=4d30b51daadb408dae47297a7253d450]: telegram_webhook trace_id=d1ce1537ef37 stored chat_id=987654321
+2026-02-12 13:37:59,182 INFO vectorcontrol.telegram_webhook [request_id=4d30b51daadb408dae47297a7253d450]: telegram_webhook trace_id=d1ce1537ef37 would send welcome to chat_id=987654321
+INFO:     127.0.0.1:11738 - "POST /api/settings/notifications/telegram/webhook HTTP/1.1" 200 OK
+DEBUG: Middleware Path=/api/settings/notifications/telegram/webhook
+2026-02-12 13:39:30,788 INFO vectorcontrol.telegram_webhook [request_id=513a4a44754e469599868b59fdad5718]: telegram_webhook trace_id=06183799e576 received chat_id=987654321 text=/start
+2026-02-12 13:39:30,790 INFO vectorcontrol.telegram_webhook [request_id=513a4a44754e469599868b59fdad5718]: telegram_webhook trace_id=06183799e576 chat_id=987654321 already known
+2026-02-12 13:39:30,790 INFO vectorcontrol.telegram_webhook [request_id=513a4a44754e469599868b59fdad5718]: telegram_webhook trace_id=06183799e576 would send welcome to chat_id=987654321
+INFO:     127.0.0.1:31510 - "POST /api/settings/notifications/telegram/webhook HTTP/1.1" 200 OK
+DEBUG: Middleware Path=/api/settings/notifications/telegram/discovered_chat_ids
+INFO:     127.0.0.1:31511 - "GET /api/settings/notifications/telegram/discovered_chat_ids HTTP/1.1" 401 Unauthorized
+WARNING:  WatchFiles detected changes in 'app\main.py'. Reloading...

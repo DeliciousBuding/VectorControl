@@ -16,7 +16,6 @@ def test_telegram_webhook(host: str, port: int, dry_run: bool = True):
     """测试 Telegram Webhook 端点"""
     base_url = f"http://{host}:{port}/api/settings"
     
-    # 模拟 Telegram webhook 负载
     webhook_payload = {
         "update_id": 123456789,
         "message": {
@@ -42,7 +41,6 @@ def test_telegram_webhook(host: str, port: int, dry_run: bool = True):
     print("=" * 60)
     print()
     
-    # 测试 webhook 端点
     webhook_url = f"{base_url}/notifications/telegram/webhook"
     print(f"发送 Webhook 请求到: {webhook_url}")
     print(f"请求体: {json.dumps(webhook_payload, ensure_ascii=False, indent=2)}")
@@ -119,7 +117,6 @@ def main():
     args = parser.parse_args()
     
     if args.dry_run or not args.run:
-        # 默认使用 dry-run 模式
         test_telegram_webhook(args.host, args.port, dry_run=True)
         print()
         test_get_discovered_chat_ids(args.host, args.port, dry_run=True)
@@ -128,7 +125,6 @@ def main():
         print("提示: 使用 --run 参数实际运行测试")
         print("示例: python test_telegram_webhook.py --host localhost --port 8000 --run")
     else:
-        # 实际运行测试
         success1 = test_telegram_webhook(args.host, args.port, dry_run=False)
         print()
         success2 = test_get_discovered_chat_ids(args.host, args.port, dry_run=False)
