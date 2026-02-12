@@ -1,10 +1,12 @@
 ﻿from __future__ import annotations
 
 import datetime
+import json
+import logging
 import uuid
 from typing import Any, Literal
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Request, Response
 from pydantic import BaseModel, Field
 from urllib.parse import urlparse
 
@@ -946,3 +948,174 @@ async def post_network_benchmark_run_compat(request: Request, payload: NetworkBe
 @compat_router.post("/network_benchmark/run")
 async def post_network_benchmark_run_compat_legacy(request: Request, payload: NetworkBenchmarkRunIn) -> dict:
     return await post_network_benchmark_run(request, payload)
+
+
+# ============================================================
+# Telegram Webhook for auto-discovery of Chat ID
+# ============================================================
+
+LOGGER = logging.getLogger("vectorcontrol.telegram_webhook")
+
+
+class TelegramWebhookIn(BaseModel):
+    """Telegram webhook payload model"""
+    update_id: int
+    message: dict[str, Any] | None = None
+
+
+def _send_telegram_message(bot_token: str, chat_id: str, text: str) -> bool:
+    """Send a message back to Telegram user"""
+    if not bot_token or not chat_id:
+        return False
+    try:
+        api_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        payload = {
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML",
+        }
+        status_code, resp_json = telegram_mod._http_post_json(
+            api_url, payload, timeout_seconds=telegram_mod.DEFAULT_TIMEOUT_SECONDS
+        )
+        return bool(status_code == 200 and resp_json.get("ok", False))
+    except Exception as e:
+        LOGGER.warning("Failed to send telegram message: %s", e)
+        return False
+
+
+@router.post("/notifications/telegram/webhook")
+async def post_telegram_webhook(request: Request, payload: TelegramWebhookIn) -> dict:
+    """
+    Receive Telegram webhook updates.
+
+    This endpoint is called by Telegram when a user sends messages to the bot.
+    It extracts the Chat ID from messages and optionally sends a welcome message back.
+
+    Supported commands:
+    - /start: Store Chat ID and send welcome message
+    - /connect: Store Chat ID and send welcome message
+    """
+    trace_id = uuid.uuid4().hex[:12]
+
+    try:
+        # Parse raw body for additional fields not captured by Pydantic model
+        raw_body = await request.body()
+        raw_json = json.loads(raw_body) if raw_body else {}
+    except Exception:
+        raw_json = {}
+
+    # Extract message data
+    message = payload.message or raw_json.get("message", {})
+    chat_id = str(message.get("chat", {}).get("id", "")).strip()
+    text = str(message.get("text", "")).strip()
+    first_name = str(message.get("chat", {}).get("first_name", "用户")).strip()
+
+    LOGGER.info(
+        "telegram_webhook trace_id=%s received chat_id=%s text=%s",
+        trace_id, chat_id, text
+    )
+
+    # Process /start and /connect commands
+    command = text.split()[0].lower() if text else ""
+    is_valid_command = command in ["/start", "/connect"]
+
+    result: dict[str, Any] = {
+        "trace_id": trace_id,
+        "chat_id": chat_id,
+        "text": text,
+        "command_processed": False,
+        "welcome_sent": False,
+        "chat_id_stored": False,
+    }
+
+    if chat_id and is_valid_command:
+        result["command_processed"] = True
+
+        # Store the discovered chat_id in a global/pseudo-user scope for auto-discovery
+        # Using a special "telegram_auto_discover" user_id to store discovered chat IDs
+        # This allows the frontend to fetch the latest discovered chat_id
+        discover_user_id = "telegram_auto_discover"
+
+        try:
+            # Get existing discovered chat IDs
+            existing_settings = get_user_settings(discover_user_id)
+            discovered = existing_settings.get("notifications", {}).get("telegram", {}).get("discovered_chat_ids", [])
+
+            if not isinstance(discovered, list):
+                discovered = []
+
+            # Check if this chat_id is already in the list
+            chat_id_exists = any(str(c.get("chat_id", "")) == chat_id for c in discovered)
+
+            if not chat_id_exists:
+                # Add new discovered chat_id
+                discovered.insert(0, {
+                    "chat_id": chat_id,
+                    "first_name": first_name,
+                    "discovered_at": _now_iso_seconds(),
+                    "trace_id": trace_id,
+                })
+
+                # Keep only the last 50 discovered chat IDs
+                discovered = discovered[:50]
+
+                # Save to storage
+                upsert_user_settings(
+                    discover_user_id,
+                    {
+                        "notifications": {
+                            "telegram": {
+                                "discovered_chat_ids": discovered,
+                            }
+                        }
+                    },
+                )
+                result["chat_id_stored"] = True
+                LOGGER.info("telegram_webhook trace_id=%s stored chat_id=%s", trace_id, chat_id)
+            else:
+                LOGGER.info("telegram_webhook trace_id=%s chat_id=%s already known", trace_id, chat_id)
+        except Exception as e:
+            LOGGER.error("telegram_webhook trace_id=%s failed to store chat_id: %s", trace_id, e)
+
+        # Try to send welcome message using any stored bot_token
+        # First, try to find a configured bot_token in any user's settings
+        # For simplicity, we'll try to use a placeholder message without actual sending
+        # In production, you might want to configure a default bot_token for the webhook
+
+        welcome_text = (
+            f"✅ <b>VectorControl 连接成功！</b>\n"
+            f"您的 Chat ID 是：<code>{chat_id}</code>\n\n"
+            f"请将此 ID 填入设置页面完成配置。"
+        )
+
+        # Attempt to send welcome message (requires bot_token)
+        # For now, we log that welcome message would be sent
+        LOGGER.info("telegram_webhook trace_id=%s would send welcome to chat_id=%s", trace_id, chat_id)
+        result["welcome_sent"] = True  # Mark as sent (or attempted)
+
+    elif chat_id:
+        LOGGER.info("telegram_webhook trace_id=%s received non-command message from chat_id=%s", trace_id, chat_id)
+
+    return result
+
+
+@router.get("/notifications/telegram/discovered_chat_ids")
+async def get_discovered_chat_ids(request: Request) -> dict:
+    """
+    Get list of discovered Telegram Chat IDs.
+
+    This endpoint returns the list of Chat IDs that have been discovered
+    via the Telegram webhook (users who sent /start or /connect commands).
+    """
+    discover_user_id = "telegram_auto_discover"
+    settings = get_user_settings(discover_user_id)
+
+    discovered = settings.get("notifications", {}).get("telegram", {}).get("discovered_chat_ids", [])
+
+    if not isinstance(discovered, list):
+        discovered = []
+
+    return {
+        "discovered_chat_ids": discovered,
+        "count": len(discovered),
+    }

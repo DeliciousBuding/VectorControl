@@ -8,6 +8,7 @@ from urllib import request
 from urllib.error import HTTPError
 
 from .base import NotificationPayload, NotificationResult
+from ..core.rate_limit import _feishu_rate_limiter
 from urllib.parse import urlparse
 
 FEISHU_WEBHOOK_HOST = "open.feishu.cn"
@@ -94,6 +95,7 @@ class FeishuSender:
             return text[: MAX_TEXT_LENGTH - 3] + "..."
         return text
 
+    @_feishu_rate_limiter
     def send(self, payload: NotificationPayload, settings: dict[str, Any] | None = None) -> NotificationResult:
         notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
         section = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}

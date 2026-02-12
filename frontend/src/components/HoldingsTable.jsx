@@ -179,7 +179,7 @@ export const HoldingsTable = memo(function HoldingsTable({
           bottomClass={classBySign(record.holding_profit_rate)}
         />
       ),
-      width: 130
+      width: 150
     },
     {
       title: '持仓成本',
@@ -368,7 +368,7 @@ export const HoldingsTable = memo(function HoldingsTable({
           dataSource={rows.map((row) => ({ ...row, key: row.fund_id }))}
           pagination={false}
           size="small"
-          scroll={{ x: 1400 }}
+          scroll={{ x: 1500 }}
           bordered
           rowClassName={rowClassName}
           onRow={onRowClick}

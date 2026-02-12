@@ -62,6 +62,7 @@ PUBLIC_PATHS = {
     "/api/healthz",
     "/api/auth/register",
     "/api/auth/login",
+    "/api/settings/notifications/telegram/webhook",
 }
 
 

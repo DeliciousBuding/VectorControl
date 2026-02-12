@@ -141,6 +141,10 @@ export function sendTelegramTestMessage() {
   return apiFetch('/api/settings/notifications/telegram/test_message', { method: 'POST' })
 }
 
+export function fetchDiscoveredChatIds() {
+  return apiFetch('/api/settings/notifications/telegram/discovered_chat_ids')
+}
+
 export function sendFeishuTestMessage() {
   return apiFetch('/api/settings/notifications/feishu/test_message', { method: 'POST' })
 }

@@ -876,7 +876,7 @@ button:disabled {
 
 .holdings-main {
   margin-top: 16px;
-  padding: 16px;
+  padding: 24px;
 }
 
 .holdings-create-panel {
@@ -2779,4 +2779,23 @@ button.settings-inline-btn {
     width: 100%;
     flex: none;
   }
+}
+
+/* Telegram Auto Discovery */
+.telegram-auto-discover-box {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8fafc;
+  border: 1px dashed var(--line);
+  border-radius: 12px;
+}
+
+.code-snippet {
+  background: var(--bg-secondary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--line-light);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--brand-dark);
 }

@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import functools
 import math
 import time
 from collections import deque
 from dataclasses import dataclass
 from threading import Lock
+from typing import Callable
 
 
 @dataclass(frozen=True)
@@ -80,4 +82,58 @@ auth_rate_limiter = InMemoryRateLimiter()
 
 def reset_auth_rate_limiter() -> None:
     auth_rate_limiter.reset()
+
+
+# 简单的速率限制装饰器
+def simple_rate_limit(max_calls: int, period: float):
+    """简单速率限制装饰器：在 period 秒内最多允许 max_calls 次调用
+    
+    Args:
+        max_calls: 最大调用次数
+        period: 时间窗口（秒）
+    """
+    def decorator(func: Callable) -> Callable:
+        _calls: deque[float] = deque()
+        _lock = Lock()
+        
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            now = time.time()
+            with _lock:
+                # 清理过期的时间戳
+                while _calls and _calls[0] <= now - period:
+                    _calls.popleft()
+                
+                # 检查是否超过限制
+                if len(_calls) >= max_calls:
+                    oldest = _calls[0]
+                    wait_time = oldest + period - now
+                    raise RuntimeError(
+                        f"Rate limit exceeded: {max_calls} calls per {period}s. "
+                        f"Retry after {max(0, wait_time):.1f}s"
+                    )
+                
+                _calls.append(now)
+            
+            return func(*args, **kwargs)
+        
+        @functools.wraps(func)
+        def reset_wrapper():
+            """重置计数器"""
+            with _lock:
+                _calls.clear()
+        
+        wrapper.reset = reset_wrapper
+        return wrapper
+    return decorator
+
+
+# 飞书 API 专用速率限制器实例
+_feishu_rate_limiter = simple_rate_limit(max_calls=10, period=60)
+
+
+def reset_feishu_rate_limiter() -> None:
+    """重置飞书速率限制器"""
+    if hasattr(_feishu_rate_limiter, 'reset'):
+        _feishu_rate_limiter.reset()
 

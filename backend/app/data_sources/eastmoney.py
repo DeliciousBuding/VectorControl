@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 import json
 import re
 import time
@@ -183,7 +184,23 @@ class EastMoneySearchProvider:
 
         return items
 
+    @functools.lru_cache(maxsize=256)
+    def _cached_search(self, keyword: str, limit: int = 20) -> tuple[tuple[dict[str, Any], ...], float]:
+        """带缓存的搜索实现 - 返回不可变元组以便缓存"""
+        results = self._uncached_search(keyword, limit)
+        cache_key = tuple((r["fund_id"], r["name"]) for r in sorted(results, key=lambda x: x["fund_id"]))
+        return cache_key, time.time()
+
     def search_funds(self, keyword: str, limit: int = 20) -> list[dict[str, Any]]:
+        # 检查缓存
+        cache_key, timestamp = self._cached_search(keyword, limit)
+        if time.time() - timestamp < 300:  # 5分钟缓存
+            # 从缓存键重建结果
+            return list({"fund_id": k[0], "name": k[1], "source": "eastmoney_search"} for k in cache_key)
+        
+        return self._uncached_search(keyword, limit)
+    
+    def _uncached_search(self, keyword: str, limit: int = 20) -> list[dict[str, Any]]:
         clean_keyword = _normalize_keyword(keyword)
         if not clean_keyword:
             return []

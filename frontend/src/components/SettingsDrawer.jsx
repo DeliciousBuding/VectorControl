@@ -3,6 +3,7 @@ import {
   createSIPPlan,
   deleteSIPPlan,
   executeSIPPlan,
+  fetchDiscoveredChatIds,
   fetchHealthz,
   fetchNetworkBenchmarkLatest,
   fetchNotificationsStatus,
@@ -27,7 +28,8 @@ import {
   CheckCircleOutlined, CloseCircleOutlined,
   ClockCircleOutlined, CopyOutlined, PlayCircleOutlined,
   PlusOutlined, DeleteOutlined, EditOutlined,
-  PauseCircleOutlined, CheckOutlined, HistoryOutlined
+  PauseCircleOutlined, CheckOutlined, HistoryOutlined,
+  LinkOutlined
 } from '@ant-design/icons'
 
 const PROFILE_OPTIONS = [
@@ -309,6 +311,8 @@ export function SettingsDrawer({
   const [diagnosticError, setDiagnosticError] = useState('')
   const [feishuHistoryOpen, setFeishuHistoryOpen] = useState(false)
   const [telegramHistoryOpen, setTelegramHistoryOpen] = useState(false)
+  const [discoveredChatIds, setDiscoveredChatIds] = useState([])
+  const [discoveredChatIdsLoading, setDiscoveredChatIdsLoading] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
   const [testAllLoading, setTestAllLoading] = useState(false)
@@ -481,6 +485,31 @@ export function SettingsDrawer({
       } finally {
         if (!active) return
         setHealthzLoading(false)
+      }
+    })()
+
+    return () => {
+      active = false
+    }
+  }, [open])
+
+  // Fetch discovered Telegram Chat IDs
+  useEffect(() => {
+    if (!open) return
+
+    let active = true
+    setDiscoveredChatIdsLoading(true)
+    ;(async () => {
+      try {
+        const payload = await fetchDiscoveredChatIds()
+        if (!active) return
+        setDiscoveredChatIds(payload.discovered_chat_ids || [])
+      } catch (error) {
+        if (!active) return
+        setDiscoveredChatIds([])
+      } finally {
+        if (!active) return
+        setDiscoveredChatIdsLoading(false)
       }
     })()
 
@@ -1497,6 +1526,82 @@ export function SettingsDrawer({
               }))}
             />
           </label>
+
+          {/* Telegram Auto-Discovery Section */}
+          <div className="telegram-auto-discover-box">
+            <div style={{ marginBottom: '8px', fontWeight: '500' }}>
+              自动发现 Chat ID
+            </div>
+            <div style={{ marginBottom: '12px', fontSize: '13px', color: '#666' }}>
+              <div style={{ marginBottom: '8px' }}>
+                1. 点击联系机器人：
+                <a href="https://t.me/YourBotName" target="_blank" rel="noopener noreferrer" style={{ marginLeft: '8px' }}>
+                  @YourBotName <LinkOutlined />
+                </a>
+              </div>
+              <div>
+                2. 发送 <code className="code-snippet">/start</code> 或 <code className="code-snippet">/connect</code>
+              </div>
+            </div>
+            
+            {discoveredChatIdsLoading ? (
+              <div style={{ textAlign: 'center', padding: '8px' }}>
+                <Spin size="small" /> 正在查找...
+              </div>
+            ) : discoveredChatIds.length > 0 ? (
+              <div>
+                <div style={{ fontSize: '13px', marginBottom: '8px', color: '#52c41a' }}>
+                  ✅ 发现 {discoveredChatIds.length} 个 Chat ID
+                </div>
+                {discoveredChatIds.slice(0, 3).map((item, index) => (
+                  <div 
+                    key={item.chat_id || index}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between',
+                      padding: '8px',
+                      background: '#fff',
+                      borderRadius: '6px',
+                      marginBottom: '6px'
+                    }}
+                  >
+                    <div>
+                      <code style={{ fontWeight: '500' }}>{item.chat_id}</code>
+                      {item.first_name && (
+                        <span style={{ marginLeft: '8px', color: '#888', fontSize: '12px' }}>
+                          ({item.first_name})
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPendingTelegramChatId(item.chat_id)
+                        setEditingTelegramCredential(true)
+                        message.success(`已填入 Chat ID: ${item.chat_id}`)
+                      }}
+                      style={{
+                        padding: '4px 12px',
+                        fontSize: '12px',
+                        background: '#1890ff',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      使用此 ID
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: '13px', color: '#999', textAlign: 'center', padding: '8px' }}>
+                暂未发现 Chat ID，请先联系机器人
+              </div>
+            )}
+          </div>
 
           <div className="settings-secret-block">
             <span className="settings-secret-label">凭据</span>

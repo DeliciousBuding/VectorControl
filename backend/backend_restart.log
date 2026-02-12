@@ -1,0 +1,8 @@
+INFO:     Will watch for changes in these directories: ['d:\\Fund\\VectorControl\\backend']
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started reloader process [37152] using WatchFiles
+API_TOKEN not set; generated runtime token: kX1gKLgypgM0kNnmkKTWnvrE9GcNQIyM
+INFO:     Started server process [59996]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+WARNING:  WatchFiles detected changes in 'app\main.py'. Reloading...
