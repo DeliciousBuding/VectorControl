@@ -6,7 +6,7 @@ import subprocess
 from datetime import datetime
 from pathlib import Path
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Query, Request
 
 from app.api.deps import get_holdings_user_id, get_snapshot_user_id, get_user_id, get_username, is_admin
 from app.storage.db import get_system_status_snapshot
@@ -310,3 +310,76 @@ async def delete_backup(request: Request, backup_filename: str) -> dict:
             "success": False,
             "error": str(e),
         }
+
+
+@router.get("/logs")
+async def get_system_logs(
+    request: Request,
+    lines: int = Query(default=100, ge=1, le=1000, description="返回的日志行数"),
+    level: str = Query(default="all", description="日志级别过滤: all/debug/info/warning/error"),
+) -> dict:
+    """获取系统日志"""
+    from app.core.settings import DATA_DIR
+    
+    log_files = [
+        DATA_DIR / "logs" / "backend.log",
+        DATA_DIR / "logs" / "app.log",
+        DATA_DIR.parent / "backend" / "backend.log",
+    ]
+    
+    log_content = []
+    log_file_used = None
+    
+    for log_file in log_files:
+        if log_file.exists():
+            log_file_used = log_file
+            try:
+                with open(log_file, "r", encoding="utf-8", errors="ignore") as f:
+                    all_lines = f.readlines()
+                    log_content = all_lines[-lines:] if len(all_lines) > lines else all_lines
+                break
+            except Exception:
+                continue
+    
+    if level != "all":
+        level_upper = level.upper()
+        log_content = [
+            line for line in log_content
+            if f" {level_upper}:" in line or f":{level_upper}:" in line
+        ]
+    
+    return {
+        "log_file": str(log_file_used) if log_file_used else None,
+        "lines_requested": lines,
+        "lines_returned": len(log_content),
+        "level_filter": level,
+        "logs": [line.rstrip("\n\r") for line in log_content],
+    }
+
+
+@router.get("/logs/files")
+async def get_log_files(request: Request) -> dict:
+    """获取日志文件列表"""
+    from app.core.settings import DATA_DIR
+    
+    log_dirs = [
+        DATA_DIR / "logs",
+        DATA_DIR.parent / "backend",
+    ]
+    
+    files = []
+    for log_dir in log_dirs:
+        if log_dir.exists():
+            for log_file in log_dir.glob("*.log"):
+                stat = log_file.stat()
+                files.append({
+                    "path": str(log_file),
+                    "name": log_file.name,
+                    "size_bytes": stat.st_size,
+                    "modified_at": datetime.fromtimestamp(stat.st_mtime).astimezone().isoformat(),
+                })
+    
+    return {
+        "files": sorted(files, key=lambda x: x["modified_at"], reverse=True),
+        "count": len(files),
+    }
