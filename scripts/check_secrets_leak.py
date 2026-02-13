@@ -19,21 +19,20 @@ import sys
 from pathlib import Path
 
 SENSITIVE_PATTERNS = [
-    (r'(?i)(api[_-]?key|apikey)\s*[=:]\s*["\']?[a-zA-Z0-9_\-]{20,}', 'API Key'),
-    (r'(?i)(secret[_-]?key|secretkey)\s*[=:]\s*["\']?[a-zA-Z0-9_\-]{20,}', 'Secret Key'),
-    (r'(?i)(access[_-]?token|accesstoken)\s*[=:]\s*["\']?[a-zA-Z0-9_\-]{20,}', 'Access Token'),
-    (r'(?i)(auth[_-]?token|authtoken)\s*[=:]\s*["\']?[a-zA-Z0-9_\-]{20,}', 'Auth Token'),
-    (r'(?i)(bot[_-]?token|bottoken)\s*[=:]\s*["\']?[a-zA-Z0-9_\-]{20,}', 'Bot Token'),
-    (r'(?i)(password|passwd|pwd)\s*[=:]\s*["\']?[^\s"\']{8,}', 'Password'),
-    (r'(?i)(private[_-]?key|privatekey)\s*[=:]\s*["\']?[a-zA-Z0-9_\-]{40,}', 'Private Key'),
+    (r'(?i)(api[_-]?key|apikey)\s*[=:]\s*["\'][a-zA-Z0-9_\-]{20,}["\']', 'API Key'),
+    (r'(?i)(secret[_-]?key|secretkey)\s*[=:]\s*["\'][a-zA-Z0-9_\-]{20,}["\']', 'Secret Key'),
+    (r'(?i)(access[_-]?token|accesstoken)\s*[=:]\s*["\'][a-zA-Z0-9_\-]{20,}["\']', 'Access Token'),
+    (r'(?i)(auth[_-]?token|authtoken)\s*[=:]\s*["\'][a-zA-Z0-9_\-]{20,}["\']', 'Auth Token'),
+    (r'(?i)(bot[_-]?token|bottoken)\s*[=:]\s*["\'][a-zA-Z0-9_\-]{20,}["\']', 'Bot Token'),
+    (r'(?i)(password|passwd|pwd)\s*[=:]\s*["\'][^\s"\']{8,}["\']', 'Password'),
+    (r'(?i)(private[_-]?key|privatekey)\s*[=:]\s*["\'][a-zA-Z0-9_\-]{40,}["\']', 'Private Key'),
     (r'-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----', 'RSA Private Key'),
     (r'sk-[a-zA-Z0-9]{20,}', 'OpenAI API Key'),
     (r'ghp_[a-zA-Z0-9]{36}', 'GitHub Personal Access Token'),
     (r'gho_[a-zA-Z0-9]{36}', 'GitHub OAuth Token'),
     (r'github_pat_[a-zA-Z0-9_]{22,}', 'GitHub Fine-grained Token'),
     (r'xox[baprs]-[a-zA-Z0-9\-]{10,}', 'Slack Token'),
-    (r'tg_[a-zA-Z0-9_\-]{30,}', 'Telegram Token'),
-    (r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}', 'UUID (potential API key)'),
+    (r'[0-9]{8,10}:[a-zA-Z0-9_\-]{30,}', 'Telegram Bot Token'),
 ]
 
 WHITELIST_PATTERNS = [
