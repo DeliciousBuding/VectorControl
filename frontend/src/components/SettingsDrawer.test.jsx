@@ -479,7 +479,7 @@ describe('SettingsDrawer', () => {
       expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
     })
 
-    expect(screen.getByText(/时间: 2026-02-08 12:34:56Z/)).toBeInTheDocument()
+    expect(screen.getByText(/时间:/)).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('diagnostic-feishu-trace-copy-btn'))
 

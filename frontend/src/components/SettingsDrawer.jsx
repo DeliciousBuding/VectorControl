@@ -656,6 +656,25 @@ export function SettingsDrawer({
     }
   }
 
+  const copyTextToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+        return true
+      } catch {
+        return false
+      }
+    }
+  }
+
   const refreshNotificationsStatus = async () => {
     try {
       const payload = await fetchNotificationsStatus()
@@ -964,7 +983,7 @@ export function SettingsDrawer({
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button onClick={handleClose}>关闭</Button>
-          <Button type="primary" onClick={save} loading={saving}>
+          <Button type="primary" onClick={save} loading={saving} data-testid="settings-save-btn">
             {saving ? '保存中...' : '保存设置'}
           </Button>
         </div>
