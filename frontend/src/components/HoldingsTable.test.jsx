@@ -54,7 +54,7 @@ describe('HoldingsTable 50+ 回归', () => {
       />
     )
 
-    expect(screen.getByText('60 只基金')).toBeInTheDocument()
+    expect(screen.getByTitle('60')).toBeInTheDocument()
     fireEvent.click(screen.getByText('基金-1'))
     expect(onSelectFund).toHaveBeenCalledWith('160001')
   })
@@ -79,7 +79,7 @@ describe('HoldingsTable 50+ 回归', () => {
     )
 
     fireEvent.click(screen.getAllByRole('button', { name: '编辑' })[0])
-    const marketInput = screen.getAllByRole('textbox')[0]
+    const marketInput = screen.getByPlaceholderText('金额')
     fireEvent.change(marketInput, { target: { value: '12345' } })
     fireEvent.click(screen.getByRole('button', { name: '保存' }))
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
 import dayjs from 'dayjs'
 import { useAuth } from './hooks/useAuth.js'
 import { usePortfolio } from './hooks/usePortfolio.js'
@@ -34,20 +34,36 @@ import { ErrorBoundary } from './components/ErrorBoundary.jsx'
 import { LoginPanel } from './components/LoginPanel.jsx'
 import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
-import { ReturnsChart } from './components/ReturnsChart.jsx'
-import { BenchmarkComparison } from './components/BenchmarkComparison.jsx'
-import { SIPPlanManager } from './components/SIPPlanManager.jsx'
 import { HoldingsTable } from './components/HoldingsTable.jsx'
 import { FundDetailPanel } from './components/FundDetailPanel.jsx'
 import { RiskCenter } from './components/RiskCenter.jsx'
 import { RiskStatusBar } from './components/RiskStatusBar.jsx'
 import { PortfolioReturnsPanel } from './components/PortfolioReturnsPanel.jsx'
-import { BenchmarkComparisonPanel } from './components/BenchmarkComparisonPanel.jsx'
-import { SettingsDrawer } from './components/SettingsDrawer.jsx'
 import { SideNav } from './components/SideNav.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
 import { DataStatusBanner } from './components/DataStatusBanner.jsx'
+
+// 懒加载大型组件
+const ReturnsChart = lazy(() => import('./components/ReturnsChart.jsx'))
+const BenchmarkComparison = lazy(() => import('./components/BenchmarkComparison.jsx'))
+const BenchmarkComparisonPanel = lazy(() => import('./components/BenchmarkComparisonPanel.jsx'))
+const SIPPlanManager = lazy(() => import('./components/SIPPlanManager.jsx'))
+const SettingsDrawer = lazy(() => import('./components/SettingsDrawer.jsx'))
+
+// 懒加载加载状态组件
+const ChartSkeleton = () => (
+  <div style={{ 
+    height: '280px', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    background: 'var(--vc-bg-secondary)',
+    borderRadius: 'var(--vc-radius-3xl)'
+  }}>
+    <Spin tip="加载图表中..." />
+  </div>
+)
 import { DiagnosticsPanel } from './components/DiagnosticsPanel.jsx'
 import { recordMetric } from './utils/metrics.js'
 import { computeNextRunDate, daysUntil, getDcaScheduleLabel, normalizeDcaSchedule } from './utils/dca.js'
@@ -1788,8 +1804,12 @@ function App() {
             {activeTab === 'home' && (
         <>
           <SummaryCards rows={rows} loading={loading} />
-          <ReturnsChart user={user} />
-          <BenchmarkComparison user={user} />
+          <Suspense fallback={<ChartSkeleton />}>
+            <ReturnsChart user={user} />
+          </Suspense>
+          <Suspense fallback={<ChartSkeleton />}>
+            <BenchmarkComparison user={user} />
+          </Suspense>
           <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
           {reportDataQuality && reportDataQuality.total_funds > 0 && (
             <div className="data-quality-bar">
@@ -1811,7 +1831,9 @@ function App() {
           )}
 
           <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
-          <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
+          <Suspense fallback={<ChartSkeleton />}>
+            <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
+          </Suspense>
           <DiagnosticsPanel user={user} />
           
           <section className="panel home-main">
@@ -2142,7 +2164,9 @@ function App() {
           <p className="trade-tip">已打通买入/定投/赎回/转换入口，提交后写入执行记录并在下方列表回显。</p>
 
           <div className="sip-plans-section">
-            <SIPPlanManager user={user} />
+            <Suspense fallback={<Spin tip="加载定投计划..." />}>
+              <SIPPlanManager user={user} />
+            </Suspense>
           </div>
 
           <section className="trade-lifecycle">
@@ -3129,16 +3153,18 @@ function App() {
 
           <BottomTabs active={activeTab} onChange={handleTabChange} />
 
-          <SettingsDrawer
-            open={settingsOpen}
-            settings={settings}
-            onClose={() => setSettingsOpen(false)}
-            onSave={async (draft) => saveSettingsPatch(draft)}
-            onUpdateFeishuWebhook={async (webhookUrl) => updateFeishuWebhookCredential(webhookUrl)}
-            onUpdateTelegramCredential={async (botToken, chatId) => updateTelegramCredential(botToken, chatId)}
-            onSendFeishuTestMessage={async () => sendFeishuTestMessage()}
-            onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
-          />
+          <Suspense fallback={null}>
+            <SettingsDrawer
+              open={settingsOpen}
+              settings={settings}
+              onClose={() => setSettingsOpen(false)}
+              onSave={async (draft) => saveSettingsPatch(draft)}
+              onUpdateFeishuWebhook={async (webhookUrl) => updateFeishuWebhookCredential(webhookUrl)}
+              onUpdateTelegramCredential={async (botToken, chatId) => updateTelegramCredential(botToken, chatId)}
+              onSendFeishuTestMessage={async () => sendFeishuTestMessage()}
+              onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
+            />
+          </Suspense>
         </Layout>
       </Layout>
     </ErrorBoundary>
