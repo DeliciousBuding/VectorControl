@@ -1,69 +1,467 @@
+/**
+ * VectorControl Design Tokens
+ * 设计令牌系统 - 所有设计变量的单一来源
+ * 
+ * @author 庄方宜
+ * @version 2026-02-14
+ */
+
+/* ============================================
+   ROOT VARIABLES - Light Theme (Default)
+   ============================================ */
 :root {
-  /* 颜色 Token（Light） */
-  --color-bg: #ffffff;
-  --color-surface: #f7f8fa;
-  --color-border: #e6e8eb;
-  --color-text-primary: #111827;
-  --color-text-secondary: #6b7280;
-  --color-text-tertiary: #9ca3af;
-  --color-accent: #4361ee;
-  --color-accent-strong: #3a0ca3;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
-  --color-error: #ef4444;
-  --color-info: #3b82f6;
+  /* ----------------------------------------
+     Brand Colors - 品牌色
+     ---------------------------------------- */
+  --vc-brand-primary: #4361ee;
+  --vc-brand-primary-hover: #3a0ca3;
+  --vc-brand-primary-light: rgba(67, 97, 238, 0.1);
+  --vc-brand-primary-lighter: rgba(67, 97, 238, 0.06);
+  --vc-brand-gradient-start: #4f46e5;
+  --vc-brand-gradient-end: #3730a3;
 
-  /* 图表颜色 Token */
-  --chart-up: #ef4444;
-  --chart-down: #10b981;
-  --chart-neutral: #64748b;
-  --chart-grid: #e2e8f0;
-  --chart-benchmark-up: #ef4444;
-  --chart-benchmark-down: #10b981;
-  --chart-user-up: #dc2626;
-  --chart-user-down: #0d9488;
+  /* ----------------------------------------
+     Semantic Colors - 语义化颜色系统
+     ---------------------------------------- */
+  /* Success - 成功/上涨 */
+  --vc-success-50: #ecfdf5;
+  --vc-success-100: #d1fae5;
+  --vc-success-200: #a7f3d0;
+  --vc-success-300: #6ee7b7;
+  --vc-success-400: #34d399;
+  --vc-success-500: #10b981;
+  --vc-success-600: #059669;
+  --vc-success-700: #047857;
+  --vc-success-800: #065f46;
+  --vc-success-900: #064e3b;
 
-  /* 字号与行高 Token */
-  --font-size-h1: 24px;
+  /* Error - 错误/下跌 */
+  --vc-error-50: #fef2f2;
+  --vc-error-100: #fee2e2;
+  --vc-error-200: #fecaca;
+  --vc-error-300: #fca5a5;
+  --vc-error-400: #f87171;
+  --vc-error-500: #ef4444;
+  --vc-error-600: #dc2626;
+  --vc-error-700: #b91c1c;
+  --vc-error-800: #991b1b;
+  --vc-error-900: #7f1d1d;
+
+  /* Warning - 警告 */
+  --vc-warning-50: #fffbeb;
+  --vc-warning-100: #fef3c7;
+  --vc-warning-200: #fde68a;
+  --vc-warning-300: #fcd34d;
+  --vc-warning-400: #fbbf24;
+  --vc-warning-500: #f59e0b;
+  --vc-warning-600: #d97706;
+  --vc-warning-700: #b45309;
+  --vc-warning-800: #92400e;
+  --vc-warning-900: #78350f;
+
+  /* Info - 信息 */
+  --vc-info-50: #eff6ff;
+  --vc-info-100: #dbeafe;
+  --vc-info-200: #bfdbfe;
+  --vc-info-300: #93c5fd;
+  --vc-info-400: #60a5fa;
+  --vc-info-500: #3b82f6;
+  --vc-info-600: #2563eb;
+  --vc-info-700: #1d4ed8;
+  --vc-info-800: #1e40af;
+  --vc-info-900: #1e3a8a;
+
+  /* ----------------------------------------
+     Neutral Colors - 中性色
+     ---------------------------------------- */
+  --vc-gray-0: #ffffff;
+  --vc-gray-50: #f8fafc;
+  --vc-gray-100: #f1f5f9;
+  --vc-gray-200: #e2e8f0;
+  --vc-gray-300: #cbd5e1;
+  --vc-gray-400: #94a3b8;
+  --vc-gray-500: #64748b;
+  --vc-gray-600: #475569;
+  --vc-gray-700: #334155;
+  --vc-gray-800: #1e293b;
+  --vc-gray-900: #0f172a;
+  --vc-gray-950: #020617;
+
+  /* ----------------------------------------
+     Surface Colors - 表面色
+     ---------------------------------------- */
+  --vc-bg-primary: #ffffff;
+  --vc-bg-secondary: #f8fafc;
+  --vc-bg-tertiary: #f1f5f9;
+  --vc-bg-elevated: #ffffff;
+  --vc-bg-overlay: rgba(15, 23, 42, 0.34);
+
+  /* ----------------------------------------
+     Text Colors - 文本色
+     ---------------------------------------- */
+  --vc-text-primary: #111827;
+  --vc-text-secondary: #6b7280;
+  --vc-text-tertiary: #9ca3af;
+  --vc-text-disabled: #d1d5db;
+  --vc-text-inverse: #ffffff;
+  --vc-text-link: var(--vc-brand-primary);
+  --vc-text-link-hover: var(--vc-brand-primary-hover);
+
+  /* ----------------------------------------
+     Border Colors - 边框色
+     ---------------------------------------- */
+  --vc-border-primary: #e2e8f0;
+  --vc-border-secondary: #f1f5f9;
+  --vc-border-focus: var(--vc-brand-primary);
+  --vc-border-error: var(--vc-error-300);
+  --vc-border-success: var(--vc-success-300);
+  --vc-border-warning: var(--vc-warning-300);
+
+  /* ----------------------------------------
+     Chart Colors - 图表专用色
+     ---------------------------------------- */
+  --vc-chart-up: #ef4444;
+  --vc-chart-down: #10b981;
+  --vc-chart-neutral: #64748b;
+  --vc-chart-grid: #e2e8f0;
+  --vc-chart-benchmark-up: #ef4444;
+  --vc-chart-benchmark-down: #10b981;
+  --vc-chart-user-up: #dc2626;
+  --vc-chart-user-down: #0d9488;
+
+  /* ----------------------------------------
+     Typography - 字体系统
+     ---------------------------------------- */
+  --vc-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
+  --vc-font-family-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+  --vc-font-family-numeric: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* Font Sizes */
+  --vc-font-size-xs: 11px;
+  --vc-font-size-sm: 12px;
+  --vc-font-size-base: 14px;
+  --vc-font-size-md: 15px;
+  --vc-font-size-lg: 16px;
+  --vc-font-size-xl: 18px;
+  --vc-font-size-2xl: 20px;
+  --vc-font-size-3xl: 24px;
+  --vc-font-size-4xl: 28px;
+  --vc-font-size-5xl: 32px;
+
+  /* Line Heights */
+  --vc-line-height-tight: 1.2;
+  --vc-line-height-snug: 1.375;
+  --vc-line-height-normal: 1.5;
+  --vc-line-height-relaxed: 1.625;
+  --vc-line-height-loose: 2;
+
+  /* Font Weights */
+  --vc-font-weight-normal: 400;
+  --vc-font-weight-medium: 500;
+  --vc-font-weight-semibold: 600;
+  --vc-font-weight-bold: 700;
+  --vc-font-weight-extrabold: 800;
+
+  /* Letter Spacing */
+  --vc-letter-spacing-tight: -0.02em;
+  --vc-letter-spacing-normal: 0;
+  --vc-letter-spacing-wide: 0.02em;
+  --vc-letter-spacing-wider: 0.05em;
+
+  /* ----------------------------------------
+     Spacing - 间距系统 (4px base unit)
+     ---------------------------------------- */
+  --vc-space-0: 0;
+  --vc-space-1: 4px;
+  --vc-space-2: 8px;
+  --vc-space-3: 12px;
+  --vc-space-4: 16px;
+  --vc-space-5: 20px;
+  --vc-space-6: 24px;
+  --vc-space-8: 32px;
+  --vc-space-10: 40px;
+  --vc-space-12: 48px;
+  --vc-space-16: 64px;
+  --vc-space-20: 80px;
+  --vc-space-24: 96px;
+
+  /* ----------------------------------------
+     Border Radius - 圆角系统
+     ---------------------------------------- */
+  --vc-radius-none: 0;
+  --vc-radius-sm: 6px;
+  --vc-radius-md: 8px;
+  --vc-radius-lg: 10px;
+  --vc-radius-xl: 12px;
+  --vc-radius-2xl: 14px;
+  --vc-radius-3xl: 16px;
+  --vc-radius-4xl: 18px;
+  --vc-radius-full: 9999px;
+
+  /* ----------------------------------------
+     Shadows - 阴影系统
+     ---------------------------------------- */
+  --vc-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --vc-shadow-sm: 0 2px 4px rgba(15, 23, 42, 0.04);
+  --vc-shadow-md: 0 4px 8px rgba(15, 23, 42, 0.06);
+  --vc-shadow-lg: 0 8px 16px rgba(15, 23, 42, 0.08);
+  --vc-shadow-xl: 0 12px 24px rgba(15, 23, 42, 0.1);
+  --vc-shadow-2xl: 0 16px 48px rgba(15, 23, 42, 0.14);
+  --vc-shadow-inner: inset 0 2px 4px rgba(15, 23, 42, 0.04);
+  --vc-shadow-focus: 0 0 0 3px rgba(67, 97, 238, 0.15);
+
+  /* Elevation shadows */
+  --vc-shadow-elevation-1: 0 2px 8px rgba(15, 23, 42, 0.06);
+  --vc-shadow-elevation-2: 0 8px 24px rgba(15, 23, 42, 0.1);
+  --vc-shadow-elevation-3: 0 16px 48px rgba(15, 23, 42, 0.14);
+
+  /* ----------------------------------------
+     Breakpoints - 响应式断点
+     ---------------------------------------- */
+  --vc-breakpoint-xs: 480px;
+  --vc-breakpoint-sm: 640px;
+  --vc-breakpoint-md: 768px;
+  --vc-breakpoint-lg: 900px;
+  --vc-breakpoint-xl: 1024px;
+  --vc-breakpoint-2xl: 1280px;
+  --vc-breakpoint-3xl: 1480px;
+
+  /* ----------------------------------------
+     Z-Index - 层级系统
+     ---------------------------------------- */
+  --vc-z-base: 0;
+  --vc-z-dropdown: 1000;
+  --vc-z-sticky: 1020;
+  --vc-z-fixed: 1030;
+  --vc-z-modal-backdrop: 1040;
+  --vc-z-modal: 1050;
+  --vc-z-popover: 1060;
+  --vc-z-tooltip: 1070;
+  --vc-z-toast: 1080;
+
+  /* ----------------------------------------
+     Transitions - 过渡动画
+     ---------------------------------------- */
+  --vc-transition-fast: 150ms ease;
+  --vc-transition-normal: 200ms ease;
+  --vc-transition-slow: 300ms ease;
+  --vc-transition-bounce: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ----------------------------------------
+     Layout - 布局常量
+     ---------------------------------------- */
+  --vc-header-height: 72px;
+  --vc-header-height-mobile: auto;
+  --vc-sider-width: 200px;
+  --vc-page-max-width: 1480px;
+  --vc-page-padding: 24px;
+  --vc-page-padding-mobile: 12px;
+
+  /* ----------------------------------------
+     Legacy Compatibility Variables
+     兼容旧版本变量，保持向后兼容
+     ---------------------------------------- */
+  --color-bg: var(--vc-bg-primary);
+  --color-surface: var(--vc-bg-secondary);
+  --color-border: var(--vc-border-primary);
+  --color-text-primary: var(--vc-text-primary);
+  --color-text-secondary: var(--vc-text-secondary);
+  --color-text-tertiary: var(--vc-text-tertiary);
+  --color-accent: var(--vc-brand-primary);
+  --color-accent-strong: var(--vc-brand-primary-hover);
+  --color-success: var(--vc-success-500);
+  --color-warning: var(--vc-warning-500);
+  --color-error: var(--vc-error-500);
+  --color-info: var(--vc-info-500);
+  --color-danger: var(--vc-error-500);
+  --color-brand: var(--vc-brand-primary);
+
+  --chart-up: var(--vc-chart-up);
+  --chart-down: var(--vc-chart-down);
+  --chart-neutral: var(--vc-chart-neutral);
+  --chart-grid: var(--vc-chart-grid);
+  --chart-benchmark-up: var(--vc-chart-benchmark-up);
+  --chart-benchmark-down: var(--vc-chart-benchmark-down);
+  --chart-user-up: var(--vc-chart-user-up);
+  --chart-user-down: var(--vc-chart-user-down);
+
+  --font-size-h1: var(--vc-font-size-3xl);
   --line-height-h1: 32px;
-  --font-size-h2: 18px;
+  --font-size-h2: var(--vc-font-size-xl);
   --line-height-h2: 24px;
-  --font-size-body: 14px;
+  --font-size-body: var(--vc-font-size-base);
   --line-height-body: 20px;
-  --font-size-caption: 12px;
+  --font-size-caption: var(--vc-font-size-sm);
   --line-height-caption: 16px;
 
-  /* 间距 Token */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-6: 24px;
-  --space-8: 32px;
+  --space-1: var(--vc-space-1);
+  --space-2: var(--vc-space-2);
+  --space-3: var(--vc-space-3);
+  --space-4: var(--vc-space-4);
+  --space-6: var(--vc-space-6);
+  --space-8: var(--vc-space-8);
 
-  /* 圆角与阴影 Token */
-  --radius-card: 16px;
-  --radius-button: 12px;
-  --radius-input: 12px;
-  --shadow-elevation-1: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-elevation-2: 0 8px 24px rgba(15, 23, 42, 0.1);
-  --shadow-elevation-3: 0 16px 48px rgba(15, 23, 42, 0.14);
+  --radius-card: var(--vc-radius-3xl);
+  --radius-button: var(--vc-radius-xl);
+  --radius-input: var(--vc-radius-xl);
+  --shadow-elevation-1: var(--vc-shadow-elevation-1);
+  --shadow-elevation-2: var(--vc-shadow-elevation-2);
+  --shadow-elevation-3: var(--vc-shadow-elevation-3);
+
+  /* Legacy aliases */
+  --bg: var(--vc-bg-tertiary);
+  --panel: var(--vc-bg-primary);
+  --line: var(--vc-border-primary);
+  --line-light: var(--vc-border-secondary);
+  --text: var(--vc-text-primary);
+  --text-subtle: var(--vc-text-secondary);
+  --muted: var(--vc-text-secondary);
+  --brand: var(--vc-brand-primary);
+  --brand-dark: var(--vc-brand-primary-hover);
+  --green: var(--vc-success-500);
+  --red: var(--vc-error-500);
+  --warn: var(--vc-warning-500);
+  --shadow: var(--vc-shadow-elevation-1);
+  --shadow-sm: var(--vc-shadow-sm);
+  --shadow-lg: var(--vc-shadow-lg);
 }
 
-:root {
-  /*
-   * 兼容变量：保持历史样式不回归。
-   * 新样式优先使用上面的标准 Token。
-   */
-  --bg: #f1f5f9;
-  --panel: var(--color-bg);
-  --line: #e2e8f0;
-  --text: var(--color-text-primary);
-  --muted: #64748b;
-  --brand: var(--color-accent);
-  --brand-dark: var(--color-accent-strong);
-  --green: var(--color-success);
-  --red: var(--color-error);
-  --warn: var(--color-warning);
-  --shadow: var(--shadow-elevation-1);
+/* ============================================
+   DARK THEME - 暗色模式
+   ============================================ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Brand Colors */
+    --vc-brand-primary: #6366f1;
+    --vc-brand-primary-hover: #818cf8;
+    --vc-brand-primary-light: rgba(99, 102, 241, 0.2);
+    --vc-brand-primary-lighter: rgba(99, 102, 241, 0.1);
+    --vc-brand-gradient-start: #6366f1;
+    --vc-brand-gradient-end: #4f46e5;
+
+    /* Surface Colors */
+    --vc-bg-primary: #0f172a;
+    --vc-bg-secondary: #1e293b;
+    --vc-bg-tertiary: #334155;
+    --vc-bg-elevated: #1e293b;
+    --vc-bg-overlay: rgba(2, 6, 23, 0.8);
+
+    /* Text Colors */
+    --vc-text-primary: #f1f5f9;
+    --vc-text-secondary: #94a3b8;
+    --vc-text-tertiary: #64748b;
+    --vc-text-disabled: #475569;
+    --vc-text-inverse: #0f172a;
+
+    /* Border Colors */
+    --vc-border-primary: #334155;
+    --vc-border-secondary: #1e293b;
+
+    /* Chart Colors */
+    --vc-chart-up: #f87171;
+    --vc-chart-down: #34d399;
+    --vc-chart-grid: #334155;
+
+    /* Shadows (adjusted for dark mode) */
+    --vc-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --vc-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+    --vc-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+    --vc-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.4);
+    --vc-shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.5);
+    --vc-shadow-2xl: 0 16px 48px rgba(0, 0, 0, 0.6);
+    --vc-shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
+
+    --vc-shadow-elevation-1: 0 2px 8px rgba(0, 0, 0, 0.4);
+    --vc-shadow-elevation-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --vc-shadow-elevation-3: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+    /* Legacy compatibility */
+    --color-bg: var(--vc-bg-primary);
+    --color-surface: var(--vc-bg-secondary);
+    --color-border: var(--vc-border-primary);
+    --color-text-primary: var(--vc-text-primary);
+    --color-text-secondary: var(--vc-text-secondary);
+    --color-text-tertiary: var(--vc-text-tertiary);
+    --color-accent: var(--vc-brand-primary);
+    --color-accent-strong: var(--vc-brand-primary-hover);
+
+    --bg: var(--vc-bg-tertiary);
+    --panel: var(--vc-bg-primary);
+    --line: var(--vc-border-primary);
+    --line-light: var(--vc-border-secondary);
+    --text: var(--vc-text-primary);
+    --text-subtle: var(--vc-text-secondary);
+    --muted: var(--vc-text-secondary);
+    --brand: var(--vc-brand-primary);
+    --brand-dark: var(--vc-brand-primary-hover);
+    --shadow: var(--vc-shadow-elevation-1);
+    --shadow-sm: var(--vc-shadow-sm);
+    --shadow-lg: var(--vc-shadow-lg);
+  }
+}
+
+/* ============================================
+   MANUAL DARK MODE CLASS
+   支持手动切换暗色模式
+   ============================================ */
+[data-theme="dark"] {
+  --vc-brand-primary: #6366f1;
+  --vc-brand-primary-hover: #818cf8;
+  --vc-brand-primary-light: rgba(99, 102, 241, 0.2);
+  --vc-brand-primary-lighter: rgba(99, 102, 241, 0.1);
+  --vc-brand-gradient-start: #6366f1;
+  --vc-brand-gradient-end: #4f46e5;
+
+  --vc-bg-primary: #0f172a;
+  --vc-bg-secondary: #1e293b;
+  --vc-bg-tertiary: #334155;
+  --vc-bg-elevated: #1e293b;
+  --vc-bg-overlay: rgba(2, 6, 23, 0.8);
+
+  --vc-text-primary: #f1f5f9;
+  --vc-text-secondary: #94a3b8;
+  --vc-text-tertiary: #64748b;
+  --vc-text-disabled: #475569;
+  --vc-text-inverse: #0f172a;
+
+  --vc-border-primary: #334155;
+  --vc-border-secondary: #1e293b;
+
+  --vc-chart-up: #f87171;
+  --vc-chart-down: #34d399;
+  --vc-chart-grid: #334155;
+
+  --vc-shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --vc-shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.3);
+  --vc-shadow-md: 0 4px 8px rgba(0, 0, 0, 0.4);
+  --vc-shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.4);
+  --vc-shadow-xl: 0 12px 24px rgba(0, 0, 0, 0.5);
+  --vc-shadow-2xl: 0 16px 48px rgba(0, 0, 0, 0.6);
+  --vc-shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
+
+  --vc-shadow-elevation-1: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --vc-shadow-elevation-2: 0 8px 24px rgba(0, 0, 0, 0.5);
+  --vc-shadow-elevation-3: 0 16px 48px rgba(0, 0, 0, 0.6);
+
+  --color-bg: var(--vc-bg-primary);
+  --color-surface: var(--vc-bg-secondary);
+  --color-border: var(--vc-border-primary);
+  --color-text-primary: var(--vc-text-primary);
+  --color-text-secondary: var(--vc-text-secondary);
+  --color-text-tertiary: var(--vc-text-tertiary);
+  --color-accent: var(--vc-brand-primary);
+  --color-accent-strong: var(--vc-brand-primary-hover);
+
+  --bg: var(--vc-bg-tertiary);
+  --panel: var(--vc-bg-primary);
+  --line: var(--vc-border-primary);
+  --line-light: var(--vc-border-secondary);
+  --text: var(--vc-text-primary);
+  --text-subtle: var(--vc-text-secondary);
+  --muted: var(--vc-text-secondary);
+  --brand: var(--vc-brand-primary);
+  --brand-dark: var(--vc-brand-primary-hover);
+  --shadow: var(--vc-shadow-elevation-1);
+  --shadow-sm: var(--vc-shadow-sm);
+  --shadow-lg: var(--vc-shadow-lg);
 }

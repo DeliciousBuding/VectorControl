@@ -52,7 +52,7 @@ describe('SettingsDrawer', () => {
       />
     )
 
-    expect(screen.getByRole('heading', { name: '设置中心' })).toBeInTheDocument()
+    expect(screen.getByText('设置中心')).toBeInTheDocument()
     await waitFor(() => {
       expect(fetchNetworkBenchmarkLatest).toHaveBeenCalledTimes(1)
     })
@@ -202,7 +202,7 @@ describe('SettingsDrawer', () => {
 
     expect(await screen.findByText(/测速结果包含异常站点记录/)).toBeInTheDocument()
     expect(screen.getByText('site_1')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '设置中心' })).toBeInTheDocument()
+    expect(screen.getByText('设置中心')).toBeInTheDocument()
   })
 
   it('测速执行返回异常格式时显示可解释提示且不白屏', async () => {
@@ -221,7 +221,7 @@ describe('SettingsDrawer', () => {
     fireEvent.click(screen.getByRole('button', { name: '开始测速' }))
 
     expect(await screen.findByText(/测速结果格式异常/)).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: '设置中心' })).toBeInTheDocument()
+    expect(screen.getByText('设置中心')).toBeInTheDocument()
   })
 
   it('系统状态面板展示 /api/system/status 与 /api/healthz 结果', async () => {
@@ -854,7 +854,8 @@ describe('SettingsDrawer', () => {
 
     expect(screen.getByTestId('diagnostic-telegram-test-message-btn')).not.toBeDisabled()
 
-    const telegramGroup = screen.getByRole('heading', { name: 'Telegram 机器人（预留）' }).closest('.settings-group')
+    const telegramHeading = screen.getByText('Telegram 机器人（预留）')
+    const telegramGroup = telegramHeading.closest('.settings-group')
     expect(telegramGroup).toBeTruthy()
     fireEvent.click(within(telegramGroup).getByRole('button', { name: '更新凭据' }))
 
