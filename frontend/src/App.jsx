@@ -44,12 +44,12 @@ import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
 import { DataStatusBanner } from './components/DataStatusBanner.jsx'
 
-// 懒加载大型组件
-const ReturnsChart = lazy(() => import('./components/ReturnsChart.jsx'))
-const BenchmarkComparison = lazy(() => import('./components/BenchmarkComparison.jsx'))
-const BenchmarkComparisonPanel = lazy(() => import('./components/BenchmarkComparisonPanel.jsx'))
-const SIPPlanManager = lazy(() => import('./components/SIPPlanManager.jsx'))
-const SettingsDrawer = lazy(() => import('./components/SettingsDrawer.jsx'))
+// 懒加载大型组件 - 使用命名导出
+const ReturnsChart = lazy(() => import('./components/ReturnsChart.jsx').then(m => ({ default: m.ReturnsChart })))
+const BenchmarkComparison = lazy(() => import('./components/BenchmarkComparison.jsx').then(m => ({ default: m.BenchmarkComparison })))
+const BenchmarkComparisonPanel = lazy(() => import('./components/BenchmarkComparisonPanel.jsx').then(m => ({ default: m.BenchmarkComparisonPanel })))
+const SIPPlanManager = lazy(() => import('./components/SIPPlanManager.jsx').then(m => ({ default: m.SIPPlanManager })))
+const SettingsDrawer = lazy(() => import('./components/SettingsDrawer.jsx').then(m => ({ default: m.SettingsDrawer })))
 
 // 懒加载加载状态组件
 const ChartSkeleton = () => (
