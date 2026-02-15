@@ -284,6 +284,10 @@ export function fetchHoldingAudit(fundId, limit = 50) {
   return apiFetch(`/api/holdings/${encodeURIComponent(String(fundId || '').trim())}/audit?${query.toString()}`)
 }
 
+export function fetchHoldingDetail(fundId) {
+  return apiFetch(`/api/holdings/${encodeURIComponent(String(fundId || '').trim())}`)
+}
+
 export function fetchDailyReport(date = '') {
   const query = date ? `?date=${encodeURIComponent(date)}` : ''
   return apiFetch(`/api/report/daily${query}`)

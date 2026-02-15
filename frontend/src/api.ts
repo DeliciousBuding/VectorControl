@@ -383,6 +383,10 @@ export function fetchHoldingAudit(fundId: string, limit = 50): Promise<{ items: 
   return apiFetch<{ items: unknown[] }>(`/api/holdings/${encodeURIComponent(String(fundId || '').trim())}/audit?${query.toString()}`);
 }
 
+export function fetchHoldingDetail(fundId: string): Promise<{ fund_id: string; holding: RawFundData; data_status?: EstimateDataStatus }> {
+  return apiFetch<{ fund_id: string; holding: RawFundData; data_status?: EstimateDataStatus }>(`/api/holdings/${encodeURIComponent(String(fundId || '').trim())}`);
+}
+
 // ============================================
 // Report APIs
 // ============================================

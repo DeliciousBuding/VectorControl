@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button, Spin, Card, Row, Col, Tag, Table } from 'antd'
 import { ArrowLeftOutlined, LineChartOutlined, HistoryOutlined, WalletOutlined } from '@ant-design/icons'
 import { MultiLineChart } from '../components/MultiLineChart.jsx'
-import { fetchFundDetail, fetchFundNavHistory, fetchTransactions, fetchFundNavLatest, fetchEstimate } from '../api.js'
+import { fetchFundDetail, fetchFundNavHistory, fetchTransactions, fetchFundNavLatest, fetchHoldingDetail } from '../api.js'
 import { buildFundSeries } from '../utils/chart.js'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney, formatDateTime, formatDate } from '../utils/format.js'
 
@@ -46,18 +46,18 @@ export function FundDetailPage({ fundId, onBack }) {
     ;(async () => {
       try {
         // 同时调用多个API获取完整数据
-        const [detailRes, historyRes, latestRes, txRes, estimateRes] = await Promise.all([
+        const [detailRes, historyRes, latestRes, txRes, holdingRes] = await Promise.all([
           fetchFundDetail(fundId),
           fetchFundNavHistory(fundId, { limit: 90 }),
           fetchFundNavLatest(fundId),
           fetchTransactions({ fundId, status: 'all', limit: 50 }),
-          fetchEstimate({ preferCached: true }) // 获取持仓数据
+          fetchHoldingDetail(fundId) // 获取持仓数据
         ])
         
         if (!active) return
         
-        // 从estimate中获取当前基金的持仓数据
-        const holdingData = estimateRes?.funds?.find(f => f.fund_id === fundId) || {}
+        // 从holding API获取当前基金的持仓数据
+        const holdingData = holdingRes?.holding || {}
         
         // 合并基金详情和持仓数据
         const mergedFundData = {
