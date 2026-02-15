@@ -35,31 +35,34 @@ export function FundDetailPage({ fundId, onBack }) {
   const [txList, setTxList] = useState([])
   const [txSummary, setTxSummary] = useState({ total_count: 0, pending_count: 0, confirmed_count: 0 })
   const [range, setRange] = useState('1m')
+  
+  // 分阶段加载状态
+  const [basicLoaded, setBasicLoaded] = useState(false)
+  const [chartLoading, setChartLoading] = useState(false)
+  const [txLoading, setTxLoading] = useState(false)
 
+  // 第一阶段：加载基本数据（基金详情 + 持仓 + 最新净值）
   useEffect(() => {
     if (!fundId) return
     
     let active = true
     setLoading(true)
+    setBasicLoaded(false)
     setError('')
     
     ;(async () => {
       try {
-        // 同时调用多个API获取完整数据
-        const [detailRes, historyRes, latestRes, txRes, holdingRes] = await Promise.all([
+        // 优先加载核心数据
+        const [detailRes, latestRes, holdingRes] = await Promise.all([
           fetchFundDetail(fundId),
-          fetchFundNavHistory(fundId, { limit: 90 }),
           fetchFundNavLatest(fundId),
-          fetchTransactions({ fundId, status: 'all', limit: 50 }),
-          fetchHoldingDetail(fundId) // 获取持仓数据
+          fetchHoldingDetail(fundId)
         ])
         
         if (!active) return
         
-        // 从holding API获取当前基金的持仓数据
-        const holdingData = holdingRes?.holding || {}
-        
         // 合并基金详情和持仓数据
+        const holdingData = holdingRes?.holding || {}
         const mergedFundData = {
           ...detailRes?.fund,
           ...holdingData,
@@ -68,15 +71,45 @@ export function FundDetailPage({ fundId, onBack }) {
         }
         
         setFundData(mergedFundData)
-        setNavHistory(Array.isArray(historyRes?.items) ? historyRes.items : [])
         setNavLatest(latestRes?.latest || null)
-        setTxList(txRes?.items || [])
-        setTxSummary(txRes?.summary || { total_count: 0, pending_count: 0, confirmed_count: 0 })
+        setBasicLoaded(true)
+        setLoading(false)
+        
+        // 第二阶段：异步加载图表数据
+        setChartLoading(true)
+        fetchFundNavHistory(fundId, { limit: 90 })
+          .then(historyRes => {
+            if (active) {
+              setNavHistory(Array.isArray(historyRes?.items) ? historyRes.items : [])
+            }
+          })
+          .catch(() => {
+            // 忽略图表加载错误
+          })
+          .finally(() => {
+            if (active) setChartLoading(false)
+          })
+        
+        // 第三阶段：异步加载交易记录
+        setTxLoading(true)
+        fetchTransactions({ fundId, status: 'all', limit: 50 })
+          .then(txRes => {
+            if (active) {
+              setTxList(txRes?.items || [])
+              setTxSummary(txRes?.summary || { total_count: 0, pending_count: 0, confirmed_count: 0 })
+            }
+          })
+          .catch(() => {
+            // 忽略交易记录加载错误
+          })
+          .finally(() => {
+            if (active) setTxLoading(false)
+          })
+          
       } catch (err) {
         if (!active) return
         setError(err?.message || '加载基金详情失败')
-      } finally {
-        if (active) setLoading(false)
+        setLoading(false)
       }
     })()
     
@@ -229,8 +262,12 @@ export function FundDetailPage({ fundId, onBack }) {
               </div>
             }
           >
-            <div style={{ height: '280px' }}>
-              {chartSeries.length > 0 ? (
+            <div style={{ height: '280px', position: 'relative' }}>
+              {chartLoading ? (
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.8)' }}>
+                  <Spin size="small" tip="加载图表..." />
+                </div>
+              ) : chartSeries.length > 0 ? (
                 <MultiLineChart
                   data={chartSeries}
                   lines={[
@@ -250,14 +287,20 @@ export function FundDetailPage({ fundId, onBack }) {
 
           {/* 交易记录 */}
           <Card title={<span><HistoryOutlined /> 交易记录 ({txSummary.total_count})</span>} style={{ marginTop: '16px' }}>
-            <Table
-              dataSource={txList}
-              columns={txColumns}
-              rowKey="id"
-              size="small"
-              pagination={{ pageSize: 5, hideOnSinglePage: true }}
-              scroll={{ x: 'max-content' }}
-            />
+            {txLoading ? (
+              <div style={{ padding: '40px', textAlign: 'center' }}>
+                <Spin size="small" tip="加载交易记录..." />
+              </div>
+            ) : (
+              <Table
+                dataSource={txList}
+                columns={txColumns}
+                rowKey="id"
+                size="small"
+                pagination={{ pageSize: 5, hideOnSinglePage: true }}
+                scroll={{ x: 'max-content' }}
+              />
+            )}
           </Card>
         </Col>
 
