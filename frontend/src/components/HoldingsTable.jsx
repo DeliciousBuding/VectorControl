@@ -1,12 +1,13 @@
 import { memo, useMemo, useState } from 'react'
-import { Table, Tag, Tooltip, Button, Space, Badge } from 'antd'
+import { Table, Tag, Tooltip, Button, Space, Badge, Checkbox, Dropdown } from 'antd'
 import { 
   EditOutlined, 
   AuditOutlined, 
   SyncOutlined,
   CheckOutlined,
   CloseOutlined,
-  MoreOutlined
+  MoreOutlined,
+  SettingOutlined
 } from '@ant-design/icons'
 import { SparklineMini } from './SparklineMini.jsx'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
@@ -19,6 +20,28 @@ function DualValue({ top, bottom, topClass = '', bottomClass = '' }) {
     </div>
   )
 }
+
+// 默认列配置
+const DEFAULT_VISIBLE_COLUMNS = [
+  'name', 'sparkline', 'market_value_cny', 'shares', 'weight', 
+  'holding_profit_cny', 'cost_basis_cny', 'day_profit_cny', 'action'
+]
+
+// 所有可用列定义
+const ALL_COLUMNS = [
+  { key: 'name', title: '基金', defaultVisible: true, fixed: 'left' },
+  { key: 'sparkline', title: '走势', defaultVisible: true },
+  { key: 'market_value_cny', title: '持有金额', defaultVisible: true },
+  { key: 'shares', title: '持有份额', defaultVisible: true },
+  { key: 'weight', title: '占比', defaultVisible: true },
+  { key: 'holding_profit_cny', title: '持有收益', defaultVisible: true },
+  { key: 'cost_basis_cny', title: '持仓成本', defaultVisible: true },
+  { key: 'day_profit_cny', title: '当日收益', defaultVisible: true },
+  { key: 'yesterday_profit_cny', title: '昨日收益', defaultVisible: false },
+  { key: 'estimate_pct', title: '最新净值', defaultVisible: false },
+  { key: 'holding_days', title: '持有天数', defaultVisible: false },
+  { key: 'action', title: '操作', defaultVisible: true, fixed: 'right' }
+]
 
 export const HoldingsTable = memo(function HoldingsTable({
   title,
@@ -38,6 +61,15 @@ export const HoldingsTable = memo(function HoldingsTable({
   const [editingId, setEditingId] = useState('')
   const [draft, setDraft] = useState({})
   const [hoveredRowId, setHoveredRowId] = useState(null)
+  const [visibleColumns, setVisibleColumns] = useState(() => {
+    // 从localStorage读取用户偏好
+    try {
+      const saved = localStorage.getItem('holdings_table_columns')
+      if (saved) return JSON.parse(saved)
+    } catch {}
+    return DEFAULT_VISIBLE_COLUMNS
+  })
+  const [columnSelectorOpen, setColumnSelectorOpen] = useState(false)
   
   const totalMarket = useMemo(() => rows.reduce((sum, item) => sum + Number(item.market_value_cny || 0), 0), [rows])
   const dateSuffix = dateLabel && dateLabel !== '--' ? `(${dateLabel})` : ''
@@ -75,6 +107,26 @@ export const HoldingsTable = memo(function HoldingsTable({
     }
   }
 
+  const toggleColumn = (key) => {
+    setVisibleColumns(prev => {
+      const next = prev.includes(key) 
+        ? prev.filter(k => k !== key)
+        : [...prev, key]
+      // 保存到localStorage
+      try {
+        localStorage.setItem('holdings_table_columns', JSON.stringify(next))
+      } catch {}
+      return next
+    })
+  }
+
+  const resetColumns = () => {
+    setVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
+    try {
+      localStorage.setItem('holdings_table_columns', JSON.stringify(DEFAULT_VISIBLE_COLUMNS))
+    } catch {}
+  }
+
   // 状态标签配置
   const statusConfig = {
     confirmed: { color: 'success', text: '已更新', dot: true },
@@ -82,9 +134,9 @@ export const HoldingsTable = memo(function HoldingsTable({
     estimating: { color: 'processing', text: '估算中', dot: true }
   }
 
-  // 表格列定义
-  const columns = [
-    {
+  // 列定义映射
+  const columnDefinitions = {
+    name: {
       title: '基金',
       dataIndex: 'name',
       key: 'name',
@@ -133,7 +185,7 @@ export const HoldingsTable = memo(function HoldingsTable({
       },
       width: 200
     },
-    {
+    sparkline: {
       title: '走势',
       dataIndex: 'sparkline',
       key: 'sparkline',
@@ -145,7 +197,7 @@ export const HoldingsTable = memo(function HoldingsTable({
         </div>
       )
     },
-    {
+    market_value_cny: {
       title: '持有金额',
       dataIndex: 'market_value_cny',
       key: 'market_value_cny',
@@ -171,7 +223,7 @@ export const HoldingsTable = memo(function HoldingsTable({
       },
       width: 110
     },
-    {
+    shares: {
       title: '持有份额',
       dataIndex: 'shares',
       key: 'shares',
@@ -188,15 +240,17 @@ export const HoldingsTable = memo(function HoldingsTable({
             />
           )
         }
+        // 份额为0时显示"--"
+        const displayValue = Number(value) === 0 ? '--' : formatMoney(value, 2)
         return (
-          <span className="numeric-value" title={formatMoney(value, 2)}>
-            {formatMoney(value, 2)}
+          <span className="numeric-value" title={Number(value) === 0 ? '无份额' : formatMoney(value, 2)}>
+            {displayValue}
           </span>
         )
       },
       width: 100
     },
-    {
+    weight: {
       title: '占比',
       dataIndex: 'weight',
       key: 'weight',
@@ -217,7 +271,7 @@ export const HoldingsTable = memo(function HoldingsTable({
       },
       width: 80
     },
-    {
+    holding_profit_cny: {
       title: `持有收益${dateSuffix}`,
       dataIndex: 'holding_profit_cny',
       key: 'holding_profit_cny',
@@ -233,7 +287,7 @@ export const HoldingsTable = memo(function HoldingsTable({
       ),
       width: 120
     },
-    {
+    cost_basis_cny: {
       title: '持仓成本',
       dataIndex: 'cost_basis_cny',
       key: 'cost_basis_cny',
@@ -258,7 +312,7 @@ export const HoldingsTable = memo(function HoldingsTable({
       },
       width: 100
     },
-    {
+    day_profit_cny: {
       title: `当日收益${dateSuffix}`,
       dataIndex: 'day_profit_cny',
       key: 'day_profit_cny',
@@ -271,7 +325,7 @@ export const HoldingsTable = memo(function HoldingsTable({
       ),
       width: 100
     },
-    {
+    yesterday_profit_cny: {
       title: '昨日收益',
       dataIndex: 'yesterday_profit_cny',
       key: 'yesterday_profit_cny',
@@ -283,7 +337,7 @@ export const HoldingsTable = memo(function HoldingsTable({
       ),
       width: 90
     },
-    {
+    estimate_pct: {
       title: '最新净值',
       dataIndex: 'estimate_pct',
       key: 'estimate_pct',
@@ -299,7 +353,7 @@ export const HoldingsTable = memo(function HoldingsTable({
       ),
       width: 100
     },
-    {
+    holding_days: {
       title: '持有天数',
       dataIndex: 'holding_days',
       key: 'holding_days',
@@ -328,7 +382,7 @@ export const HoldingsTable = memo(function HoldingsTable({
       },
       width: 110
     },
-    {
+    action: {
       title: '操作',
       key: 'action',
       align: 'center',
@@ -373,130 +427,105 @@ export const HoldingsTable = memo(function HoldingsTable({
                 size="small" 
                 icon={<EditOutlined />}
                 aria-label="编辑"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  beginEdit(record)
-                }}
-                className="action-btn action-btn-primary"
+                onClick={() => beginEdit(record)}
+                className="action-btn-edit"
+              />
+            </Tooltip>
+            <Tooltip title="审计日志">
+              <Button 
+                type="text"
+                size="small" 
+                icon={<AuditOutlined />}
+                aria-label="审计"
+                onClick={() => onOpenAudit(record.fund_id)}
+                className="action-btn-audit"
               />
             </Tooltip>
             <Tooltip title="自动补全">
               <Button 
                 type="text"
                 size="small" 
-                icon={autoFilling ? <SyncOutlined spin /> : <SyncOutlined />}
-                aria-label="同步"
+                icon={<SyncOutlined spin={autoFilling} />}
+                aria-label="自动补全"
+                onClick={() => handleAutoFill(record)}
                 loading={autoFilling}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleAutoFill(record)
-                }}
-                className="action-btn action-btn-secondary"
-              />
-            </Tooltip>
-            <Tooltip title="审计历史">
-              <Button 
-                type="text"
-                size="small" 
-                icon={<AuditOutlined />}
-                aria-label="审计"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onOpenAudit?.(record.fund_id)
-                }}
-                className="action-btn action-btn-secondary"
+                className="action-btn-autofill"
               />
             </Tooltip>
           </Space>
         )
       }
     }
-  ]
-
-  // 排序处理
-  const handleTableChange = (pagination, filters, sorter) => {
-    if (sorter.field && onSort) {
-      const order = sorter.order === 'ascend' ? 'asc' : sorter.order === 'descend' ? 'desc' : 'desc'
-      onSort(sorter.field)
-    }
   }
 
-  // 行选择配置
-  const rowClassName = (record) => {
-    const classes = ['holdings-table-row']
-    if (selectedFundId === record.fund_id) classes.push('row-selected')
-    if (editingId === record.fund_id) classes.push('row-editing')
-    return classes.join(' ')
-  }
+  // 构建当前显示的列
+  const columns = useMemo(() => {
+    return visibleColumns
+      .map(key => columnDefinitions[key])
+      .filter(Boolean)
+  }, [visibleColumns, dateSuffix, editingId, draft, totalMarket, hoveredRowId, selectedFundId, autoFillLoadingFundId])
 
-  const onRow = (record) => {
-    const isSelected = selectedFundId === record.fund_id
-    return {
-      onClick: () => {
-        if (editingId !== record.fund_id) {
-          onSelectFund?.(record.fund_id)
-        }
-      },
-      onMouseEnter: () => setHoveredRowId(record.fund_id),
-      onMouseLeave: () => setHoveredRowId(null),
-      role: 'row',
-      'aria-selected': isSelected,
-      tabIndex: 0,
-      onKeyDown: (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          if (editingId !== record.fund_id) {
-            onSelectFund?.(record.fund_id)
-          }
-        }
-      }
-    }
-  }
+  // 列选择器菜单
+  const columnSelectorMenu = (
+    <div style={{ padding: '12px', maxWidth: '200px' }}>
+      <div style={{ marginBottom: '8px', fontWeight: 500, borderBottom: '1px solid #eee', paddingBottom: '8px' }}>
+        选择显示列
+      </div>
+      {ALL_COLUMNS.map(col => (
+        <div key={col.key} style={{ marginBottom: '4px' }}>
+          <Checkbox
+            checked={visibleColumns.includes(col.key)}
+            onChange={() => toggleColumn(col.key)}
+            disabled={col.key === 'name' || col.key === 'action'} // 基金和操作列必须显示
+          >
+            {col.title}
+          </Checkbox>
+        </div>
+      ))}
+      <div style={{ marginTop: '12px', borderTop: '1px solid #eee', paddingTop: '8px' }}>
+        <Button size="small" onClick={resetColumns} block>重置默认</Button>
+      </div>
+    </div>
+  )
 
   return (
-    <section className="holdings-section" aria-labelledby="holdings-title">
-      <div className="section-head">
-        <h3 className="section-title" id="holdings-title">{title}</h3>
-        <Badge 
-          count={rows.length} 
-          showZero 
-          className="count-badge"
-          aria-label={`共 ${rows.length} 条持仓记录`}
-        />
-      </div>
-      <div 
-        className="table-container" 
-        role="region" 
-        aria-label="持仓数据表格区域"
-        aria-describedby="holdings-desc"
-      >
-        <div id="holdings-desc" className="sr-only">
-          此表格显示基金持仓列表，包含基金名称、走势、持有金额、持有份额、占比、收益等信息。点击行可选中基金，点击编辑按钮可修改持仓数据。
+    <section className="panel holdings-section">
+      <div className="section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2>{title}</h2>
+          <span>此表格显示基金持仓列表，包含基金名称、走势、持有金额、持有份额、占比、收益等信息。点击行可选中基金，点击编辑按钮可修改持仓数据。</span>
         </div>
-        <Table
-          columns={columns}
-          dataSource={rows.map((row) => ({ ...row, key: row.fund_id }))}
-          pagination={false}
-          size="small"
-          scroll={{ x: 'max-content' }}
-          bordered={false}
-          rowClassName={rowClassName}
-          onRow={onRow}
-          onChange={handleTableChange}
-          locale={{
-            emptyText: (
-              <div className="empty-state" role="status" aria-live="polite" aria-label="暂无持仓数据">
-                <div className="empty-icon" aria-hidden="true">📊</div>
-                <div className="empty-text">暂无持仓数据</div>
-              </div>
-            )
-          }}
-          className="holdings-table"
-          role="table"
-          aria-label="持仓列表"
-          aria-rowcount={rows.length}
-        />
+        <Dropdown
+          overlay={columnSelectorMenu}
+          trigger={['click']}
+          open={columnSelectorOpen}
+          onOpenChange={setColumnSelectorOpen}
+          placement="bottomRight"
+        >
+          <Button icon={<SettingOutlined />} size="small">
+            列设置
+          </Button>
+        </Dropdown>
       </div>
+      
+      <Table
+        rowKey="fund_id"
+        dataSource={rows}
+        columns={columns}
+        pagination={false}
+        size="small"
+        scroll={{ x: 'max-content' }}
+        rowClassName={(record) => {
+          const isSelected = String(selectedFundId) === String(record.fund_id)
+          return isSelected ? 'row-selected' : ''
+        }}
+        onRow={(record) => ({
+          onClick: () => onSelectFund(record.fund_id),
+          onMouseEnter: () => setHoveredRowId(record.fund_id),
+          onMouseLeave: () => setHoveredRowId(null),
+          style: { cursor: 'pointer' }
+        })}
+      />
     </section>
   )
 })
