@@ -143,7 +143,7 @@ async def me(request: Request) -> dict:
     if is_admin(request):
         return {
             "user": {"id": "admin", "username": "admin"},
-            "holdings_count": len(list_holdings("legacy")),
+            "holdings_count": len(list_holdings("admin")),
             "mode": "admin",
         }
 
