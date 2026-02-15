@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button, Spin, Card, Row, Col, Tag, Table } from 'antd'
 import { ArrowLeftOutlined, LineChartOutlined, HistoryOutlined, WalletOutlined } from '@ant-design/icons'
 import { MultiLineChart } from '../components/MultiLineChart.jsx'
-import { fetchFundDetail, fetchFundNavHistory, fetchTransactions, fetchFundNavLatest, fetchHoldingDetail } from '../api.js'
+import { fetchFundFullDetail, fetchTransactions } from '../api.js'
 import { buildFundSeries } from '../utils/chart.js'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney, formatDateTime, formatDate } from '../utils/format.js'
 
@@ -41,7 +41,7 @@ export function FundDetailPage({ fundId, onBack }) {
   const [chartLoading, setChartLoading] = useState(false)
   const [txLoading, setTxLoading] = useState(false)
 
-  // 第一阶段：加载基本数据（基金详情 + 持仓 + 最新净值）
+  // 加载基金详情（使用聚合API，一次请求获取所有数据）
   useEffect(() => {
     if (!fundId) return
     
@@ -52,45 +52,28 @@ export function FundDetailPage({ fundId, onBack }) {
     
     ;(async () => {
       try {
-        // 优先加载核心数据
-        const [detailRes, latestRes, holdingRes] = await Promise.all([
-          fetchFundDetail(fundId),
-          fetchFundNavLatest(fundId),
-          fetchHoldingDetail(fundId)
-        ])
+        // 使用聚合API一次性获取所有数据
+        const fullRes = await fetchFundFullDetail(fundId, 90)
         
         if (!active) return
         
         // 合并基金详情和持仓数据
-        const holdingData = holdingRes?.holding || {}
+        const fund = fullRes?.fund || {}
+        const holding = fullRes?.holding || {}
         const mergedFundData = {
-          ...detailRes?.fund,
-          ...holdingData,
+          ...fund,
+          ...holding,
           fund_id: fundId,
-          name: detailRes?.fund?.name || holdingData.name || fundId
+          name: fund.name || holding.name || fundId
         }
         
         setFundData(mergedFundData)
-        setNavLatest(latestRes?.latest || null)
+        setNavLatest(fullRes?.latest || null)
+        setNavHistory(Array.isArray(fullRes?.history) ? fullRes.history : [])
         setBasicLoaded(true)
         setLoading(false)
         
-        // 第二阶段：异步加载图表数据
-        setChartLoading(true)
-        fetchFundNavHistory(fundId, { limit: 90 })
-          .then(historyRes => {
-            if (active) {
-              setNavHistory(Array.isArray(historyRes?.items) ? historyRes.items : [])
-            }
-          })
-          .catch(() => {
-            // 忽略图表加载错误
-          })
-          .finally(() => {
-            if (active) setChartLoading(false)
-          })
-        
-        // 第三阶段：异步加载交易记录
+        // 异步加载交易记录
         setTxLoading(true)
         fetchTransactions({ fundId, status: 'all', limit: 50 })
           .then(txRes => {

@@ -288,6 +288,13 @@ export function fetchHoldingDetail(fundId) {
   return apiFetch(`/api/holdings/${encodeURIComponent(String(fundId || '').trim())}`)
 }
 
+export function fetchFundFullDetail(fundId, historyLimit = 90) {
+  const query = new URLSearchParams({
+    history_limit: String(historyLimit)
+  })
+  return apiFetch(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}/full?${query.toString()}`)
+}
+
 export function fetchDailyReport(date = '') {
   const query = date ? `?date=${encodeURIComponent(date)}` : ''
   return apiFetch(`/api/report/daily${query}`)
