@@ -21,12 +21,14 @@ class NotificationDispatcher:
         channel_key = str(channel or "").strip().lower()
         sender = self._senders.get(channel_key)
         if sender is None:
+            trace_id = "unknown"
             return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=1,
+                error=f"channel not supported: {channel_key or 'unknown'}",
                 channel=channel_key or "unknown",
-                success=False,
-                skipped=True,
-                code="channel_not_supported",
-                message=f"未找到消息通道: {channel_key or 'unknown'}",
             )
         return sender.send(payload=payload, settings=settings or {})
 

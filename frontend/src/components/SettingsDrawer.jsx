@@ -326,6 +326,12 @@ export function SettingsDrawer({
   const [editingSipPlanId, setEditingSipPlanId] = useState(null)
   const [sipDraft, setSipDraft] = useState(() => createEmptySIPDraft())
 
+  const [internalOpen, setInternalOpen] = useState(open)
+
+  useEffect(() => {
+    setInternalOpen(open)
+  }, [open])
+
   useEffect(() => {
     const normalized = normalizeDrawerSettings(settings)
     const webhook = String(normalized.notifications?.feishu?.webhook_url || '').trim()
@@ -482,8 +488,6 @@ export function SettingsDrawer({
       active = false
     }
   }, [open])
-
-  if (!open) return null
 
   const updateDraft = (updater) => {
     setDraft((prev) => {
@@ -649,6 +653,25 @@ export function SettingsDrawer({
       setBenchmarkError(toGuidedError(error, 'settings_benchmark_run', '测速执行失败'))
     } finally {
       setBenchmarkLoading(false)
+    }
+  }
+
+  const copyTextToClipboard = async (text) => {
+    try {
+      await navigator.clipboard.writeText(text)
+      return true
+    } catch {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+        return true
+      } catch {
+        return false
+      }
     }
   }
 
@@ -943,16 +966,12 @@ export function SettingsDrawer({
     }
   }
 
-  const [internalOpen, setInternalOpen] = useState(open)
-
-  useEffect(() => {
-    setInternalOpen(open)
-  }, [open])
-
   const handleClose = () => {
     setInternalOpen(false)
     if (onClose) onClose()
   }
+
+  if (!internalOpen && !open) return null
 
   return (
     <Drawer
@@ -960,11 +979,11 @@ export function SettingsDrawer({
       placement="right"
       onClose={handleClose}
       open={internalOpen}
-      width={min(540, 95)}
+      width={Math.min(540, typeof window !== 'undefined' ? window.innerWidth - 48 : 540)}
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button onClick={handleClose}>关闭</Button>
-          <Button type="primary" onClick={save} loading={saving}>
+          <Button type="primary" onClick={save} loading={saving} data-testid="settings-save-btn">
             {saving ? '保存中...' : '保存设置'}
           </Button>
         </div>

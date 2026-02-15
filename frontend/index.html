@@ -1,12 +1,67 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VectorControl</title>
+    <link rel="stylesheet" href="/src/skeleton.css" />
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Skeleton screen shown before React hydrates -->
+    <div id="root">
+      <div class="skeleton-home">
+        <div class="skeleton-home-header"></div>
+        <div class="skeleton-home-stats">
+          <div class="skeleton-home-stat-card"></div>
+          <div class="skeleton-home-stat-card"></div>
+          <div class="skeleton-home-stat-card"></div>
+          <div class="skeleton-home-stat-card"></div>
+        </div>
+        <div class="skeleton-home-chart"></div>
+        <div class="skeleton-home-table">
+          <div class="skeleton-home-row"></div>
+          <div class="skeleton-home-row"></div>
+          <div class="skeleton-home-row"></div>
+          <div class="skeleton-home-row"></div>
+          <div class="skeleton-home-row"></div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
+    <script>
+      // Register Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+              console.log('[SW] Registered:', registration.scope);
+              
+              // 检查Service Worker更新
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    // 有新版本可用，提示用户刷新
+                    console.log('[SW] New version available, please refresh');
+                    if (confirm('页面有新版本，是否立即刷新？')) {
+                      window.location.reload();
+                    }
+                  }
+                });
+              });
+            })
+            .catch((error) => {
+              console.log('[SW] Registration failed:', error);
+            });
+          
+          // 监听Service Worker消息
+          navigator.serviceWorker.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'SKIP_WAITING') {
+              window.location.reload();
+            }
+          });
+        });
+      }
+    </script>
   </body>
 </html>

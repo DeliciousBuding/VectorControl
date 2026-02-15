@@ -1,6 +1,25 @@
 import { StatusPill } from './StatusPill.jsx'
-import { Layout, Input, Button, Space, Typography, Badge, Tag } from 'antd'
-import { SearchOutlined, ReloadOutlined, SettingOutlined, LogoutOutlined, PauseOutlined, SyncOutlined, UserOutlined } from '@ant-design/icons'
+import { Layout, Button, Space, Typography, Tag, Tooltip, Popover, Badge, Input } from 'antd'
+import {
+  SearchOutlined,
+  ReloadOutlined,
+  SettingOutlined,
+  LogoutOutlined,
+  PauseOutlined,
+  SyncOutlined,
+  UserOutlined,
+  InfoCircleOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  CloudServerOutlined,
+  DatabaseOutlined,
+  PieChartOutlined,
+  DashboardOutlined,
+  CloseCircleOutlined
+} from '@ant-design/icons'
+import { useState, useRef, useEffect } from 'react'
+
+const { Search } = Input
 
 const { Header } = Layout
 const { Title, Text } = Typography
@@ -38,6 +57,11 @@ export function TopToolbar({
   onLogout,
   marketDataHint
 }) {
+  const [isSearchFocused, setIsSearchFocused] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const searchRef = useRef(null)
+  const dropdownRef = useRef(null)
+
   const confirmText = confirmState === 'confirmed'
     ? '已结算'
     : confirmState === 'partial'
@@ -59,179 +83,298 @@ export function TopToolbar({
       ? `复用 ${Number(incrementalReusedQuotes || 0)}/${incrementalTotal}`
       : '未复用'
 
-  return (
-    <Header style={{ 
-      padding: '16px 20px', 
-      background: 'var(--panel)', 
-      border: '1px solid var(--line)', 
-      borderRadius: 18,
-      boxShadow: 'var(--shadow)',
-      marginBottom: 14,
-      display: 'flex',
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 20,
-      flexWrap: 'wrap'
-    }}>
-      <div className="brand-block" style={{ 
-        display: 'flex', 
-        gap: 12, 
-        alignItems: 'center', 
-        flexShrink: 0 
-      }}>
-        <div className="logo" style={{
-          width: 44,
-          height: 44,
-          borderRadius: 14,
-          display: 'grid',
-          placeItems: 'center',
-          background: 'linear-gradient(140deg, #4361ee, #3a0ca3)',
-          color: '#fff',
-          fontFamily: 'Manrope, sans-serif',
-          fontWeight: 800,
-          fontSize: 20,
-          boxShadow: '0 4px 12px rgba(67, 97, 238, 0.3)'
-        }}>
-          VC
-        </div>
-        <div>
-          <Title level={4} style={{ margin: 0, fontSize: 26 }}>持仓决策台</Title>
-          <Text type="secondary" style={{ fontSize: 15, margin: '2px 0 0', display: 'block' }}>
-            基金持仓与当日收益一屏掌握
-          </Text>
-        </div>
+  const statusBadge = status?.type === 'error' ? 'error' : (status?.type === 'warning' ? 'warning' : 'processing')
+
+  // 控制下拉框显示/隐藏
+  useEffect(() => {
+    const hasSuggestions = suggestions.length > 0 && searchQuery
+    setShowSuggestions(hasSuggestions && isSearchFocused)
+  }, [suggestions, searchQuery, isSearchFocused])
+
+  // 点击外部关闭下拉框
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        searchRef.current &&
+        !searchRef.current.contains(event.target)
+      ) {
+        setShowSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleSuggestionClick = (item) => {
+    onPickSuggestion(item)
+    onSearchChange('')
+    setShowSuggestions(false)
+  }
+
+  const handleClearSearch = () => {
+    onSearchChange('')
+    setShowSuggestions(false)
+  }
+
+  const statusContent = (
+    <div className="vc-status-popover-content">
+      <div className="vc-status-section">
+        <div className="vc-status-label">系统状态</div>
+        <StatusPill status={status} />
       </div>
 
-      <div className="toolbar-actions" style={{ 
-        display: 'flex', 
-        flexDirection: 'row', 
-        alignItems: 'center', 
-        gap: 16, 
-        flex: 1, 
-        flexWrap: 'wrap' 
-      }}>
-        <Input.Search
-          placeholder="🔍 搜索基金代码/名称/拼音..."
-          value={searchQuery}
-          onChange={(e) => onSearchChange(e.target.value)}
-          onSearch={(value) => {
-            if (suggestions.length > 0) {
-              onPickSuggestion(suggestions[0])
-            }
-          }}
-          loading={searchLoading}
-          style={{ 
-            minWidth: min(100, 360), 
-            maxWidth: 400,
-            borderRadius: 24
-          }}
-          enterButton={false}
-        />
-        {(searchLoading || suggestions.length > 0) && (
-          <div className="toolbar-suggest" style={{ 
-            position: 'absolute', 
-            top: '100%', 
-            left: 0, 
-            right: 0,
-            border: '1px solid var(--line)', 
-            borderRadius: 12, 
-            background: '#fff', 
-            boxShadow: '0 12px 24px rgba(15, 23, 42, 0.12)', 
-            zIndex: 20, 
-            overflow: 'hidden',
-            marginTop: 6
-          }}>
-            {searchLoading && (
-              <div style={{ 
-                padding: '10px 12px', 
-                color: 'var(--muted)',
-                fontSize: 13 
-              }}>
-                正在加载联想...
-              </div>
-            )}
-            {!searchLoading && suggestions.map((item) => (
-              <div
-                key={item.fund_id}
-                style={{
-                  width: '100%',
-                  borderBottom: '1px solid #edf2fb',
-                  background: '#fff',
-                  padding: '10px 12px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 8,
-                  textAlign: 'left',
-                  cursor: 'pointer'
-                }}
-                onClick={() => onPickSuggestion(item)}
-              >
-                <strong style={{ fontSize: 14, fontWeight: 700 }}>{item.name}</strong>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>{item.fund_id}</span>
-              </div>
-            ))}
+      <div className="vc-status-section">
+        <div className="vc-status-label">数据时效</div>
+        <Space direction="vertical" style={{ width: '100%' }} size={8}>
+          <div className="vc-status-row">
+            <Space size={8}>
+              <ClockCircleOutlined className="vc-status-icon" />
+              <span>上次刷新</span>
+            </Space>
+            <span className="vc-status-value">
+              {refreshClock}
+              <span className="vc-status-unit">({refreshElapsedMs}ms)</span>
+            </span>
           </div>
-        )}
-
-        <Space size={8}>
-          <Tag icon={<UserOutlined />} color="blue">
-            {user?.username || '--'}
-          </Tag>
-          <Button 
-            icon={refreshing ? <SyncOutlined spin /> : <ReloadOutlined />} 
-            onClick={onRefresh} 
-            loading={refreshing}
-          />
-          <Button 
-            icon={autoRefreshEnabled ? <SyncOutlined /> : <PauseOutlined />} 
-            onClick={onToggleAutoRefresh}
-            type={autoRefreshEnabled ? 'primary' : 'default'}
-            title={autoRefreshEnabled ? '关闭自动刷新' : '开启自动刷新'}
-          />
-          <Button 
-            icon={<SettingOutlined />} 
-            onClick={onOpenSettings}
-            title="设置中心"
-          />
-          <Button 
-            danger
-            icon={<LogoutOutlined />} 
-            onClick={onLogout}
-            title="退出登录"
-          />
+          <div className="vc-status-row">
+            <Space size={8}>
+              <CheckCircleOutlined className="vc-status-icon" />
+              <span>数据时点</span>
+            </Space>
+            <span className="vc-status-value">{asofClock}</span>
+          </div>
         </Space>
       </div>
 
-      <div className="toolbar-meta-bar" style={{ 
-        width: '100%', 
-        display: 'flex', 
-        alignItems: 'center', 
-        flexWrap: 'wrap', 
-        gap: 12, 
-        padding: '10px 16px', 
-        background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', 
-        borderRadius: 12, 
-        marginTop: 4, 
-        fontSize: 13, 
-        color: 'var(--muted)' 
-      }}>
-        <StatusPill status={status} />
-        <Text type="secondary">上次刷新：{refreshClock}</Text>
-        <Text type="secondary">数据时点：{asofClock}</Text>
-        <Text type="secondary">刷新用时：{refreshElapsedMs > 0 ? `${refreshElapsedMs} ms` : '--'}</Text>
-        <Text type="secondary">数据来源：{estimateCacheHit ? '缓存快照' : '实时拉取'}</Text>
-        <Tag>{incrementalText}</Tag>
-        <Tag color={confirmState === 'confirmed' ? 'green' : confirmState === 'partial' ? 'orange' : 'blue'}>
-          {confirmText}
-        </Tag>
-        <Text type="secondary">覆盖率：{coverage?.ok ?? 0}/{coverage?.total ?? 0}</Text>
-        <Text type="secondary" title={dataStatusNote || '暂无说明'}>
-          口径：{dataStatusText}
-        </Text>
-        <Text type="secondary" style={{ marginLeft: 'auto', fontSize: 12 }}>
+      <div className="vc-status-section">
+        <div className="vc-status-label">计算指标</div>
+        <Space direction="vertical" style={{ width: '100%' }} size={8}>
+          <div className="vc-status-row">
+            <Space size={8}>
+              <CloudServerOutlined className="vc-status-icon" />
+              <span>数据来源</span>
+            </Space>
+            <span>{estimateCacheHit ? '缓存快照' : '实时拉取'}</span>
+          </div>
+          <div className="vc-status-row">
+            <Space size={8}>
+              <DatabaseOutlined className="vc-status-icon" />
+              <span>计算模式</span>
+            </Space>
+            <span>
+              {incrementalMode === 'snapshot_hit' ? 'Hit' : 'Calc'}
+              <span className="vc-status-unit">({incrementalText})</span>
+            </span>
+          </div>
+          <div className="vc-status-row">
+            <Space size={8}>
+              <PieChartOutlined className="vc-status-icon" />
+              <span>覆盖率</span>
+            </Space>
+            <span className="vc-status-value">{coverage?.ok ?? 0}/{coverage?.total ?? 0}</span>
+          </div>
+        </Space>
+      </div>
+
+      <div className="vc-status-section">
+        <div className="vc-status-label">口径说明</div>
+        <Space direction="vertical" style={{ width: '100%' }} size={8}>
+          {confirmState && (
+            <div className="vc-status-row vc-status-row--center">
+              <span>结算状态</span>
+              <Tag
+                color={confirmState === 'confirmed' ? 'success' : confirmState === 'partial' ? 'warning' : 'processing'}
+                bordered={false}
+                className="vc-status-tag"
+              >
+                {confirmText}
+              </Tag>
+            </div>
+          )}
+          <div className="vc-status-row">
+            <Space size={8}>
+              <InfoCircleOutlined className="vc-status-icon" />
+              <span>数据口径</span>
+            </Space>
+            <span>{dataStatusText}</span>
+          </div>
+          {dataStatusNote && (
+            <div className="vc-status-note">
+              {dataStatusNote}
+            </div>
+          )}
+        </Space>
+      </div>
+
+      {marketDataHint && (
+        <div className="vc-status-hint">
           {marketDataHint}
-        </Text>
+        </div>
+      )}
+    </div>
+  )
+
+  return (
+    <Header className="top-header">
+      <div className="vc-header-main-row">
+        {/* 品牌区域 */}
+        <div className="vc-brand-section">
+          <div className="vc-brand-logo">
+            <span className="vc-brand-logo__text">VC</span>
+          </div>
+          <div className="vc-brand-text">
+            <Title level={4} className="vc-brand-text__title">持仓决策台</Title>
+            <Text type="secondary" className="vc-brand-text__subtitle">基金持仓与当日收益一屏掌握</Text>
+          </div>
+        </div>
+
+        {/* 操作区域 */}
+        <div className="vc-actions-section">
+          {/* 搜索框容器 */}
+          <div
+            ref={searchRef}
+            className={`vc-search-wrapper ${isSearchFocused ? 'vc-search-wrapper--focused' : ''} ${showSuggestions ? 'vc-search-wrapper--has-suggestions' : ''}`}
+          >
+            <div className="vc-search-input-container">
+              <SearchOutlined className="vc-search-icon" />
+              <input
+                type="text"
+                className="vc-search-input"
+                placeholder="搜索基金代码/名称"
+                value={searchQuery}
+                onChange={(e) => onSearchChange(e.target.value)}
+                onFocus={() => setIsSearchFocused(true)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && searchQuery && suggestions.length > 0) {
+                    handleSuggestionClick(suggestions[0])
+                  }
+                }}
+              />
+              {searchLoading && (
+                <SyncOutlined spin className="vc-search-loading" />
+              )}
+              {searchQuery && !searchLoading && (
+                <button
+                  className="vc-search-clear"
+                  onClick={handleClearSearch}
+                  aria-label="清除搜索"
+                >
+                  <CloseCircleOutlined />
+                </button>
+              )}
+              <button
+                className="vc-search-button"
+                onClick={() => {
+                  if (searchQuery && suggestions.length > 0) {
+                    handleSuggestionClick(suggestions[0])
+                  }
+                }}
+              >
+                搜索
+              </button>
+            </div>
+
+            {/* 搜索建议下拉框 */}
+            {showSuggestions && (
+              <div ref={dropdownRef} className="vc-search-dropdown">
+                <div className="vc-search-dropdown__header">
+                  <span>搜索建议</span>
+                  <span className="vc-search-dropdown__count">{suggestions.length} 个结果</span>
+                </div>
+                <div className="vc-search-dropdown__list">
+                  {suggestions.map((item, index) => (
+                    <div
+                      key={item.fund_id}
+                      className="vc-suggest-item"
+                      onClick={() => handleSuggestionClick(item)}
+                      style={{ animationDelay: `${index * 30}ms` }}
+                    >
+                      <div className="vc-suggest-item__info">
+                        <span className="vc-suggest-item__name">{item.name}</span>
+                        <span className="vc-suggest-item__meta">{item.fund_id}</span>
+                      </div>
+                      <SearchOutlined className="vc-suggest-item__icon" />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 按钮组 */}
+          <Space size={12} className="vc-toolbar-actions">
+            {/* 用户信息标签 */}
+            <Tooltip title={`当前用户: ${user?.username || '--'}`}>
+              <Tag
+                icon={<UserOutlined />}
+                color="blue"
+                className="vc-user-tag"
+              >
+                {user?.username || '--'}
+              </Tag>
+            </Tooltip>
+
+            {/* 刷新按钮组 */}
+            <Space.Compact className="vc-btn-group vc-btn-group--refresh">
+              <Tooltip title="刷新数据">
+                <Button
+                  className="vc-toolbar-btn vc-toolbar-btn--refresh"
+                  icon={refreshing ? <SyncOutlined spin /> : <ReloadOutlined />}
+                  onClick={onRefresh}
+                  loading={refreshing}
+                />
+              </Tooltip>
+              <Tooltip title={autoRefreshEnabled ? '关闭自动刷新' : '开启自动刷新'}>
+                <Button
+                  className={`vc-toolbar-btn vc-toolbar-btn--toggle ${autoRefreshEnabled ? 'vc-toolbar-btn--active' : ''}`}
+                  icon={autoRefreshEnabled ? <SyncOutlined /> : <PauseOutlined />}
+                  onClick={onToggleAutoRefresh}
+                  type={autoRefreshEnabled ? 'primary' : 'default'}
+                />
+              </Tooltip>
+            </Space.Compact>
+
+            {/* 状态看板 */}
+            <Popover
+              content={statusContent}
+              title={<span className="vc-popover-title">系统状态看板</span>}
+              trigger="click"
+              placement="bottomRight"
+              overlayClassName="vc-status-popover"
+            >
+              <Badge dot status={statusBadge} offset={[-4, 4]}>
+                <Button
+                  className="vc-toolbar-btn vc-toolbar-btn--status"
+                  icon={<DashboardOutlined />}
+                >
+                  状态
+                </Button>
+              </Badge>
+            </Popover>
+
+            {/* 设置和退出按钮组 */}
+            <Space.Compact className="vc-btn-group vc-btn-group--actions">
+              <Tooltip title="设置中心">
+                <Button
+                  className="vc-toolbar-btn vc-toolbar-btn--settings"
+                  icon={<SettingOutlined />}
+                  onClick={onOpenSettings}
+                />
+              </Tooltip>
+              <Tooltip title="退出登录">
+                <Button
+                  className="vc-toolbar-btn vc-toolbar-btn--logout"
+                  danger
+                  icon={<LogoutOutlined />}
+                  onClick={onLogout}
+                />
+              </Tooltip>
+            </Space.Compact>
+          </Space>
+        </div>
       </div>
     </Header>
   )

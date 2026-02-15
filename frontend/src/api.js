@@ -284,6 +284,17 @@ export function fetchHoldingAudit(fundId, limit = 50) {
   return apiFetch(`/api/holdings/${encodeURIComponent(String(fundId || '').trim())}/audit?${query.toString()}`)
 }
 
+export function fetchHoldingDetail(fundId) {
+  return apiFetch(`/api/holdings/${encodeURIComponent(String(fundId || '').trim())}`)
+}
+
+export function fetchFundFullDetail(fundId, historyLimit = 90) {
+  const query = new URLSearchParams({
+    history_limit: String(historyLimit)
+  })
+  return apiFetch(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}/full?${query.toString()}`)
+}
+
 export function fetchDailyReport(date = '') {
   const query = date ? `?date=${encodeURIComponent(date)}` : ''
   return apiFetch(`/api/report/daily${query}`)
@@ -325,8 +336,17 @@ export function fetchFundNavHistory(fundId, options = {}) {
 }
 
 export function fetchCumulativeReturns(days = 30) {
-  const query = new URLSearchParams({ days: String(days) })
+  const query = new URLSearchParams({
+    days: String(days)
+  })
   return apiFetch(`/api/charts/cumulative_returns?${query.toString()}`)
+}
+
+export function fetchHomeDashboard(returnsDays = 30) {
+  const query = new URLSearchParams({
+    returns_days: String(returnsDays)
+  })
+  return apiFetch(`/api/charts/home_dashboard?${query.toString()}`)
 }
 
 export function fetchReturnsHistory(days = 30) {

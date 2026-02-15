@@ -111,8 +111,7 @@ export function usePortfolio({ user, sorter }) {
       setStatus({ type: 'info', message: auto ? '自动刷新中...' : '正在刷新数据...' })
     }
 
-    try {
-      const payload = await fetchEstimate({ preferCached: true, forceRefresh: false })
+    const handlePayload = (payload) => {
       if (!Array.isArray(payload?.funds)) {
         throw new Error('估值接口返回格式异常')
       }
@@ -142,6 +141,38 @@ export function usePortfolio({ user, sorter }) {
       )
       setLastRefresh(formatDateTime())
       setRiskOverview(payload?.risk_overview && typeof payload.risk_overview === 'object' ? payload.risk_overview : null)
+      return normalized
+    }
+
+    try {
+      let payload = await fetchEstimate({ preferCached: true, forceRefresh: false })
+      let normalized = handlePayload(payload)
+
+      if (payload?.cache_hit) {
+        setLoading(false)
+        if (!silent) {
+          setStatus({ type: 'info', message: '已加载缓存数据' })
+        }
+        
+        // Background refresh - 使用setTimeout让UI先渲染
+        setTimeout(() => {
+          fetchEstimate({ preferCached: false, forceRefresh: true })
+            .then((freshPayload) => {
+              handlePayload(freshPayload)
+              const freshFailedCount = freshPayload?.funds?.filter((item) => item.status !== 'ok').length || 0
+              if (freshFailedCount > 0) {
+                setStatus({ type: 'warning', message: `刷新完成，${freshFailedCount} 只基金估值异常` })
+              } else {
+                setStatus({ type: 'success', message: auto ? '自动刷新成功' : '刷新成功' })
+              }
+            })
+            .catch((err) => {
+              console.log('Background refresh failed:', err)
+            })
+        }, 100)
+        
+        return
+      }
 
       const failedCount = normalized.filter((item) => item.status !== 'ok').length
 

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
+import dayjs from 'dayjs'
 import { useAuth } from './hooks/useAuth.js'
 import { usePortfolio } from './hooks/usePortfolio.js'
 import {
@@ -18,7 +19,7 @@ import {
   syncPendingTransactions,
   AUTH_EVENT_EXPIRY
 } from './api.js'
-import { Layout, Spin, Alert, Button, Input, Select, message, Table, Tag, Tooltip, Space } from 'antd'
+import { Layout, Spin, Alert, Button, Input, InputNumber, DatePicker, Checkbox, Select, message, Table, Tag, Tooltip, Space } from 'antd'
 import { 
   ReloadOutlined, SettingOutlined, UserOutlined,
   PlusOutlined, EditOutlined, DeleteOutlined, 
@@ -33,22 +34,40 @@ import { ErrorBoundary } from './components/ErrorBoundary.jsx'
 import { LoginPanel } from './components/LoginPanel.jsx'
 import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
-import { ReturnsChart } from './components/ReturnsChart.jsx'
-import { BenchmarkComparison } from './components/BenchmarkComparison.jsx'
-import { SIPPlanManager } from './components/SIPPlanManager.jsx'
 import { HoldingsTable } from './components/HoldingsTable.jsx'
 import { FundDetailPanel } from './components/FundDetailPanel.jsx'
 import { RiskCenter } from './components/RiskCenter.jsx'
 import { RiskStatusBar } from './components/RiskStatusBar.jsx'
 import { PortfolioReturnsPanel } from './components/PortfolioReturnsPanel.jsx'
-import { BenchmarkComparisonPanel } from './components/BenchmarkComparisonPanel.jsx'
-import { SettingsDrawer } from './components/SettingsDrawer.jsx'
+import { SideNav } from './components/SideNav.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
 import { StateShowcase } from './components/StateShowcase.jsx'
 import { DataStatusBanner } from './components/DataStatusBanner.jsx'
+
+// 懒加载大型组件 - 使用命名导出
+const ReturnsChart = lazy(() => import('./components/ReturnsChart.jsx').then(m => ({ default: m.ReturnsChart })))
+const BenchmarkComparison = lazy(() => import('./components/BenchmarkComparison.jsx').then(m => ({ default: m.BenchmarkComparison })))
+const BenchmarkComparisonPanel = lazy(() => import('./components/BenchmarkComparisonPanel.jsx').then(m => ({ default: m.BenchmarkComparisonPanel })))
+const SIPPlanManager = lazy(() => import('./components/SIPPlanManager.jsx').then(m => ({ default: m.SIPPlanManager })))
+const SettingsDrawer = lazy(() => import('./components/SettingsDrawer.jsx').then(m => ({ default: m.SettingsDrawer })))
+
+// 懒加载加载状态组件
+const ChartSkeleton = () => (
+  <div style={{ 
+    height: '280px', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    background: 'var(--vc-bg-secondary)',
+    borderRadius: 'var(--vc-radius-3xl)'
+  }}>
+    <Spin tip="加载图表中..." />
+  </div>
+)
 import { DiagnosticsPanel } from './components/DiagnosticsPanel.jsx'
 import { recordMetric } from './utils/metrics.js'
 import { computeNextRunDate, daysUntil, getDcaScheduleLabel, normalizeDcaSchedule } from './utils/dca.js'
+import { FundDetailPage } from './pages/FundDetailPage.jsx'
 
 const TRADE_TYPES = [
   { key: 'buy', label: '买入' },
@@ -185,6 +204,17 @@ function parseFundIdFromPath(pathname) {
   }
 }
 
+function parseFundDetailPath(pathname) {
+  // 新的基金详情页路由 /fund/:fund_id
+  const match = String(pathname || '').match(/^\/fund\/([^/]+)$/)
+  if (!match) return ''
+  try {
+    return decodeURIComponent(match[1] || '').trim()
+  } catch {
+    return String(match[1] || '').trim()
+  }
+}
+
 function isSystemStatusPath(pathname) {
   return /^\/system\/status\/?$/.test(String(pathname || ''))
 }
@@ -231,6 +261,8 @@ function App() {
   const [holdingAuditLoading, setHoldingAuditLoading] = useState(false)
   const [holdingAuditError, setHoldingAuditError] = useState('')
   const [activeTab, setActiveTab] = useState('home')
+  const [currentView, setCurrentView] = useState('home') // 'home' | 'fund-detail'
+  const [detailFundId, setDetailFundId] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -352,6 +384,7 @@ function App() {
   const riskCenterRef = useRef(null)
 
   const { user, authLoading, authReady, login, logout } = useAuth()
+  const { Content } = Layout
   const {
     rows,
     riskOverview,
@@ -539,6 +572,11 @@ function App() {
 
   const handleTabChange = (tabKey) => {
     setActiveTab(tabKey)
+    setCurrentView('home')
+    // 从基金详情页返回时清理URL
+    if (window.location.pathname.startsWith('/fund/')) {
+      window.history.pushState({}, '', '/')
+    }
     if (tabKey !== 'watch' && window.location.pathname.startsWith('/funds/')) {
       window.history.pushState({}, '', '/')
     }
@@ -546,6 +584,23 @@ function App() {
       setProfileView('overview')
       window.history.pushState({}, '', '/')
     }
+  }
+  
+  // 导航到基金详情页
+  const navigateToFundDetail = (fundId) => {
+    const nextPath = `/fund/${encodeURIComponent(fundId)}`
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath)
+    }
+    setCurrentView('fund-detail')
+    setDetailFundId(fundId)
+  }
+  
+  // 从基金详情页返回
+  const navigateFromFundDetail = () => {
+    window.history.pushState({}, '', '/')
+    setCurrentView('home')
+    setDetailFundId('')
   }
 
   const openSystemStatusView = () => {
@@ -608,19 +663,33 @@ function App() {
 
   useEffect(() => {
     const applyPathState = () => {
+      // 优先检查新的基金详情页路由 /fund/:fund_id
+      const fundDetailId = parseFundDetailPath(window.location.pathname)
+      if (fundDetailId) {
+        setCurrentView('fund-detail')
+        setDetailFundId(fundDetailId)
+        return
+      }
+      
+      // 检查旧的基金中心路由 /funds/:fund_id
       const fundIdFromPath = parseFundIdFromPath(window.location.pathname)
       if (fundIdFromPath) {
         setActiveTab('watch')
         setFundCenterSelectedId(fundIdFromPath)
         setFundCenterQuery((prev) => prev || fundIdFromPath)
+        setCurrentView('home')
         return
       }
+      
       if (isSystemStatusPath(window.location.pathname)) {
         setActiveTab('profile')
         setProfileView('system-status')
+        setCurrentView('home')
         return
       }
+      
       setProfileView('overview')
+      setCurrentView('home')
     }
 
     applyPathState()
@@ -1750,42 +1819,56 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Layout className="page-shell" style={{ minHeight: '100vh' }}>
-        <TopToolbar
-        user={user}
-        status={status}
-        refreshing={loading}
-        lastRefresh={lastRefresh}
-        asof={asof}
-        updatedAt={updatedAt}
-        confirmState={confirmState}
-        coverage={coverage}
-        refreshElapsedMs={refreshElapsedMs}
-        estimateCacheHit={estimateCacheHit}
-        incrementalMode={incrementalMode}
-        incrementalReusedQuotes={incrementalReusedQuotes}
-        incrementalFetchedQuotes={incrementalFetchedQuotes}
-        dataStatus={estimateDataStatus}
-        searchQuery={searchQuery}
-        suggestions={suggestions}
-        searchLoading={searchLoading}
-        onSearchChange={setSearchQuery}
-        onPickSuggestion={handlePickSuggestion}
-        autoRefreshEnabled={Boolean(settings.display.auto_refresh_enabled)}
-        onRefresh={() => refresh()}
-        onToggleAutoRefresh={handleToggleAutoRefresh}
-        onOpenSettings={() => setSettingsOpen(true)}
-        onLogout={logout}
-        marketDataHint={marketDataHint}
-      />
+      <Layout style={{ minHeight: '100vh', flexDirection: 'row' }}>
+        <SideNav active={activeTab} onChange={handleTabChange} />
+        <Layout style={{ display: 'flex', flexDirection: 'column', background: 'transparent' }}>
+          <TopToolbar
+            user={user}
+            status={status}
+            refreshing={loading}
+            lastRefresh={lastRefresh}
+            asof={asof}
+            updatedAt={updatedAt}
+            confirmState={confirmState}
+            coverage={coverage}
+            refreshElapsedMs={refreshElapsedMs}
+            estimateCacheHit={estimateCacheHit}
+            incrementalMode={incrementalMode}
+            incrementalReusedQuotes={incrementalReusedQuotes}
+            incrementalFetchedQuotes={incrementalFetchedQuotes}
+            dataStatus={estimateDataStatus}
+            searchQuery={searchQuery}
+            suggestions={suggestions}
+            searchLoading={searchLoading}
+            onSearchChange={setSearchQuery}
+            onPickSuggestion={handlePickSuggestion}
+            autoRefreshEnabled={Boolean(settings.display.auto_refresh_enabled)}
+            onRefresh={() => refresh()}
+            onToggleAutoRefresh={handleToggleAutoRefresh}
+            onOpenSettings={() => setSettingsOpen(true)}
+            onLogout={logout}
+            marketDataHint={marketDataHint}
+          />
 
-      <BottomTabs active={activeTab} onChange={handleTabChange} />
-
-      {activeTab === 'home' && (
+          <Content className="page-shell" style={{ width: '100%' }}>
+            {/* 基金详情独立页面 - 最高优先级 */}
+            {currentView === 'fund-detail' && (
+              <FundDetailPage 
+                fundId={detailFundId} 
+                onBack={navigateFromFundDetail}
+              />
+            )}
+            
+            {/* 只在非基金详情页时显示tab内容 */}
+            {currentView !== 'fund-detail' && activeTab === 'home' && (
         <>
           <SummaryCards rows={rows} loading={loading} />
-          <ReturnsChart user={user} />
-          <BenchmarkComparison user={user} />
+          <Suspense fallback={<ChartSkeleton />}>
+            <ReturnsChart user={user} />
+          </Suspense>
+          <Suspense fallback={<ChartSkeleton />}>
+            <BenchmarkComparison user={user} />
+          </Suspense>
           <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
           {reportDataQuality && reportDataQuality.total_funds > 0 && (
             <div className="data-quality-bar">
@@ -1807,7 +1890,9 @@ function App() {
           )}
 
           <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
-          <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
+          <Suspense fallback={<ChartSkeleton />}>
+            <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
+          </Suspense>
           <DiagnosticsPanel user={user} />
           
           <section className="panel home-main">
@@ -1899,7 +1984,7 @@ function App() {
         </>
       )}
 
-      {activeTab === 'watch' && (
+      {currentView !== 'fund-detail' && activeTab === 'watch' && (
         <section className="panel holdings-main">
           <div className="section-head">
             <h2>基金中心</h2>
@@ -1907,16 +1992,17 @@ function App() {
           </div>
           <DataStatusBanner title="基金页口径" dataStatus={fundCenterDataStatus} />
 
-          <form className="trade-form" onSubmit={(event) => event.preventDefault()}>
-            <label>
-              搜索基金（代码/名称/拼音/别名）
-              <input
-                value={fundCenterQuery}
-                onChange={(event) => setFundCenterQuery(event.target.value)}
-                placeholder="例如：纳指、013491"
-              />
-            </label>
-          </form>
+          <div style={{ marginBottom: 16 }}>
+            <Input.Search
+              placeholder="搜索基金（代码/名称/拼音/别名）"
+              allowClear
+              enterButton="搜索"
+              size="large"
+              value={fundCenterQuery}
+              onChange={(event) => setFundCenterQuery(event.target.value)}
+              onSearch={() => {}}
+            />
+          </div>
           {fundCenterLoading && <div className="chart-empty">基金搜索中...</div>}
           {fundCenterError && <div className="chart-empty">{fundCenterError}</div>}
           {!fundCenterLoading && !fundCenterError && fundCenterQuery.trim() && fundCenterItems.length === 0 && (
@@ -2041,7 +2127,7 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'trade' && (
+      {currentView !== 'fund-detail' && activeTab === 'trade' && (
         <section className="panel holdings-main">
           <div className="section-head">
             <h2>交易入口</h2>
@@ -2068,15 +2154,15 @@ function App() {
           </div>
 
           <form className="trade-form" onSubmit={handleTradeSubmit}>
-            <label>
-              基金代码（可选）
-              <input
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 4 }}>基金代码（可选）</div>
+              <Input
                 value={tradeFundCode}
                 onChange={(event) => setTradeFundCode(event.target.value)}
                 placeholder="例如 016453"
                 maxLength={16}
               />
-            </label>
+            </div>
             {tradeFundSuggestLoading && <div className="chart-empty">基金补全加载中...</div>}
             {!tradeFundSuggestLoading && tradeFundSuggestions.length > 0 && (
               <div className="watch-list">
@@ -2086,39 +2172,42 @@ function App() {
                       <h3>{item.name || '--'}</h3>
                       <p>{item.fund_id}</p>
                     </div>
-                    <button type="button" className="ghost" onClick={() => handlePickTradeSuggestion(item)}>
+                    <Button size="small" onClick={() => handlePickTradeSuggestion(item)}>
                       选用
-                    </button>
+                    </Button>
                   </article>
                 ))}
               </div>
             )}
-            <label>
-              金额
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 4 }}>金额</div>
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0.01}
+                step={0.01}
                 value={tradeAmount}
-                onChange={(event) => setTradeAmount(event.target.value)}
+                onChange={(value) => setTradeAmount(value)}
                 placeholder="请输入金额"
               />
-            </label>
-            <label>
-              发生时间
-              <input
-                type="datetime-local"
-                value={tradeOccurredAt}
-                onChange={(event) => setTradeOccurredAt(event.target.value)}
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 4 }}>发生时间</div>
+              <DatePicker
+                showTime
+                style={{ width: '100%' }}
+                value={tradeOccurredAt ? dayjs(tradeOccurredAt) : null}
+                onChange={(date) => setTradeOccurredAt(date ? date.format('YYYY-MM-DDTHH:mm') : '')}
+                format="YYYY-MM-DD HH:mm"
               />
-            </label>
-            <label className="trade-check">
-              <input type="checkbox" checked={tradeDone} onChange={(event) => setTradeDone(event.target.checked)} />
-              提交后标记为已执行
-            </label>
-            <button type="submit" className="primary" disabled={tradeSubmitting}>
+            </div>
+            <div style={{ marginBottom: 24 }}>
+              <Checkbox checked={tradeDone} onChange={(e) => setTradeDone(e.target.checked)}>
+                提交后标记为已执行
+              </Checkbox>
+            </div>
+            <Button type="primary" htmlType="submit" loading={tradeSubmitting} block size="large">
               {tradeSubmitting ? '提交中...' : `提交${TRADE_TYPES.find((item) => item.key === tradeType)?.label || '交易'}`}
-            </button>
+            </Button>
           </form>
 
           {tradeSubmitError && <div className="chart-empty">{tradeSubmitError}</div>}
@@ -2134,7 +2223,9 @@ function App() {
           <p className="trade-tip">已打通买入/定投/赎回/转换入口，提交后写入执行记录并在下方列表回显。</p>
 
           <div className="sip-plans-section">
-            <SIPPlanManager user={user} />
+            <Suspense fallback={<Spin tip="加载定投计划..." />}>
+              <SIPPlanManager user={user} />
+            </Suspense>
           </div>
 
           <section className="trade-lifecycle">
@@ -2337,77 +2428,78 @@ function App() {
                 <span>交易 ID：{editingTransactionId}</span>
               </div>
               <form className="trade-form" onSubmit={handlePatchTransaction}>
-                <label>
-                  发生时间
-                  <input
-                    type="datetime-local"
-                    value={editingTransactionForm.occurred_at}
-                    onChange={(event) =>
-                      setEditingTransactionForm((prev) => ({ ...prev, occurred_at: event.target.value }))
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4 }}>发生时间</div>
+                  <DatePicker
+                    showTime
+                    style={{ width: '100%' }}
+                    value={editingTransactionForm.occurred_at ? dayjs(editingTransactionForm.occurred_at) : null}
+                    onChange={(date) =>
+                      setEditingTransactionForm((prev) => ({ ...prev, occurred_at: date ? date.format('YYYY-MM-DDTHH:mm') : '' }))
                     }
-                    required
                   />
-                </label>
-                <label>
-                  状态
-                  <select
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4 }}>状态</div>
+                  <Select
+                    style={{ width: '100%' }}
                     value={editingTransactionForm.status}
-                    onChange={(event) =>
+                    onChange={(value) =>
                       setEditingTransactionForm((prev) => ({
                         ...prev,
-                        status: event.target.value,
+                        status: value,
                         confirmed_at:
-                          event.target.value === 'confirmed'
+                          value === 'confirmed'
                             ? prev.confirmed_at || nowForDateTimeInput()
                             : '',
-                        nav: event.target.value === 'confirmed' ? prev.nav : ''
+                        nav: value === 'confirmed' ? prev.nav : ''
                       }))
                     }
-                  >
-                    <option value="pending">pending</option>
-                    <option value="confirmed">confirmed</option>
-                  </select>
-                </label>
+                    options={[
+                      { value: 'pending', label: 'pending' },
+                      { value: 'confirmed', label: 'confirmed' }
+                    ]}
+                  />
+                </div>
                 {editingTransactionForm.status === 'confirmed' && (
                   <>
-                    <label>
-                      确认时间
-                      <input
-                        type="datetime-local"
-                        value={editingTransactionForm.confirmed_at}
-                        onChange={(event) =>
-                          setEditingTransactionForm((prev) => ({ ...prev, confirmed_at: event.target.value }))
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ marginBottom: 4 }}>确认时间</div>
+                      <DatePicker
+                        showTime
+                        style={{ width: '100%' }}
+                        value={editingTransactionForm.confirmed_at ? dayjs(editingTransactionForm.confirmed_at) : null}
+                        onChange={(date) =>
+                          setEditingTransactionForm((prev) => ({ ...prev, confirmed_at: date ? date.format('YYYY-MM-DDTHH:mm') : '' }))
                         }
-                        required
                       />
-                    </label>
-                    <label>
-                      净值
-                      <input
-                        type="number"
-                        min="0.0001"
-                        step="0.0001"
+                    </div>
+                    <div style={{ marginBottom: 12 }}>
+                      <div style={{ marginBottom: 4 }}>净值</div>
+                      <InputNumber
+                        style={{ width: '100%' }}
+                        min={0.0001}
+                        step={0.0001}
                         value={editingTransactionForm.nav}
-                        onChange={(event) =>
-                          setEditingTransactionForm((prev) => ({ ...prev, nav: event.target.value }))
+                        onChange={(value) =>
+                          setEditingTransactionForm((prev) => ({ ...prev, nav: value }))
                         }
-                        required
                       />
-                    </label>
+                    </div>
                   </>
                 )}
-                <label>
-                  备注（可选）
-                  <input
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4 }}>备注（可选）</div>
+                  <Input
                     value={editingTransactionForm.note}
                     onChange={(event) => setEditingTransactionForm((prev) => ({ ...prev, note: event.target.value }))}
                     placeholder="例如：手工修正净值来源"
                     maxLength={120}
                   />
-                </label>
-                <label>
-                  审计说明（建议填写）
-                  <input
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4 }}>审计说明（建议填写）</div>
+                  <Input
                     value={editingTransactionForm.audit_note}
                     onChange={(event) =>
                       setEditingTransactionForm((prev) => ({ ...prev, audit_note: event.target.value }))
@@ -2415,14 +2507,14 @@ function App() {
                     placeholder="例如：回填券商结算数据"
                     maxLength={120}
                   />
-                </label>
+                </div>
                 <div className="trade-grid trade-grid-single">
-                  <button type="submit" className="primary" disabled={transactionPatchLoading}>
+                  <Button type="primary" htmlType="submit" loading={transactionPatchLoading} block>
                     {transactionPatchLoading ? '提交中...' : '保存修正'}
-                  </button>
-                  <button type="button" className="ghost" onClick={cancelEditTransaction} disabled={transactionPatchLoading}>
+                  </Button>
+                  <Button type="default" onClick={cancelEditTransaction} disabled={transactionPatchLoading} block>
                     取消编辑
-                  </button>
+                  </Button>
                 </div>
               </form>
               {transactionPatchError && <div className="chart-empty">{transactionPatchError}</div>}
@@ -2662,7 +2754,7 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'holdings' && (
+      {currentView !== 'fund-detail' && activeTab === 'holdings' && (
         <>
           <section className="panel holdings-main">
             <div className="section-head">
@@ -2678,62 +2770,64 @@ function App() {
                 <span>支持基金代码联想并自动回填名称与市场标签</span>
               </div>
               <form className="trade-form holdings-create-form" onSubmit={handleSubmitHoldingCreate}>
-                <label>
-                  基金代码
-                  <input
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4 }}>基金代码</div>
+                  <Input
                     value={holdingCreateForm.fund_id}
                     onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, fund_id: event.target.value }))}
                     placeholder="例如 016453"
                     maxLength={16}
                   />
-                </label>
-                <label>
-                  基金名称
-                  <input
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4 }}>基金名称</div>
+                  <Input
                     value={holdingCreateForm.name}
                     onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, name: event.target.value }))}
                     placeholder="例如 纳斯达克100ETF联接"
                     maxLength={60}
                   />
-                </label>
-                <label>
-                  市场分组
-                  <select
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4 }}>市场分组</div>
+                  <Select
+                    style={{ width: '100%' }}
                     value={holdingCreateForm.market_group}
-                    onChange={(event) => {
-                      const nextGroup = String(event.target.value || 'cn_hk')
+                    onChange={(value) => {
+                      const nextGroup = String(value || 'cn_hk')
                       setHoldingCreateForm((prev) => ({
                         ...prev,
                         market_group: nextGroup,
                         bucket: defaultBucketByMarketGroup(nextGroup)
                       }))
                     }}
-                  >
-                    <option value="cn_hk">A股/港股（cn_hk）</option>
-                    <option value="us_overseas">美股/海外（us_overseas）</option>
-                  </select>
-                </label>
-                <label>
-                  持仓分组
-                  <input
+                    options={[
+                      { value: 'cn_hk', label: 'A股/港股（cn_hk）' },
+                      { value: 'us_overseas', label: '美股/海外（us_overseas）' }
+                    ]}
+                  />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4 }}>持仓分组</div>
+                  <Input
                     value={holdingCreateForm.bucket}
                     onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, bucket: event.target.value }))}
                     placeholder="例如 core / overseas / growth"
                     maxLength={32}
                   />
-                </label>
-                <label>
-                  标签（可选）
-                  <input
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ marginBottom: 4 }}>标签（可选）</div>
+                  <Input
                     value={holdingCreateForm.tags_text}
                     onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, tags_text: event.target.value }))}
                     placeholder="例如 QDII,指数,科技"
                     maxLength={80}
                   />
-                </label>
-                <button type="submit" className="primary" disabled={holdingCreateSubmitting}>
+                </div>
+                <Button type="primary" htmlType="submit" loading={holdingCreateSubmitting} block>
                   {holdingCreateSubmitting ? '提交中...' : '新增/覆盖持仓'}
-                </button>
+                </Button>
               </form>
 
               {holdingCreateSuggestLoading && <div className="chart-empty">基金联想加载中...</div>}
@@ -2783,6 +2877,7 @@ function App() {
               onSort={handleSortByKey}
               selectedFundId={currentFund?.fund_id || ''}
               onSelectFund={setSelectedFundId}
+              onNavigateToFund={navigateToFundDetail}
               sparklineMap={sparklineMap}
               onSaveHolding={saveHolding}
               onOpenAudit={handleOpenHoldingAudit}
@@ -2798,6 +2893,7 @@ function App() {
               onSort={handleSortByKey}
               selectedFundId={currentFund?.fund_id || ''}
               onSelectFund={setSelectedFundId}
+              onNavigateToFund={navigateToFundDetail}
               sparklineMap={sparklineMap}
               onSaveHolding={saveHolding}
               onOpenAudit={handleOpenHoldingAudit}
@@ -2861,7 +2957,7 @@ function App() {
         </>
       )}
 
-      {activeTab === 'profile' && (
+      {currentView !== 'fund-detail' && activeTab === 'profile' && (
         <section className="panel holdings-main">
           <div className="section-head">
             <h2>我的</h2>
@@ -3030,54 +3126,59 @@ function App() {
             <span>{`阈值规则 ${reminderRules.length} 条，已触发 ${reminderRuleStates.filter((item) => item.hit).length} 条`}</span>
           </div>
           <form className="trade-form reminder-form" onSubmit={handleCreateRule}>
-            <label>
-              规则名称
-              <input
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 4 }}>规则名称</div>
+              <Input
                 value={ruleName}
                 onChange={(event) => setRuleName(event.target.value)}
                 placeholder="例如：纳指回撤提醒"
                 maxLength={40}
               />
-            </label>
-            <label>
-              基金代码（可选）
-              <input
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 4 }}>基金代码（可选）</div>
+              <Input
                 value={ruleFundCode}
                 onChange={(event) => setRuleFundCode(event.target.value)}
                 placeholder="留空表示全持仓"
                 maxLength={16}
               />
-            </label>
-            <label>
-              触发条件
-              <select value={ruleOperator} onChange={(event) => setRuleOperator(event.target.value)}>
-                <option value="<=">小于等于阈值</option>
-                <option value=">=">大于等于阈值</option>
-              </select>
-            </label>
-            <label>
-              阈值（%）
-              <input
-                type="number"
-                step="0.01"
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 4 }}>触发条件</div>
+              <Select
+                style={{ width: '100%' }}
+                value={ruleOperator}
+                onChange={(value) => setRuleOperator(value)}
+                options={[
+                  { value: '<=', label: '小于等于阈值' },
+                  { value: '>=', label: '大于等于阈值' }
+                ]}
+              />
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 4 }}>阈值（%）</div>
+              <InputNumber
+                style={{ width: '100%' }}
+                step={0.01}
                 value={ruleThreshold}
-                onChange={(event) => setRuleThreshold(event.target.value)}
+                onChange={(value) => setRuleThreshold(value)}
                 placeholder="例如 -1.5"
               />
-            </label>
-            <label>
-              静默期（小时）
-              <input
-                type="number"
-                min="0"
-                step="1"
+            </div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 4 }}>静默期（小时）</div>
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                step={1}
                 value={ruleSilentHours}
-                onChange={(event) => setRuleSilentHours(event.target.value)}
+                onChange={(value) => setRuleSilentHours(value)}
               />
-            </label>
-            <button type="submit" className="primary" disabled={ruleSubmitting}>
+            </div>
+            <Button type="primary" htmlType="submit" loading={ruleSubmitting} block>
               {ruleSubmitting ? '保存中...' : '新增提醒'}
-            </button>
+            </Button>
           </form>
           {ruleError && <div className="chart-empty">{ruleError}</div>}
           {reminderRuleStates.length === 0 && <div className="chart-empty">暂无提醒规则，请先新增阈值规则。</div>}
@@ -3109,16 +3210,23 @@ function App() {
         </section>
       )}
 
-      <SettingsDrawer
-        open={settingsOpen}
-        settings={settings}
-        onClose={() => setSettingsOpen(false)}
-        onSave={async (draft) => saveSettingsPatch(draft)}
-        onUpdateFeishuWebhook={async (webhookUrl) => updateFeishuWebhookCredential(webhookUrl)}
-        onUpdateTelegramCredential={async (botToken, chatId) => updateTelegramCredential(botToken, chatId)}
-        onSendFeishuTestMessage={async () => sendFeishuTestMessage()}
-        onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
-      />
+          </Content>
+
+          <BottomTabs active={activeTab} onChange={handleTabChange} />
+
+          <Suspense fallback={null}>
+            <SettingsDrawer
+              open={settingsOpen}
+              settings={settings}
+              onClose={() => setSettingsOpen(false)}
+              onSave={async (draft) => saveSettingsPatch(draft)}
+              onUpdateFeishuWebhook={async (webhookUrl) => updateFeishuWebhookCredential(webhookUrl)}
+              onUpdateTelegramCredential={async (botToken, chatId) => updateTelegramCredential(botToken, chatId)}
+              onSendFeishuTestMessage={async () => sendFeishuTestMessage()}
+              onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
+            />
+          </Suspense>
+        </Layout>
       </Layout>
     </ErrorBoundary>
   )

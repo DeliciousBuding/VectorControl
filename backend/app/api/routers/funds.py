@@ -756,3 +756,71 @@ async def get_fund_nav_history(
         "items": items,
         "data_status": _data_status_for_fund_rows(items, "历史净值列表按时间窗口返回"),
     }
+
+
+@router.get("/{fund_id}/full")
+async def get_fund_full_detail(
+    request: Request,
+    fund_id: str,
+    history_limit: int = Query(default=90, ge=1, le=365, description="历史净值天数"),
+) -> dict:
+    """
+    获取基金完整详情（聚合API）- 用于基金详情页
+    一次性返回：基金信息、最新净值、历史净值
+    """
+    from app.storage.db import list_holdings
+    from app.api.deps import get_holdings_user_id
+    
+    config = get_config(request)
+    sync_fund_catalog_from_config(config)
+    
+    fund = get_fund_catalog_item(fund_id)
+    if not fund:
+        raise HTTPException(status_code=404, detail="基金不存在或尚未收录")
+    
+    clean_fund_id = str(fund.get("fund_id") or fund_id)
+    
+    # 并行获取所有数据
+    # 1. 最新净值
+    latest_from_db = get_latest_fund_nav_daily(clean_fund_id)
+    
+    # 2. 历史净值
+    nav_rows = list_fund_nav_daily(
+        fund_id=clean_fund_id,
+        date_from=None,
+        date_to=None,
+        limit=max(history_limit * 2, 200),
+    )
+    if not nav_rows:
+        snapshot_user_id = get_snapshot_user_id(request)
+        nav_rows = list_fund_nav_history_from_snapshots(snapshot_user_id, clean_fund_id, limit=max(history_limit * 2, 200))
+    
+    # 限制历史数据条数
+    if len(nav_rows) > history_limit:
+        nav_rows = nav_rows[-history_limit:]
+    
+    # 3. 持仓数据（如果有）
+    user_id = get_holdings_user_id(request)
+    holdings = list_holdings(user_id=user_id, include_archived=False)
+    holding = next((h for h in holdings if h.get("fund_id") == clean_fund_id), None)
+    
+    # 构建最新净值响应
+    latest = None
+    if isinstance(latest_from_db, dict):
+        latest = latest_from_db
+    elif nav_rows:
+        latest = nav_rows[-1]
+    
+    return {
+        "fund_id": clean_fund_id,
+        "fund": fund,
+        "holding": holding,
+        "latest": latest,
+        "history": nav_rows,
+        "history_count": len(nav_rows),
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=str(fund.get("updated_at") or ""),
+            note="基金完整详情（聚合API）",
+        ),
+    }

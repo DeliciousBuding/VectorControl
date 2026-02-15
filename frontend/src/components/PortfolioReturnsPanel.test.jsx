@@ -35,7 +35,7 @@ describe('PortfolioReturnsPanel', () => {
     expect(fetchPortfolioReturnsHistory).toHaveBeenLastCalledWith(30)
     expect(screen.getByRole('img', { name: /累计收益率/ })).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId('portfolio-returns-days-7'))
+    fireEvent.click(screen.getByText('7天'))
 
     await waitFor(() => {
       expect(fetchPortfolioReturnsHistory).toHaveBeenCalledTimes(2)

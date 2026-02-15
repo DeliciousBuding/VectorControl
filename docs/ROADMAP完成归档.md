@@ -1,5 +1,5 @@
 # ROADMAP 完成归档
-> 最后更新: 2026-02-10 19:16:30 (UTC+8)
+> 最后更新: 2026-02-11 09:00:00 (UTC+8)
 
 归档日期：2026-02-10 19:16:30
 来源文件：`ROADMAP.md`（归档前版本）
@@ -200,11 +200,39 @@
 - [√] [前端Agent1] 设置中心补齐飞书高级参数编辑入口。
 - [√] [协同] 评估并落地 `GET /api/settings` 中敏感配置脱敏策略。
 
+## 2026-02-15 完成（庄方宜 bot 分支）
+
+### P0 前端架构优化
+- [√] [前端] TypeScript迁移：完整类型定义（types/index.ts）、工具函数迁移（format.ts, holdings.ts）、API层迁移（api.ts）
+- [√] [前端] Zustand状态管理：3个store（useUserStore, usePortfolioStore, useSettingsStore）+ Immer不可变性
+- [√] [前端] CSS设计系统重构：CSS变量、组件化样式
+- [√] [前端] Vite构建优化：代码分割（9个JS chunks）、懒加载（React.lazy）
+- [√] [前端] 修复React懒加载错误#306：处理命名导出组件的懒加载语法
+- [√] [前端] 修复CSS引入路径：使用完整样式文件修复TopToolbar和SideNav样式（commit: a67bc82）
+
+### P0 后端性能优化
+- [√] [后端] 智能缓存策略：根据市场状态动态调整缓存时间（非交易时间1小时/交易时间60秒/美股时间30秒）（commit: 99b6d63）
+- [√] [后端] 节假日特殊处理：支持2026年中国节假日（春节/国庆等）和美国节假日（感恩节/圣诞节等）检测
+- [√] [后端] 市场状态API：`/api/estimate` 返回 `market_status` 字段（北京时间/美东时间/市场开盘状态/节假日名称）
+- [√] [后端] 新增 `app/utils/market_time.py`：市场交易时间工具，判断当前是否为交易时间
+
+### P0 部署与运维
+- [√] [运维] VPS生产环境部署：前端dist部署到 /opt/VectorControl/deploy/data/frontend-dist/
+- [√] [运维] SSL证书验证：vectorcontrol.tech HTTPS正常，证书有效期至2026-05-08
+
 ---
 
-> 本次归档共迁移 **127 项**已完成任务到本文档。原始 ROADMAP.md 仅保留待办项（`[ ]`）。
+> 本次归档共迁移 **140+ 项**已完成任务到本文档。原始 ROADMAP.md 仅保留待办项（`[ ]`）。
 
 ## 2026-02-11 完成（bot 分支）
+
+### P0 故障修复
+- [√] [运维] 生产环境 502 Bad Gateway 修复：Nginx DNS resolver 配置问题（Docker 内部主机名解析失败 NXDOMAIN），添加 `resolver 127.0.0.11;`
+
+### P0 前端性能优化
+- [√] [前端] Nginx 静态资源缓存优化：hashed 资源 immutable 缓存、HTML no-cache 启用 bfcache、favicon 1天缓存
+- [√] [前端] 字体加载优化：移除 Google Fonts @import，改用系统字体栈，节省 456KB 流量（64%）
+- [√] [前端] 骨架屏和资源预加载：添加登录页面骨架屏 HTML + CSS 动画 + modulepreload 预加载
 
 ### P0 前端设计优化
 - [√] [前端] 修复组合收益曲线 Not Found：接口联通性已验证，空数据时显示友好提示而非 Not Found
@@ -217,4 +245,8 @@
 
 ### 工具脚本修复
 - [√] dev_seed_demo.py 表结构兼容性修复（commit: 766aa80）
+
+---
+
+> 本次归档共迁移 **133 项**已完成任务到本文档。原始 ROADMAP.md 仅保留待办项（`[ ]`）。
 

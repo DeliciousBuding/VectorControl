@@ -98,23 +98,27 @@ class FeishuSender:
         notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
         section = notifications.get("feishu", {}) if isinstance(notifications, dict) else {}
         enabled = bool(section.get("enabled", False))
+        trace_id = uuid.uuid4().hex[:12]
+        
         if not enabled:
             return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=1,
+                error="feishu channel disabled",
                 channel=self.channel,
-                success=False,
-                skipped=True,
-                code="disabled",
-                message="feishu channel disabled",
             )
 
         webhook_url = str(section.get("webhook_url", "")).strip()
         if not webhook_url:
             return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=1,
+                error="missing feishu webhook_url",
                 channel=self.channel,
-                success=False,
-                skipped=True,
-                code="config_missing",
-                message="missing feishu webhook_url",
             )
         try:
             _validate_feishu_webhook_url(webhook_url)
@@ -126,14 +130,14 @@ class FeishuSender:
                 exc,
             )
             return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=1,
+                error=f"invalid feishu webhook_url: {exc}",
                 channel=self.channel,
-                success=False,
-                skipped=False,
-                code="invalid_webhook_url",
-                message=f"invalid feishu webhook_url: {exc}",
             )
 
-        trace_id = uuid.uuid4().hex[:12]
         retry_times = self._coerce_retry_times(section.get("retry_times", DEFAULT_RETRY_TIMES))
         timeout_seconds = self._coerce_timeout(section.get("timeout_seconds", DEFAULT_TIMEOUT_SECONDS))
         text = self._build_text(payload=payload, template=str(section.get("template", "title_content_metadata")))
@@ -164,12 +168,12 @@ class FeishuSender:
                         provider_message_id,
                     )
                     return NotificationResult(
+                        ok=True,
+                        sent=True,
+                        trace_id=provider_message_id,
+                        attempts=attempt,
+                        error="",
                         channel=self.channel,
-                        success=True,
-                        skipped=False,
-                        code="ok",
-                        message=f"feishu sent trace_id={trace_id}",
-                        provider_message_id=provider_message_id,
                     )
 
                 provider_message = str(
@@ -188,19 +192,19 @@ class FeishuSender:
                 )
                 if attempt >= max_attempts:
                     return NotificationResult(
+                        ok=False,
+                        sent=False,
+                        trace_id=trace_id,
+                        attempts=max_attempts,
+                        error=f"feishu send failed after {max_attempts} attempts: {exc}",
                         channel=self.channel,
-                        success=False,
-                        skipped=False,
-                        code="send_failed",
-                        message=f"feishu send failed trace_id={trace_id} attempts={max_attempts}",
-                        provider_message_id=trace_id,
                     )
 
         return NotificationResult(
+            ok=False,
+            sent=False,
+            trace_id=trace_id,
+            attempts=max_attempts,
+            error=f"feishu send failed after {max_attempts} attempts",
             channel=self.channel,
-            success=False,
-            skipped=False,
-            code="send_failed",
-            message=f"feishu send failed trace_id={trace_id} attempts={max_attempts}",
-            provider_message_id=trace_id,
         )

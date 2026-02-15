@@ -51,14 +51,14 @@ class NotifierChannelsSmokeTest(unittest.TestCase):
             settings={"notifications": {"telegram": {"enabled": False}}},
         )
         self.assertEqual(telegram_result.channel, "telegram")
-        self.assertEqual(bool(telegram_result.success), False)
-        self.assertEqual(bool(telegram_result.skipped), True)
-        self.assertEqual(str(telegram_result.code), "disabled")
+        self.assertEqual(telegram_result.ok, False)
+        self.assertEqual(telegram_result.sent, False)
+        self.assertIn("disabled", telegram_result.error)
 
         unknown_result = dispatcher.send(channel="slack", payload=payload, settings={})
-        self.assertEqual(bool(unknown_result.success), False)
-        self.assertEqual(bool(unknown_result.skipped), True)
-        self.assertEqual(str(unknown_result.code), "channel_not_supported")
+        self.assertEqual(unknown_result.ok, False)
+        self.assertEqual(unknown_result.sent, False)
+        self.assertIn("not supported", unknown_result.error)
 
 
 if __name__ == "__main__":

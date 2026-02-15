@@ -100,24 +100,28 @@ class TelegramSender:
         section = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
 
         enabled = bool(section.get("enabled", False))
+        trace_id = uuid.uuid4().hex[:12]
+        
         if not enabled:
             return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=1,
+                error="telegram channel disabled",
                 channel=self.channel,
-                success=False,
-                skipped=True,
-                code="disabled",
-                message="telegram channel disabled",
             )
 
         bot_token = str(section.get("bot_token", "")).strip()
         chat_id = str(section.get("chat_id", "")).strip()
         if not bot_token or not chat_id:
             return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=1,
+                error="missing telegram bot_token or chat_id",
                 channel=self.channel,
-                success=False,
-                skipped=True,
-                code="config_missing",
-                message="missing telegram bot_token or chat_id",
             )
 
         # Only HTML is enabled safely (escaped). Other parse modes are treated as plain text.
@@ -138,106 +142,93 @@ class TelegramSender:
         if parse_mode:
             req_payload["parse_mode"] = parse_mode
 
-       trace_id = uuid.uuid4().hex[:12]
-       max_attempts = retry_times + 1
-       masked_bot_token = _get_masked_bot_token(bot_token) # Add this line
-       for attempt in range(1, max_attempts + 1):
-           try:
-               status_code, resp_json = _http_post_json(api_url, req_payload, timeout_seconds)
-               ok = bool(resp_json.get("ok", False))
-               if status_code == 200 and ok:
-                   result = resp_json.get("result", {}) if isinstance(resp_json.get("result"), dict) else {}
-                   provider_message_id = str(result.get("message_id") or trace_id)
-                   LOGGER.info(
-                       "telegram notify success trace_id=%s attempt=%s provider_message_id=%s",
-                       trace_id,
-                       attempt,
-                       provider_message_id,
-                   )
-                   return NotificationResult(
-                       channel=self.channel,
-                       success=True,
-                       skipped=False,
-                       code="ok",
-                       message=f"telegram sent trace_id={trace_id}",
-                       provider_message_id=provider_message_id,
-                   )
+        max_attempts = retry_times + 1
+        masked_bot_token = _get_masked_bot_token(bot_token)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                status_code, resp_json = _http_post_json(api_url, req_payload, timeout_seconds)
+                ok = bool(resp_json.get("ok", False))
+                if status_code == 200 and ok:
+                    result = resp_json.get("result", {}) if isinstance(resp_json.get("result"), dict) else {}
+                    provider_message_id = str(result.get("message_id") or trace_id)
+                    LOGGER.info(
+                        "telegram notify success trace_id=%s attempt=%s provider_message_id=%s",
+                        trace_id,
+                        attempt,
+                        provider_message_id,
+                    )
+                    return NotificationResult(
+                        ok=True,
+                        sent=True,
+                        trace_id=provider_message_id,
+                        attempts=attempt,
+                        error="",
+                        channel=self.channel,
+                    )
 
-               description = str(resp_json.get("description") or resp_json.get("message") or "").strip()
-               error_code = int(resp_json.get("error_code") or -1)
-               
-               error_category = "unknown"
-               if error_code == 401:
-                   error_category = "auth_failed"
-               elif error_code == 400 and "chat not found" in description.lower():
-                   error_category = "chat_not_found"
-               elif error_code == 429:
-                   error_category = "rate_limited"
-               
-               LOGGER.warning(
-                   "telegram notify failed trace_id=%s attempt=%s/%s token_prefix=%s error_category=%s description=%s",
-                   trace_id,
-                   attempt,
-                   max_attempts,
-                   masked_bot_token,
-                   error_category,
-                   description,
-               )
-               if attempt >= max_attempts:
-                   return NotificationResult(
-                       channel=self.channel,
-                       success=False,
-                       skipped=False,
-                       code=error_category,
-                       message=f"telegram send failed trace_id={trace_id} attempts={max_attempts} error={description}",
-                       provider_message_id=trace_id,
-                   )
-           except TimeoutError:
-               error_category = "network_error"
-               LOGGER.warning(
-                   "telegram notify failed trace_id=%s attempt=%s/%s token_prefix=%s error_category=%s message=%s",
-                   trace_id,
-                   attempt,
-                   max_attempts,
-                   masked_bot_token,
-                   error_category,
-                   "timeout",
-               )
-               if attempt >= max_attempts:
-                   return NotificationResult(
-                       channel=self.channel,
-                       success=False,
-                       skipped=False,
-                       code=error_category,
-                       message=f"telegram send failed trace_id={trace_id} attempts={max_attempts} error=timeout",
-                       provider_message_id=trace_id,
-                   )
-           except Exception as exc:
-               error_category = "network_error" # Fallback to network_error for other exceptions
-               LOGGER.warning(
-                   "telegram notify failed trace_id=%s attempt=%s/%s token_prefix=%s err_class=%s error_category=%s",
-                   trace_id,
-                   attempt,
-                   max_attempts,
-                   masked_bot_token,
-                   exc.__class__.__name__,
-                   error_category,
-               )
-               if attempt >= max_attempts:
-                   return NotificationResult(
-                       channel=self.channel,
-                       success=False,
-                       skipped=False,
-                       code=error_category,
-                       message=f"telegram send failed trace_id={trace_id} attempts={max_attempts} error={exc.__class__.__name__}",
-                       provider_message_id=trace_id,
-                   )
+                description = str(resp_json.get("description") or resp_json.get("message") or "").strip()
+                error_code = int(resp_json.get("error_code") or -1)
 
-       return NotificationResult(
-           channel=self.channel,
-           success=False,
-           skipped=False,
-           code="send_failed",
-           message=f"telegram send failed trace_id={trace_id} attempts={max_attempts}",
-           provider_message_id=trace_id,
-       )
+                error_message = f"telegram error: {description}" if description else f"telegram error code: {error_code}"
+
+                LOGGER.warning(
+                    "telegram notify failed trace_id=%s attempt=%s/%s token_prefix=%s error=%s",
+                    trace_id,
+                    attempt,
+                    max_attempts,
+                    masked_bot_token,
+                    error_message,
+                )
+                if attempt >= max_attempts:
+                    return NotificationResult(
+                        ok=False,
+                        sent=False,
+                        trace_id=trace_id,
+                        attempts=max_attempts,
+                        error=f"telegram send failed after {max_attempts} attempts: {error_message}",
+                        channel=self.channel,
+                    )
+            except TimeoutError:
+                LOGGER.warning(
+                    "telegram notify failed trace_id=%s attempt=%s/%s token_prefix=%s error=timeout",
+                    trace_id,
+                    attempt,
+                    max_attempts,
+                    masked_bot_token,
+                )
+                if attempt >= max_attempts:
+                    return NotificationResult(
+                        ok=False,
+                        sent=False,
+                        trace_id=trace_id,
+                        attempts=max_attempts,
+                        error=f"telegram send failed after {max_attempts} attempts: timeout",
+                        channel=self.channel,
+                    )
+            except Exception as exc:
+                LOGGER.warning(
+                    "telegram notify failed trace_id=%s attempt=%s/%s token_prefix=%s err_class=%s",
+                    trace_id,
+                    attempt,
+                    max_attempts,
+                    masked_bot_token,
+                    exc.__class__.__name__,
+                )
+                if attempt >= max_attempts:
+                    return NotificationResult(
+                        ok=False,
+                        sent=False,
+                        trace_id=trace_id,
+                        attempts=max_attempts,
+                        error=f"telegram send failed after {max_attempts} attempts: {exc}",
+                        channel=self.channel,
+                    )
+
+        return NotificationResult(
+            ok=False,
+            sent=False,
+            trace_id=trace_id,
+            attempts=max_attempts,
+            error=f"telegram send failed after {max_attempts} attempts",
+            channel=self.channel,
+        )

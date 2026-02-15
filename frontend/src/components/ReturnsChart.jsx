@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import ReactECharts from 'echarts-for-react'
 import { fetchCumulativeReturns } from '../api.js'
 import { classBySign, formatPercent } from '../utils/format.js'
-import { Segmented, Spin, Alert } from 'antd'
+import { Segmented, Spin } from 'antd'
 
 const TIME_RANGES = [
   { key: '7', label: '7天' },
@@ -40,19 +40,17 @@ export function ReturnsChart({ user }) {
 
   if (!user) {
     return (
-      <div className="p-4 bg-gray-50 rounded text-center text-gray-500">
-        请先登录查看收益曲线
+      <div className="panel home-main">
+         <div className="chart-empty">请先登录查看收益曲线</div>
       </div>
     )
   }
 
   if (loading) {
     return (
-      <div className="p-4 bg-white rounded shadow">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <h3 className="text-sm font-medium text-gray-700">收益曲线</h3>
-          </div>
+      <div className="panel home-main">
+        <div className="section-head">
+          <h2>收益曲线</h2>
         </div>
         <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Spin tip="加载中..." />
@@ -63,16 +61,18 @@ export function ReturnsChart({ user }) {
 
   if (error) {
     return (
-      <div className="p-4 bg-red-50 rounded text-red-600 text-center">
-        {error}
+      <div className="panel home-main">
+        <div className="chart-empty">
+           <p className="chart-error">{error}</p>
+        </div>
       </div>
     )
   }
 
   if (!data || !data.labels || data.labels.length === 0) {
     return (
-      <div className="p-4 bg-gray-50 rounded text-center text-gray-500">
-        暂无历史收益数据
+      <div className="panel home-main">
+        <div className="chart-empty">暂无历史收益数据</div>
       </div>
     )
   }
@@ -196,22 +196,24 @@ export function ReturnsChart({ user }) {
   }
 
   return (
-    <div className="bg-white rounded shadow p-4">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-medium text-gray-700">收益曲线</h3>
-          <span className={`text-lg font-bold ${classBySign(lastReturn)}`}>
-            {formatPercent(lastReturn)}
+    <div className="panel home-main">
+      <div className="section-head">
+        <div>
+          <h2>收益曲线</h2>
+          <span style={{ fontSize: '13px', color: 'var(--muted)' }}>
+             累计: <span className={classBySign(lastReturn)}>{formatPercent(lastReturn)}</span>
           </span>
         </div>
-        <Segmented
-          options={TIME_RANGES.map(range => ({ label: range.label, value: Number(range.key) }))}
-          value={days}
-          onChange={(value) => setDays(value)}
-          size="small"
-        />
+        <div className="plan-actions">
+          <Segmented
+            options={TIME_RANGES.map(range => ({ label: range.label, value: Number(range.key) }))}
+            value={days}
+            onChange={(value) => setDays(value)}
+          />
+        </div>
       </div>
-      <div style={{ height: '200px' }}>
+
+      <div style={{ height: '260px' }}>
         <ReactECharts 
           option={getOption()} 
           style={{ height: '100%', width: '100%' }}
@@ -220,7 +222,7 @@ export function ReturnsChart({ user }) {
         />
       </div>
       {data?.data_status?.note && (
-        <div className="text-xs text-gray-500 mt-2 text-center">
+        <div className="chart-hint" style={{ textAlign: 'center', marginTop: 8 }}>
           {data.data_status.note}
         </div>
       )}

@@ -186,6 +186,35 @@ async def archive(request: Request, fund_id: str) -> dict[str, Any]:
     }
 
 
+@router.get("/{fund_id}")
+async def get_holding_detail(
+    request: Request,
+    fund_id: str,
+) -> dict[str, Any]:
+    """获取单个基金的持仓详情"""
+    user_id = get_holdings_user_id(request)
+    holdings = list_holdings(user_id=user_id, include_archived=False)
+    
+    # 查找指定基金的持仓
+    holding = next((h for h in holdings if h.get("fund_id") == fund_id), None)
+    
+    if not holding:
+        return JSONResponse(
+            {"detail": "未找到该基金持仓", "fund_id": fund_id},
+            status_code=404
+        )
+    
+    return {
+        "fund_id": fund_id,
+        "holding": holding,
+        "data_status": build_data_status(
+            status="confirmed",
+            asof=datetime.now().astimezone().isoformat(),
+            note="持仓来自本地数据库真源",
+        ),
+    }
+
+
 @router.get("/{fund_id}/audit")
 async def get_holding_audit(
     request: Request,
