@@ -41,6 +41,14 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // 跳过Vite开发服务器相关请求
+  if (url.pathname.includes('/@vite/') || 
+      url.pathname.includes('/@fs/') ||
+      url.pathname.includes('/src/')) {
+    event.respondWith(fetch(request));
+    return;
+  }
+
   // API请求 - Network First with Cache Fallback
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(handleAPIRequest(request));

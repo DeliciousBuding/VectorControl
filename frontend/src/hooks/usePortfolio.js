@@ -151,12 +151,27 @@ export function usePortfolio({ user, sorter }) {
       if (payload?.cache_hit) {
         setLoading(false)
         if (!silent) {
-          setStatus({ type: 'info', message: '已加载缓存，正在获取最新数据...' })
+          setStatus({ type: 'info', message: '已加载缓存数据' })
         }
         
-        // Background refresh
-        payload = await fetchEstimate({ preferCached: false, forceRefresh: true })
-        normalized = handlePayload(payload)
+        // Background refresh - 使用setTimeout让UI先渲染
+        setTimeout(() => {
+          fetchEstimate({ preferCached: false, forceRefresh: true })
+            .then((freshPayload) => {
+              handlePayload(freshPayload)
+              const freshFailedCount = freshPayload?.funds?.filter((item) => item.status !== 'ok').length || 0
+              if (freshFailedCount > 0) {
+                setStatus({ type: 'warning', message: `刷新完成，${freshFailedCount} 只基金估值异常` })
+              } else {
+                setStatus({ type: 'success', message: auto ? '自动刷新成功' : '刷新成功' })
+              }
+            })
+            .catch((err) => {
+              console.log('Background refresh failed:', err)
+            })
+        }, 100)
+        
+        return
       }
 
       const failedCount = normalized.filter((item) => item.status !== 'ok').length
