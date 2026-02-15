@@ -56,7 +56,7 @@ export function FundDetailPage({ fundId, onBack }) {
         
         setFundData(detailRes?.fund || null)
         setNavHistory(Array.isArray(historyRes?.items) ? historyRes.items : [])
-        setNavLatest(latestRes || null)
+        setNavLatest(latestRes?.latest || null)
         setTxList(txRes?.items || [])
         setTxSummary(txRes?.summary || { total_count: 0, pending_count: 0, confirmed_count: 0 })
       } catch (err) {
