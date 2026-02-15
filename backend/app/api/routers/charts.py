@@ -265,3 +265,95 @@ async def get_cumulative_returns(
             note=f"最近 {len(data)} 天累计收益率",
         ),
     }
+
+
+@router.get("/home_dashboard")
+async def get_home_dashboard(
+    request: Request,
+    returns_days: int = Query(default=30, ge=1, le=365, description="收益曲线天数"),
+) -> dict[str, Any]:
+    """
+    首页仪表盘聚合API - 一次性返回首页需要的所有图表数据
+    包括：累计收益曲线、收益历史、市场状态
+    """
+    from app.api.deps import get_snapshot_user_id
+    from app.utils.market_time import get_market_status
+    
+    user_id = get_snapshot_user_id(request)
+    
+    # 获取累计收益数据
+    limit = min(returns_days * 2, 500)
+    snapshots = list_estimate_snapshots(user_id, limit=limit)
+    
+    # 处理累计收益数据
+    cumulative_data = []
+    returns_history_data = []
+    
+    if snapshots:
+        daily_cumulative: dict[str, dict[str, Any]] = {}
+        daily_returns: dict[str, dict[str, Any]] = {}
+        
+        for snapshot in snapshots:
+            resolved = _resolve_snapshot_asof(snapshot)
+            if resolved is None:
+                continue
+            asof_text, asof_dt = resolved
+            date_key = asof_dt.date().isoformat()
+            
+            # 累计收益数据
+            existing_cum = daily_cumulative.get(date_key)
+            existing_cum_dt = existing_cum.get("_asof_dt") if isinstance(existing_cum, dict) else None
+            if not isinstance(existing_cum_dt, datetime) or asof_dt > existing_cum_dt:
+                daily_cumulative[date_key] = {
+                    "date": date_key,
+                    "label": asof_dt.strftime("%m-%d"),
+                    "asof": asof_text,
+                    "total_return": _calculate_total_return(snapshot),
+                    "_asof_dt": asof_dt,
+                }
+            
+            # 收益历史数据
+            existing_ret = daily_returns.get(date_key)
+            existing_ret_dt = existing_ret.get("_asof_dt") if isinstance(existing_ret, dict) else None
+            if not isinstance(existing_ret_dt, datetime) or asof_dt > existing_ret_dt:
+                summary = _summarize_snapshot(snapshot)
+                daily_returns[date_key] = {
+                    "date": date_key,
+                    "asof": asof_text,
+                    "total_market_value_cny": float(summary.get("total_market_value_cny") or 0.0),
+                    "total_cost_basis_cny": float(summary.get("total_cost_basis_cny") or 0.0),
+                    "total_return": float(summary.get("total_return") or 0.0),
+                    "day_profit": float(summary.get("day_profit") or 0.0),
+                    "_asof_dt": asof_dt,
+                }
+        
+        # 处理累计收益
+        cum_sorted = sorted(daily_cumulative.values(), key=lambda x: str(x.get("date") or ""))
+        cum_sorted = [{k: v for k, v in item.items() if k != "_asof_dt"} for item in cum_sorted]
+        if len(cum_sorted) > returns_days:
+            cum_sorted = cum_sorted[-returns_days:]
+        
+        cumulative_data = {
+            "labels": [str(item.get("label") or "") for item in cum_sorted],
+            "values": [float(item.get("total_return") or 0.0) for item in cum_sorted],
+            "count": len(cum_sorted),
+        }
+        
+        # 处理收益历史
+        ret_sorted = sorted(daily_returns.values(), key=lambda x: str(x.get("date") or ""))
+        ret_sorted = [{k: v for k, v in item.items() if k != "_asof_dt"} for item in ret_sorted]
+        if len(ret_sorted) > returns_days:
+            ret_sorted = ret_sorted[-returns_days:]
+        
+        returns_history_data = ret_sorted
+    
+    return {
+        "cumulative_returns": cumulative_data,
+        "returns_history": returns_history_data,
+        "market_status": get_market_status(),
+        "data_status": build_data_status(
+            status="confirmed" if cumulative_data else "partial",
+            asof=datetime.now().astimezone().isoformat(),
+            note="首页仪表盘数据（聚合API）",
+        ),
+    }

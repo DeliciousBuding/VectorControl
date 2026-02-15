@@ -336,8 +336,17 @@ export function fetchFundNavHistory(fundId, options = {}) {
 }
 
 export function fetchCumulativeReturns(days = 30) {
-  const query = new URLSearchParams({ days: String(days) })
+  const query = new URLSearchParams({
+    days: String(days)
+  })
   return apiFetch(`/api/charts/cumulative_returns?${query.toString()}`)
+}
+
+export function fetchHomeDashboard(returnsDays = 30) {
+  const query = new URLSearchParams({
+    returns_days: String(returnsDays)
+  })
+  return apiFetch(`/api/charts/home_dashboard?${query.toString()}`)
 }
 
 export function fetchReturnsHistory(days = 30) {
