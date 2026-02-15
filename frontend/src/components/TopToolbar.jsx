@@ -218,7 +218,7 @@ export function TopToolbar({
   )
 
   return (
-    <Header className="vc-top-header">
+    <Header className="top-header">
       <div className="vc-header-main-row">
         {/* 品牌区域 */}
         <div className="vc-brand-section">
