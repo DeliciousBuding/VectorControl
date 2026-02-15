@@ -5,11 +5,10 @@ const CACHE_NAME = 'vectorcontrol-v2';
 const STATIC_CACHE = 'vectorcontrol-static-v2';
 const API_CACHE = 'vectorcontrol-api-v2';
 
-// 静态资源缓存列表
+// 静态资源缓存列表（注意：实际文件名包含hash，由构建工具生成）
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/assets/index.css',
 ];
 
 // 安装时缓存静态资源
