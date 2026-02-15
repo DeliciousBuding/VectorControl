@@ -1851,7 +1851,7 @@ function App() {
           />
 
           <Content className="page-shell" style={{ width: '100%' }}>
-            {/* 基金详情独立页面 */}
+            {/* 基金详情独立页面 - 最高优先级 */}
             {currentView === 'fund-detail' && (
               <FundDetailPage 
                 fundId={detailFundId} 
@@ -1859,7 +1859,8 @@ function App() {
               />
             )}
             
-            {currentView === 'home' && activeTab === 'home' && (
+            {/* 只在非基金详情页时显示tab内容 */}
+            {currentView !== 'fund-detail' && activeTab === 'home' && (
         <>
           <SummaryCards rows={rows} loading={loading} />
           <Suspense fallback={<ChartSkeleton />}>
@@ -1983,7 +1984,7 @@ function App() {
         </>
       )}
 
-      {activeTab === 'watch' && (
+      {currentView !== 'fund-detail' && activeTab === 'watch' && (
         <section className="panel holdings-main">
           <div className="section-head">
             <h2>基金中心</h2>
@@ -2126,7 +2127,7 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'trade' && (
+      {currentView !== 'fund-detail' && activeTab === 'trade' && (
         <section className="panel holdings-main">
           <div className="section-head">
             <h2>交易入口</h2>
@@ -2753,7 +2754,7 @@ function App() {
         </section>
       )}
 
-      {activeTab === 'holdings' && (
+      {currentView !== 'fund-detail' && activeTab === 'holdings' && (
         <>
           <section className="panel holdings-main">
             <div className="section-head">
@@ -2956,7 +2957,7 @@ function App() {
         </>
       )}
 
-      {activeTab === 'profile' && (
+      {currentView !== 'fund-detail' && activeTab === 'profile' && (
         <section className="panel holdings-main">
           <div className="section-head">
             <h2>我的</h2>
