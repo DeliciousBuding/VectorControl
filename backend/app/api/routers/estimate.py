@@ -25,6 +25,7 @@ from app.storage.db import (
     save_estimate_snapshot,
     summarize_fund_transactions_map,
 )
+from app.utils.market_time import get_market_status, get_optimal_cache_ttl
 
 router = APIRouter(prefix="/api", tags=["估值"])
 
@@ -115,11 +116,22 @@ def _attach_data_status(payload: dict) -> None:
     payload["data_status"] = build_data_status(status=status, asof=asof, note=note)
 
 
+def _has_overseas_holdings(holdings: list) -> bool:
+    """检查是否有美股/海外持仓"""
+    for h in holdings:
+        if isinstance(h, dict):
+            market_group = str(h.get("market_group") or "").lower()
+            if market_group == "us_overseas":
+                return True
+    return False
+
+
 @router.get("/estimate")
 async def get_estimate(request: Request) -> dict:
     request_started = perf_counter()
     config = get_config(request)
     if is_admin(request):
+        holdings = list_holdings(get_holdings_user_id(request))
         portfolio = config.get("portfolio", {}) if isinstance(config, dict) else {}
     else:
         holdings = list_holdings(get_holdings_user_id(request))
@@ -129,7 +141,11 @@ async def get_estimate(request: Request) -> dict:
     prefer_cached = _to_bool(request.query_params.get("prefer_cached"), default=True)
     force_refresh = _to_bool(request.query_params.get("force_refresh"), default=False)
     enable_incremental_refresh = _to_bool(request.query_params.get("incremental"), default=True) and not force_refresh
-    cache_ttl_seconds = _estimate_cache_ttl_seconds()
+    
+    # 智能缓存策略：根据市场状态动态调整缓存时间
+    has_overseas = _has_overseas_holdings(holdings)
+    optimal_ttl = get_optimal_cache_ttl(has_overseas_holdings=has_overseas)
+    cache_ttl_seconds = optimal_ttl
     quote_cache_ttl_seconds = _incremental_quote_cache_ttl_seconds()
     latest_snapshot = get_latest_estimate_snapshot(snapshot_user_id)
 
@@ -168,5 +184,8 @@ async def get_estimate(request: Request) -> dict:
     _attach_risk_overview(payload, snapshot_user_id)
     payload["server_elapsed_ms"] = int((perf_counter() - request_started) * 1000)
     _attach_data_status(payload)
+    # 添加市场状态信息
+    payload["market_status"] = get_market_status()
+    payload["cache_ttl_seconds"] = cache_ttl_seconds
     save_estimate_snapshot(snapshot_user_id, payload["asof"], payload)
     return payload
