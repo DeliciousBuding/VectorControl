@@ -49,11 +49,11 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // 跳过Vite开发服务器相关请求
+  // 跳过Vite开发服务器相关请求 - 直接返回404避免加载HTML
   if (url.pathname.includes('/@vite/') || 
       url.pathname.includes('/@fs/') ||
       url.pathname.includes('/src/')) {
-    event.respondWith(fetch(request));
+    event.respondWith(new Response('Not Found', { status: 404 }));
     return;
   }
 
