@@ -1,6 +1,6 @@
 const { chromium } = require('playwright');
 
-const API_TOKEN = '_pgVl3GHxfKTUsD7HQWkbhgjSLWV1wrh';
+const API_TOKEN = 'n_g1edj-sP-Nex23SHp1wWlj11X8l8yL';
 
 (async () => {
   const browser = await chromium.launch({ headless: true });
@@ -25,7 +25,7 @@ const API_TOKEN = '_pgVl3GHxfKTUsD7HQWkbhgjSLWV1wrh';
     // 刷新页面，应该自动登录
     console.log('2. 刷新页面加载数据...');
     await page.goto('https://vectorcontrol.tech', { timeout: 60000 });
-    await page.waitForTimeout(8000);
+    await page.waitForTimeout(10000);
     await page.screenshot({ path: 'D:\\tmp\\01_home_with_data.png', fullPage: true });
     screenshots.push('01_home_with_data.png');
     console.log('   首页已截图');
