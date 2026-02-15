@@ -28,6 +28,7 @@ export const HoldingsTable = memo(function HoldingsTable({
   onSort,
   selectedFundId,
   onSelectFund,
+  onNavigateToFund,
   sparklineMap,
   onSaveHolding,
   onOpenAudit,
@@ -93,7 +94,31 @@ export const HoldingsTable = memo(function HoldingsTable({
         const config = statusConfig[record.confirm_state] || { color: 'default', text: '--', dot: false }
         return (
           <div className="fund-cell">
-            <div className="fund-name" title={record.name}>{record.name}</div>
+            <div 
+              className="fund-name" 
+              title={record.name}
+              style={{ 
+                cursor: onNavigateToFund ? 'pointer' : 'default',
+                color: onNavigateToFund ? '#4361ee' : 'inherit',
+                textDecoration: onNavigateToFund ? 'none' : 'inherit'
+              }}
+              onClick={(e) => {
+                if (onNavigateToFund) {
+                  e.stopPropagation()
+                  onNavigateToFund(record.fund_id)
+                }
+              }}
+              onMouseEnter={(e) => {
+                if (onNavigateToFund) {
+                  e.currentTarget.style.textDecoration = 'underline'
+                }
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.textDecoration = 'none'
+              }}
+            >
+              {record.name}
+            </div>
             <div className="fund-meta">
               <span className="fund-code">{record.fund_id}</span>
               <Tag 

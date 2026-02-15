@@ -67,6 +67,7 @@ const ChartSkeleton = () => (
 import { DiagnosticsPanel } from './components/DiagnosticsPanel.jsx'
 import { recordMetric } from './utils/metrics.js'
 import { computeNextRunDate, daysUntil, getDcaScheduleLabel, normalizeDcaSchedule } from './utils/dca.js'
+import { FundDetailPage } from './pages/FundDetailPage.jsx'
 
 const TRADE_TYPES = [
   { key: 'buy', label: '买入' },
@@ -203,6 +204,17 @@ function parseFundIdFromPath(pathname) {
   }
 }
 
+function parseFundDetailPath(pathname) {
+  // 新的基金详情页路由 /fund/:fund_id
+  const match = String(pathname || '').match(/^\/fund\/([^/]+)$/)
+  if (!match) return ''
+  try {
+    return decodeURIComponent(match[1] || '').trim()
+  } catch {
+    return String(match[1] || '').trim()
+  }
+}
+
 function isSystemStatusPath(pathname) {
   return /^\/system\/status\/?$/.test(String(pathname || ''))
 }
@@ -249,6 +261,8 @@ function App() {
   const [holdingAuditLoading, setHoldingAuditLoading] = useState(false)
   const [holdingAuditError, setHoldingAuditError] = useState('')
   const [activeTab, setActiveTab] = useState('home')
+  const [currentView, setCurrentView] = useState('home') // 'home' | 'fund-detail'
+  const [detailFundId, setDetailFundId] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -558,6 +572,11 @@ function App() {
 
   const handleTabChange = (tabKey) => {
     setActiveTab(tabKey)
+    setCurrentView('home')
+    // 从基金详情页返回时清理URL
+    if (window.location.pathname.startsWith('/fund/')) {
+      window.history.pushState({}, '', '/')
+    }
     if (tabKey !== 'watch' && window.location.pathname.startsWith('/funds/')) {
       window.history.pushState({}, '', '/')
     }
@@ -565,6 +584,23 @@ function App() {
       setProfileView('overview')
       window.history.pushState({}, '', '/')
     }
+  }
+  
+  // 导航到基金详情页
+  const navigateToFundDetail = (fundId) => {
+    const nextPath = `/fund/${encodeURIComponent(fundId)}`
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, '', nextPath)
+    }
+    setCurrentView('fund-detail')
+    setDetailFundId(fundId)
+  }
+  
+  // 从基金详情页返回
+  const navigateFromFundDetail = () => {
+    window.history.pushState({}, '', '/')
+    setCurrentView('home')
+    setDetailFundId('')
   }
 
   const openSystemStatusView = () => {
@@ -627,19 +663,33 @@ function App() {
 
   useEffect(() => {
     const applyPathState = () => {
+      // 优先检查新的基金详情页路由 /fund/:fund_id
+      const fundDetailId = parseFundDetailPath(window.location.pathname)
+      if (fundDetailId) {
+        setCurrentView('fund-detail')
+        setDetailFundId(fundDetailId)
+        return
+      }
+      
+      // 检查旧的基金中心路由 /funds/:fund_id
       const fundIdFromPath = parseFundIdFromPath(window.location.pathname)
       if (fundIdFromPath) {
         setActiveTab('watch')
         setFundCenterSelectedId(fundIdFromPath)
         setFundCenterQuery((prev) => prev || fundIdFromPath)
+        setCurrentView('home')
         return
       }
+      
       if (isSystemStatusPath(window.location.pathname)) {
         setActiveTab('profile')
         setProfileView('system-status')
+        setCurrentView('home')
         return
       }
+      
       setProfileView('overview')
+      setCurrentView('home')
     }
 
     applyPathState()
@@ -1801,7 +1851,15 @@ function App() {
           />
 
           <Content className="page-shell" style={{ width: '100%' }}>
-            {activeTab === 'home' && (
+            {/* 基金详情独立页面 */}
+            {currentView === 'fund-detail' && (
+              <FundDetailPage 
+                fundId={detailFundId} 
+                onBack={navigateFromFundDetail}
+              />
+            )}
+            
+            {currentView === 'home' && activeTab === 'home' && (
         <>
           <SummaryCards rows={rows} loading={loading} />
           <Suspense fallback={<ChartSkeleton />}>
@@ -2818,6 +2876,7 @@ function App() {
               onSort={handleSortByKey}
               selectedFundId={currentFund?.fund_id || ''}
               onSelectFund={setSelectedFundId}
+              onNavigateToFund={navigateToFundDetail}
               sparklineMap={sparklineMap}
               onSaveHolding={saveHolding}
               onOpenAudit={handleOpenHoldingAudit}
@@ -2833,6 +2892,7 @@ function App() {
               onSort={handleSortByKey}
               selectedFundId={currentFund?.fund_id || ''}
               onSelectFund={setSelectedFundId}
+              onNavigateToFund={navigateToFundDetail}
               sparklineMap={sparklineMap}
               onSaveHolding={saveHolding}
               onOpenAudit={handleOpenHoldingAudit}
