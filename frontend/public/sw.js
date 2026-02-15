@@ -1,9 +1,9 @@
 // Service Worker for VectorControl
 // 缓存策略：Cache First for static, Network First for API
 
-const CACHE_NAME = 'vectorcontrol-v1';
-const STATIC_CACHE = 'vectorcontrol-static-v1';
-const API_CACHE = 'vectorcontrol-api-v1';
+const CACHE_NAME = 'vectorcontrol-v2';
+const STATIC_CACHE = 'vectorcontrol-static-v2';
+const API_CACHE = 'vectorcontrol-api-v2';
 
 // 静态资源缓存列表
 const STATIC_ASSETS = [
@@ -32,7 +32,15 @@ self.addEventListener('activate', (event) => {
           .filter((name) => name.startsWith('vectorcontrol-') && name !== STATIC_CACHE && name !== API_CACHE)
           .map((name) => caches.delete(name))
       );
-    }).then(() => self.clients.claim())
+    }).then(() => {
+      // 通知所有客户端Service Worker已激活
+      self.clients.matchAll().then((clients) => {
+        clients.forEach((client) => {
+          client.postMessage({ type: 'SKIP_WAITING' });
+        });
+      });
+      return self.clients.claim();
+    })
   );
 });
 
