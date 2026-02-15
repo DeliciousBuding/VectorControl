@@ -5,7 +5,18 @@ from datetime import datetime, time, timedelta
 from typing import Tuple, Optional
 import json
 
-# 中国节假日（2026年）- 需要每年更新
+# 中国节假日（2025年）
+CN_HOLIDAYS_2025 = {
+    "2025-01-01",  # 元旦
+    "2025-01-28", "2025-01-29", "2025-01-30", "2025-01-31", "2025-02-01", "2025-02-02", "2025-02-03", "2025-02-04",  # 春节
+    "2025-04-04", "2025-04-05", "2025-04-06",  # 清明节
+    "2025-05-01", "2025-05-02", "2025-05-03", "2025-05-04", "2025-05-05",  # 劳动节
+    "2025-05-31", "2025-06-01", "2025-06-02",  # 端午节
+    "2025-10-01", "2025-10-02", "2025-10-03", "2025-10-04", "2025-10-05", "2025-10-06", "2025-10-07", "2025-10-08",  # 国庆节
+    "2025-10-06", "2025-10-07", "2025-10-08",  # 中秋节（与国庆重叠）
+}
+
+# 中国节假日（2026年）
 CN_HOLIDAYS_2026 = {
     "2026-01-01",  # 元旦
     "2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-21",  # 春节
@@ -16,7 +27,20 @@ CN_HOLIDAYS_2026 = {
     "2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08",  # 国庆节
 }
 
-# 美国节假日（2026年）- 美股休市
+# 美国节假日（2025年）
+US_HOLIDAYS_2025 = {
+    "2025-01-01",  # New Year's Day
+    "2025-01-20",  # Martin Luther King Jr. Day
+    "2025-02-17",  # Presidents' Day
+    "2025-04-18",  # Good Friday
+    "2025-05-26",  # Memorial Day
+    "2025-07-04",  # Independence Day
+    "2025-09-01",  # Labor Day
+    "2025-11-27",  # Thanksgiving
+    "2025-12-25",  # Christmas Day
+}
+
+# 美国节假日（2026年）
 US_HOLIDAYS_2026 = {
     "2026-01-01",  # New Year's Day
     "2026-01-19",  # Martin Luther King Jr. Day
@@ -28,6 +52,10 @@ US_HOLIDAYS_2026 = {
     "2026-11-26",  # Thanksgiving
     "2026-12-25",  # Christmas Day
 }
+
+# 合并所有节假日
+CN_HOLIDAYS = {**CN_HOLIDAYS_2025, **CN_HOLIDAYS_2026}
+US_HOLIDAYS = {**US_HOLIDAYS_2025, **US_HOLIDAYS_2026}
 
 
 def get_beijing_time(dt: Optional[datetime] = None) -> datetime:
@@ -66,7 +94,7 @@ def is_cn_market_open(dt: Optional[datetime] = None) -> bool:
         return False
     
     # 节假日休市
-    if date_str in CN_HOLIDAYS_2026:
+    if date_str in CN_HOLIDAYS:
         return False
     
     # 交易时段判断
@@ -91,7 +119,7 @@ def is_us_market_open(dt: Optional[datetime] = None) -> bool:
         return False
     
     # 节假日休市
-    if date_str in US_HOLIDAYS_2026:
+    if date_str in US_HOLIDAYS:
         return False
     
     # 交易时段判断
@@ -128,17 +156,35 @@ def get_market_status(dt: Optional[datetime] = None) -> dict:
     
     # 节假日检测
     date_str = beijing.strftime("%Y-%m-%d")
-    is_cn_holiday = date_str in CN_HOLIDAYS_2026
-    is_us_holiday = date_str in US_HOLIDAYS_2026
+    is_cn_holiday = date_str in CN_HOLIDAYS
+    is_us_holiday = date_str in US_HOLIDAYS
     
     # 特殊节日检测
     holiday_name = None
-    if date_str in ["2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-21"]:
-        holiday_name = "春节假期"
-    elif date_str in ["2026-12-25"]:
-        holiday_name = "圣诞节"
+    # 中国春节
+    if date_str in ["2025-01-28", "2025-01-29", "2025-01-30", "2025-01-31", "2025-02-01", "2025-02-02", "2025-02-03", "2025-02-04"]:
+        holiday_name = "🧧 春节假期"
+    elif date_str in ["2026-02-17", "2026-02-18", "2026-02-19", "2026-02-20", "2026-02-21"]:
+        holiday_name = "🧧 春节假期"
+    # 圣诞节
+    elif date_str in ["2025-12-25", "2026-12-25"]:
+        holiday_name = "🎄 圣诞节"
+    # 元旦
+    elif date_str in ["2025-01-01", "2026-01-01"]:
+        holiday_name = "🎉 元旦"
+    # 劳动节
+    elif date_str in ["2025-05-01", "2025-05-02", "2025-05-03", "2025-05-04", "2025-05-05"]:
+        holiday_name = "🛠️ 劳动节"
+    elif date_str in ["2026-05-01", "2026-05-02", "2026-05-03", "2026-05-04", "2026-05-05"]:
+        holiday_name = "🛠️ 劳动节"
+    # 国庆节
+    elif date_str in ["2025-10-01", "2025-10-02", "2025-10-03", "2025-10-04", "2025-10-05", "2025-10-06", "2025-10-07", "2025-10-08"]:
+        holiday_name = "🇨🇳 国庆节"
+    elif date_str in ["2026-10-01", "2026-10-02", "2026-10-03", "2026-10-04", "2026-10-05", "2026-10-06", "2026-10-07", "2026-10-08"]:
+        holiday_name = "🇨🇳 国庆节"
+    # 周末
     elif beijing.weekday() >= 5:
-        holiday_name = "周末"
+        holiday_name = "📅 周末"
     
     return {
         "beijing_time": beijing.strftime("%Y-%m-%d %H:%M:%S"),

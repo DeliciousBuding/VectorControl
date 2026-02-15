@@ -148,6 +148,35 @@ async def get_estimate(request: Request) -> dict:
     cache_ttl_seconds = optimal_ttl
     quote_cache_ttl_seconds = _incremental_quote_cache_ttl_seconds()
     latest_snapshot = get_latest_estimate_snapshot(snapshot_user_id)
+    
+    # 检查是否是节假日/周末（非交易时间）
+    market_status = get_market_status()
+    is_holiday_or_weekend = market_status.get("holiday_name") is not None
+    
+    # 非交易时间：优先使用预计算数据，缓存时间更长
+    if is_holiday_or_weekend and not force_refresh:
+        # 非交易时间缓存2小时
+        extended_ttl = 7200  # 2小时
+        snapshot_age_seconds = _snapshot_age_seconds(latest_snapshot)
+        if latest_snapshot and snapshot_age_seconds is not None and snapshot_age_seconds <= extended_ttl:
+            payload = dict(latest_snapshot)
+            _attach_risk_overview(payload, snapshot_user_id)
+            payload["cache_hit"] = True
+            payload["cache_age_seconds"] = round(snapshot_age_seconds, 3)
+            payload["cache_ttl_seconds"] = extended_ttl
+            payload["holiday_cached"] = True
+            payload["holiday_name"] = market_status.get("holiday_name")
+            funds = payload.get("funds", [])
+            fund_count = len(funds) if isinstance(funds, list) else 0
+            payload.setdefault("incremental_enabled", bool(enable_incremental_refresh))
+            payload.setdefault("incremental_mode", "holiday_snapshot_hit")
+            payload.setdefault("incremental_quote_cache_ttl_seconds", quote_cache_ttl_seconds)
+            payload.setdefault("incremental_reused_quotes", fund_count)
+            payload.setdefault("incremental_fetched_quotes", 0)
+            payload["server_elapsed_ms"] = int((perf_counter() - request_started) * 1000)
+            _attach_data_status(payload)
+            payload["market_status"] = market_status
+            return payload
 
     if cache_ttl_seconds > 0 and prefer_cached and not force_refresh:
         snapshot_age_seconds = _snapshot_age_seconds(latest_snapshot)
@@ -165,6 +194,7 @@ async def get_estimate(request: Request) -> dict:
             payload.setdefault("incremental_fetched_quotes", 0)
             payload["server_elapsed_ms"] = int((perf_counter() - request_started) * 1000)
             _attach_data_status(payload)
+            payload["market_status"] = market_status
             return payload
 
     yesterday = _yesterday_str()
@@ -185,7 +215,7 @@ async def get_estimate(request: Request) -> dict:
     payload["server_elapsed_ms"] = int((perf_counter() - request_started) * 1000)
     _attach_data_status(payload)
     # 添加市场状态信息
-    payload["market_status"] = get_market_status()
+    payload["market_status"] = market_status
     payload["cache_ttl_seconds"] = cache_ttl_seconds
     save_estimate_snapshot(snapshot_user_id, payload["asof"], payload)
     return payload
