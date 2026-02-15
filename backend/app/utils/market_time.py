@@ -53,9 +53,9 @@ US_HOLIDAYS_2026 = {
     "2026-12-25",  # Christmas Day
 }
 
-# 合并所有节假日
-CN_HOLIDAYS = {**CN_HOLIDAYS_2025, **CN_HOLIDAYS_2026}
-US_HOLIDAYS = {**US_HOLIDAYS_2025, **US_HOLIDAYS_2026}
+# 合并所有节假日（使用集合合并）
+CN_HOLIDAYS = CN_HOLIDAYS_2025 | CN_HOLIDAYS_2026
+US_HOLIDAYS = US_HOLIDAYS_2025 | US_HOLIDAYS_2026
 
 
 def get_beijing_time(dt: Optional[datetime] = None) -> datetime:
