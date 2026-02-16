@@ -17,9 +17,10 @@ import {
   saveAction,
   searchFunds,
   syncPendingTransactions,
+  importTransactionsJson,
   AUTH_EVENT_EXPIRY
 } from './api.js'
-import { Layout, Spin, Alert, Button, Input, InputNumber, DatePicker, Checkbox, Select, message, Table, Tag, Tooltip, Space } from 'antd'
+import { Layout, Spin, Alert, Button, Input, InputNumber, DatePicker, Checkbox, Select, message, Table, Tag, Tooltip, Space, Modal } from 'antd'
 import { 
   ReloadOutlined, SettingOutlined, UserOutlined,
   PlusOutlined, EditOutlined, DeleteOutlined, 
@@ -357,6 +358,11 @@ function App() {
   const [tradeSubmitting, setTradeSubmitting] = useState(false)
   const [tradeSubmitError, setTradeSubmitError] = useState('')
   const [tradeSubmitResult, setTradeSubmitResult] = useState(null)
+  const [importJsonModalOpen, setImportJsonModalOpen] = useState(false)
+  const [importJsonText, setImportJsonText] = useState('')
+  const [importJsonLoading, setImportJsonLoading] = useState(false)
+  const [importJsonError, setImportJsonError] = useState('')
+  const [importJsonResult, setImportJsonResult] = useState(null)
   const [planName, setPlanName] = useState('')
   const [planFundCode, setPlanFundCode] = useState('')
   const [planAmount, setPlanAmount] = useState('')
@@ -1607,6 +1613,35 @@ function App() {
     }
   }
 
+  const handleImportJson = async () => {
+    setImportJsonError('')
+    setImportJsonResult(null)
+    try {
+      const parsed = JSON.parse(importJsonText)
+      if (!Array.isArray(parsed)) {
+        setImportJsonError('JSON 必须是数组格式')
+        return
+      }
+      setImportJsonLoading(true)
+      const result = await importTransactionsJson({
+        version: '1.0',
+        default_status: 'pending',
+        source: 'import_json',
+        auto_fetch_nav: true,
+        transactions: parsed
+      })
+      setImportJsonResult(result)
+      await loadTransactionList(transactionFilterStatus, { silent: true })
+      recordMetric('JSON导入成功', { added: result.added, skipped: result.skipped })
+    } catch (error) {
+      const errMsg = error instanceof SyntaxError ? 'JSON 格式错误' : toGuidedError(error, 'import_json', '导入失败')
+      setImportJsonError(errMsg)
+      recordMetric('JSON导入失败', { error: String(error) })
+    } finally {
+      setImportJsonLoading(false)
+    }
+  }
+
   const handleSyncPending = async () => {
     setSyncPendingError('')
     setSyncPendingResult(null)
@@ -2221,6 +2256,62 @@ function App() {
             </div>
           )}
           <p className="trade-tip">已打通买入/定投/赎回/转换入口，提交后写入执行记录并在下方列表回显。</p>
+
+          <Button
+            type="default"
+            block
+            style={{ marginTop: 12 }}
+            onClick={() => {
+              setImportJsonModalOpen(true)
+              setImportJsonText('')
+              setImportJsonError('')
+              setImportJsonResult(null)
+            }}
+          >
+            批量导入 JSON
+          </Button>
+
+          <Modal
+            title="批量导入交易记录 (JSON)"
+            open={importJsonModalOpen}
+            onOk={handleImportJson}
+            onCancel={() => setImportJsonModalOpen(false)}
+            confirmLoading={importJsonLoading}
+            width={600}
+            okText="导入"
+            cancelText="关闭"
+          >
+            <p style={{ marginBottom: 8 }}>
+              请输入 JSON 格式的交易记录数组，每条记录需包含以下必填字段：
+              <code>fund_id, action, occurred_at, amount_cny</code>
+            </p>
+            <Input.TextArea
+              value={importJsonText}
+              onChange={(e) => setImportJsonText(e.target.value)}
+              placeholder={`[
+  {
+    "fund_id": "016453",
+    "fund_name": "易方达消费行业股票",
+    "action": "buy",
+    "occurred_at": "2024-01-15T10:30:00",
+    "amount_cny": 1000,
+    "nav": 1.2345
+  }
+]`}
+              rows={12}
+              style={{ fontFamily: 'monospace', fontSize: 12 }}
+            />
+            {importJsonError && (
+              <Alert type="error" message={importJsonError} style={{ marginTop: 8 }} />
+            )}
+            {importJsonResult && (
+              <Alert
+                type="success"
+                message={`导入完成：新增 ${importJsonResult.added} 条，跳过 ${importJsonResult.skipped} 条，冲突 ${importJsonResult.conflicted} 条`}
+                style={{ marginTop: 8 }}
+              />
+            )}
+          </Modal>
 
           <div className="sip-plans-section">
             <Suspense fallback={<Spin tip="加载定投计划..." />}>

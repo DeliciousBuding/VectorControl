@@ -247,6 +247,10 @@ export function syncPendingTransactions(payload = {}) {
   return apiFetch('/api/transactions/sync_pending', { method: 'POST', body: payload })
 }
 
+export function importTransactionsJson(payload) {
+  return apiFetch('/api/transactions/import_json', { method: 'POST', body: payload })
+}
+
 export function patchTransaction(transactionId, payload = {}) {
   return apiFetch(`/api/transactions/${encodeURIComponent(String(transactionId || '').trim())}`, {
     method: 'PATCH',

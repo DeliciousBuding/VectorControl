@@ -342,6 +342,47 @@ export function syncPendingTransactions(payload: { limit?: number; fund_id?: str
   return apiFetch<unknown>('/api/transactions/sync_pending', { method: 'POST', body: payload });
 }
 
+export interface ImportTransactionItem {
+  idempotency_key?: string;
+  external_order_no?: string;
+  fund_id: string;
+  fund_name?: string;
+  action: string;
+  occurred_at: string;
+  amount_cny: number;
+  status?: string;
+  confirmed_at?: string;
+  shares?: number;
+  nav?: number;
+  fee_cny?: number;
+  note?: string;
+  tags?: string[];
+  source?: string;
+}
+
+export interface ImportTransactionsJsonPayload {
+  version?: string;
+  default_status?: string;
+  source?: string;
+  auto_fetch_nav?: boolean;
+  transactions: ImportTransactionItem[];
+}
+
+export interface ImportTransactionsResult {
+  added: number;
+  skipped: number;
+  conflicted: number;
+  warnings_count: number;
+  completed_count: number;
+  conflicts: Array<{ index: number; reason: string }>;
+  warnings: Array<{ index: number; message: string }>;
+  completed: Array<{ index: number; transaction_id: string }>;
+}
+
+export function importTransactionsJson(payload: ImportTransactionsJsonPayload): Promise<ImportTransactionsResult> {
+  return apiFetch<ImportTransactionsResult>('/api/transactions/import_json', { method: 'POST', body: payload });
+}
+
 export function patchTransaction(transactionId: string | number, payload: unknown): Promise<{ transaction: Transaction }> {
   return apiFetch<{ transaction: Transaction }>(`/api/transactions/${encodeURIComponent(String(transactionId || '').trim())}`, {
     method: 'PATCH',
