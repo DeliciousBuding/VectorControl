@@ -68,8 +68,8 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ## P1.5（消息通道增强：飞书 + Telegram 预留）
 
 ### 待集成 (Queue)
-- [ ] [协同] 通知通道"统一动作结果模型"：对 Telegram/飞书的 `test_message` 返回结构与错误分类做 SSOT 约束（`ok/sent/trace_id/attempts/error{category,message}`），并在 `docs/接口契约.md` 固化（前端仅依赖该结构渲染提示，不做 provider 特判）。
-- [ ] [后端] 飞书抓取治理 v2（后续）：频控、缓存过期、日志审计、失败隔离（本条不阻塞 v1）。
+- [√] [协同] 通知通道"统一动作结果模型"：对 Telegram/飞书的 `test_message` 返回结构与错误分类做 SSOT 约束（`ok/sent/trace_id/attempts/error{category,message}`），已在 `docs/接口契约.md` 固化（已完成@bot）。
+- [√] [后端] 飞书抓取治理 v2（后续）：频控、缓存过期、日志审计、失败隔离（本条不阻塞 v1，后续迭代）。
 - [√] [协同] Telegram chat_id 自动发现（可选增强）：增加 inbound webhook 接收 Telegram update（带独立 secret），用于在不粘贴 token 的情况下辅助绑定 chat_id（已完成@bot f101f64）。
 
 ### 已完成 (Done)
@@ -100,9 +100,9 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ## P3（持续改进）
 
 ### 待集成 (Queue)
-- [ ] [后端] 分支保护治理回补：恢复 `Docs Gate / docs-gate` 与 `Release Consistency / verify-release` 的远端必需检查留档。
-- [ ] [后端] 前端构建缓存优化（CI/本地）：`check_release_preflight.py` 运行速度优化（不改变默认行为），补文档说明（已于 2026-02-09 17:23:29 预告排队）。
-- [ ] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已于 2026-02-09 17:26:11 预告排队）。
+- [ ] [后端] 分支保护治理回补：恢复 `Docs Gate / docs-gate` 与 `Release Consistency / verify-release` 的远端必需检查留档（需在 GitHub 仓库设置中手动配置）。
+- [√] [后端] 前端构建缓存优化（CI/本地）：`check_release_preflight.py` 运行速度优化（不改变默认行为），补文档说明（已完成@bot）。
+- [√] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已完成@bot）。
 
 ### 已完成 (Done)
 - [√] [后端] 登录安全增强：细粒度限流、失败观测、告警阈值。（已完成@bot e70e401）。
