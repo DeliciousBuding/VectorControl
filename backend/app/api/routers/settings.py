@@ -946,3 +946,144 @@ async def post_network_benchmark_run_compat(request: Request, payload: NetworkBe
 @compat_router.post("/network_benchmark/run")
 async def post_network_benchmark_run_compat_legacy(request: Request, payload: NetworkBenchmarkRunIn) -> dict:
     return await post_network_benchmark_run(request, payload)
+
+
+# ============================================
+# Telegram Inbound Webhook (Auto-discover chat_id)
+# ============================================
+
+
+
+# ============================================
+# Telegram Inbound Webhook (Auto-discover chat_id)
+# ============================================
+
+class TelegramWebhookConfigIn(BaseModel):
+    """配置 Telegram inbound webhook"""
+    secret: str = Field(min_length=8, max_length=64, description="独立的 secret 用于验证请求")
+    enabled: bool = True
+
+
+class TelegramInboundUpdate(BaseModel):
+    """Telegram Webhook Update 请求体"""
+    update_id: int
+    message: dict | None = None
+    edited_message: dict | None = None
+    callback_query: dict | None = None
+
+
+@router.put("/notifications/telegram/webhook")
+async def put_telegram_webhook_config(request: Request, payload: TelegramWebhookConfigIn) -> dict:
+    """
+    配置 Telegram inbound webhook
+    用于自动发现 chat_id：用户向 bot 发送消息时，系统自动获取 chat_id
+    secret 格式：{user_id}_{random_secret}
+    """
+    user_id = get_holdings_user_id(request)
+    secret = str(payload.secret or "").strip()
+    enabled = bool(payload.enabled)
+
+    # 生成完整的 secret（包含 user_id）
+    full_secret = f"{user_id}_{secret}" if not secret.startswith(user_id) else secret
+
+    settings = upsert_user_settings(
+        user_id,
+        {
+            "notifications": {
+                "telegram": {
+                    "webhook_secret": full_secret,
+                    "webhook_enabled": enabled,
+                }
+            }
+        },
+    )
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+    telegram = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+
+    # 返回可用于配置 Telegram webhook 的 URL
+    webhook_url = f"/api/settings/notifications/telegram/webhook/{full_secret}"
+
+    return {
+        "user_id": user_id,
+        "webhook_url": webhook_url,
+        "webhook_enabled": bool(telegram.get("webhook_enabled", False)),
+        "webhook_secret_configured": True,
+    }
+
+
+@router.post("/notifications/telegram/webhook/{full_secret}")
+async def telegram_webhook_inbound(request: Request, full_secret: str, payload: TelegramInboundUpdate) -> dict:
+    """
+    Telegram inbound webhook 端点
+    当用户向 bot 发送消息时，Telegram 会向此端点发送 POST 请求
+    系统自动从 update 中提取 chat_id 并保存
+    secret 格式：{user_id}_{random_secret}
+    """
+    # 从 secret 中提取 user_id
+    parts = full_secret.split("_", 1)
+    if len(parts) < 2:
+        raise HTTPException(status_code=404, detail="Invalid webhook secret format")
+
+    target_user_id = parts[0]
+    secret = parts[1]
+
+    # 验证 secret
+    settings = get_user_settings(target_user_id)
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+    telegram = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+    stored_secret = str(telegram.get("webhook_secret", "")).strip()
+
+    if stored_secret != full_secret:
+        raise HTTPException(status_code=404, detail="Invalid webhook secret")
+
+    # 从 update 中提取 chat_id
+    chat_id = None
+    message = payload.message or payload.edited_message
+    if message:
+        chat_id = message.get("chat", {}).get("id")
+    elif payload.callback_query:
+        chat_id = payload.callback_query.get("message", {}).get("chat", {}).get("id")
+
+    if not chat_id:
+        return {"ok": True, "skipped": True, "reason": "No chat_id in update"}
+
+    # 自动保存 chat_id
+    try:
+        upsert_user_settings(
+            target_user_id,
+            {
+                "notifications": {
+                    "telegram": {
+                        "chat_id": str(chat_id),
+                    }
+                }
+            },
+        )
+    except Exception:
+        pass
+
+    return {"ok": True, "chat_id": str(chat_id), "saved": True}
+
+
+@router.get("/notifications/telegram/webhook/status")
+async def get_telegram_webhook_status(request: Request) -> dict:
+    """获取 Telegram webhook 配置状态"""
+    user_id = get_holdings_user_id(request)
+    settings = get_user_settings(user_id)
+
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+    telegram = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+    webhook_secret = str(telegram.get("webhook_secret", "")).strip()
+
+    # 返回隐藏部分 secret 的版本
+    display_secret = None
+    if webhook_secret and "_" in webhook_secret:
+        parts = webhook_secret.split("_", 1)
+        display_secret = f"{parts[0][:8]}..._{parts[1][:8]}"
+
+    return {
+        "webhook_enabled": bool(telegram.get("webhook_enabled", False)),
+        "webhook_secret_configured": bool(webhook_secret),
+        "webhook_secret_display": display_secret,
+    }
+
