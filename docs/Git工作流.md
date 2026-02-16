@@ -45,7 +45,7 @@
 ## 5. main 发布流程
 
 1. 确认 `dev` 分支所有功能稳定可用
-2. 发布前执行预检：`python scripts/check_release_preflight.py`
+2. 发布前执行预检：`python scripts/check_docs_gate.py` 或 `python scripts/check_main_release.py`
 3. 确定版本号（`git tag --sort=-v:refname` 查看当前最新）
 4. 合并到 main 并写发布说明：
    ```bash
@@ -83,7 +83,7 @@
   - 本次核对过的文档范围
   - 已更新的文档与核心变更点
   - 是否存在延后更新项（如有，必须写入 `ROADMAP.md`）
-- 发布前执行：`python scripts/check_release_preflight.py`
+- 发布前执行：`python scripts/check_docs_gate.py --strict` 或 `python scripts/check_main_release.py`
 - 发布后执行：`python scripts/check_main_release.py --commit HEAD --check-remote-tag --remote origin`
 
 ## 7. 合并门槛

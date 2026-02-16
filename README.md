@@ -17,9 +17,9 @@ VectorControl 是一个面向个人投资决策的全栈系统，核心目标是
 
 ## 2. 技术栈
 
-- 前端：`React + Vite`
-- 后端：`FastAPI`
-- 存储：`PostgreSQL`（生产），兼容本地轻量运行
+- 前端：`React + TypeScript + Vite + Ant Design + ECharts + Zustand`
+- 后端：`FastAPI + Python`
+- 数据库：`PostgreSQL`（生产），`SQLite`（本地开发）
 - 部署：`Docker Compose + Nginx + Let's Encrypt`
 - 配置：`config/*.yaml`（策略与初始化配置）
 

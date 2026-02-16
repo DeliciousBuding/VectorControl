@@ -125,3 +125,57 @@ transactions:
 - 导入 `pending` 记录后，不直接计入确认收益。
 - `sync_pending` 补全后转 `confirmed`，再进入收益主口径。
 - 所有交易导入与补全都应反映到 `data_status.note`，用于前端解释当前数据可信度。
+
+---
+
+## 9. JSON 格式导入（等效）
+
+除了 YAML 格式，系统还支持 JSON 格式导入：`POST /api/transactions/import_json`
+
+### JSON 请求示例
+
+```json
+{
+  "version": "1.0",
+  "default_status": "pending",
+  "source": "import_json",
+  "auto_fetch_nav": true,
+  "transactions": [
+    {
+      "fund_id": "016453",
+      "fund_name": "易方达消费行业股票",
+      "action": "buy",
+      "occurred_at": "2024-01-15T10:30:00",
+      "amount_cny": 1000,
+      "nav": 1.2345,
+      "shares": 810.12
+    }
+  ]
+}
+```
+
+### 与 YAML 的差异
+
+| 特性 | YAML | JSON |
+|------|------|------|
+| 自动补全 NAV | 需手动 | `auto_fetch_nav: true` 自动补全 |
+| 幂等性 | `idempotency_key` | `idempotency_key`（可选） |
+
+### 响应说明
+
+```json
+{
+  "added": 5,
+  "skipped": 2,
+  "conflicted": 0,
+  "warnings_count": 1,
+  "completed_count": 3,
+  "conflicts": [],
+  "warnings": [
+    { "index": 1, "message": "NAV 自动补全成功" }
+  ],
+  "completed": [
+    { "index": 0, "transaction_id": "xxx" }
+  ]
+}
+```
