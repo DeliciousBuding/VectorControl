@@ -5,6 +5,15 @@ import zhCN from 'antd/locale/zh_CN';
 import App from './App.jsx'
 import './index.css'
 
+// 自动更新初始化（仅在 Capacitor 环境下生效）
+if (typeof window !== 'undefined' && window.Capacitor) {
+  import('./utils/autoUpdate').then(({ autoUpdate }) => {
+    console.log('[VectorControl] Auto-update initialized')
+  }).catch(() => {
+    // 非 Capacitor 环境忽略
+  })
+}
+
 const theme = {
   token: {
     colorPrimary: '#4361ee',

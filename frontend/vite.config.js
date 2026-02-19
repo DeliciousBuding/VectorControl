@@ -6,10 +6,10 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     // 打包分析（仅分析模式启用）
-    mode === 'analyze' && visualizer({ 
+    mode === 'analyze' && visualizer({
       open: true,
       gzipSize: true,
-      brotliSize: true 
+      brotliSize: true
     })
   ],
   server: {
@@ -76,6 +76,8 @@ export default defineConfig(({ mode }) => ({
     include: ['antd', 'echarts', 'dayjs', '@ant-design/icons'],
     exclude: []
   },
+  // 确保 Capacitor 插件不被打包
+  external: ['@capgo/capacitor-updater', '@ionic/core'],
   test: {
     environment: 'jsdom',
     globals: true,

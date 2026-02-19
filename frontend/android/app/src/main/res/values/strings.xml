@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">VectorControl</string>
+    <string name="title_activity_main">VectorControl</string>
+    <string name="package_name">com.vectorcontrol.app</string>
+    <string name="custom_url_scheme">com.vectorcontrol.app</string>
+</resources>
