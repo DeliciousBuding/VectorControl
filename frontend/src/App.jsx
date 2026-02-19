@@ -31,6 +31,7 @@ import { classBySign, formatDate, formatDateTime, formatMoney, formatPercent } f
 import { toGuidedError } from './utils/errorFeedback.js'
 import { resolveGlobalSearchTarget } from './utils/searchRouting.js'
 import { ErrorBoundary } from './components/ErrorBoundary.jsx'
+import { ErrorDisplay } from './components/ErrorDisplay.jsx'
 import { LoginPanel } from './components/LoginPanel.jsx'
 import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
@@ -564,6 +565,24 @@ function App() {
   const handleOpenTradeEntry = useCallback((source = 'unknown') => {
     recordMetric('交易入口点击', { source })
     setActiveTab('trade')
+  }, [])
+
+  // 快速买入 - 从持仓列表直接打开交易表单
+  const handleQuickBuy = useCallback((record) => {
+    recordMetric('快速买入点击', { fund_id: record.fund_id, fund_name: record.name })
+    setTradeType('buy')
+    setTradeFundCode(record.fund_id || '')
+    setTradeAmount(null)
+    setTradeSubmitError('')
+    setTradeSubmitResult(null)
+    setActiveTab('trade')
+    // 滚动到交易表单
+    setTimeout(() => {
+      const formElement = document.querySelector('.trade-form')
+      if (formElement) {
+        formElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      }
+    }, 100)
   }, [])
 
   const handleSortByKey = useCallback((key) => {
@@ -1548,8 +1567,16 @@ function App() {
     event.preventDefault()
     const code = tradeFundCode.trim()
     const amount = Number(tradeAmount)
+
+    // 验证金额
     if (!Number.isFinite(amount) || amount <= 0) {
       setTradeSubmitError('请输入大于 0 的交易金额')
+      return
+    }
+
+    // 验证基金代码格式（如果填写了）
+    if (code && !/^\d{6}$/.test(code)) {
+      setTradeSubmitError('基金代码应为 6 位数字，如 016453')
       return
     }
 
@@ -2189,6 +2216,22 @@ function App() {
                 onChange={(value) => setTradeAmount(value)}
                 placeholder="请输入金额"
               />
+              <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+                {[1000, 5000, 10000, 50000].map((amount) => (
+                  <Button
+                    key={amount}
+                    size="small"
+                    type={tradeAmount === amount ? 'primary' : 'default'}
+                    onClick={() => {
+                      setTradeAmount(amount)
+                      recordMetric('快捷金额点击', { amount })
+                    }}
+                    style={{ flex: 1 }}
+                  >
+                    {amount >= 10000 ? `${amount / 10000}万` : amount}
+                  </Button>
+                ))}
+              </div>
             </div>
             <div style={{ marginBottom: 12 }}>
               <div style={{ marginBottom: 4 }}>发生时间</div>
@@ -2883,6 +2926,7 @@ function App() {
               onOpenAudit={handleOpenHoldingAudit}
               onAutoFillHolding={handleAutoFillHolding}
               autoFillLoadingFundId={holdingAutoFillLoadingFundId}
+              onQuickBuy={handleQuickBuy}
             />
 
             <HoldingsTable
@@ -2899,6 +2943,7 @@ function App() {
               onOpenAudit={handleOpenHoldingAudit}
               onAutoFillHolding={handleAutoFillHolding}
               autoFillLoadingFundId={holdingAutoFillLoadingFundId}
+              onQuickBuy={handleQuickBuy}
             />
 
             <section className="panel audit-panel">
