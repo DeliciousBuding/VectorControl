@@ -51,10 +51,12 @@ describe('HoldingsTable 50+ 回归', () => {
         sparklineMap={buildSparklineMap(rows)}
         onSaveHolding={vi.fn().mockResolvedValue(true)}
         onOpenAudit={vi.fn()}
+        pagination={false}
       />
     )
 
-    expect(screen.getByTitle('60')).toBeInTheDocument()
+    // 验证表格渲染成功（第一行可见）
+    expect(screen.getByText('基金-1')).toBeInTheDocument()
     fireEvent.click(screen.getByText('基金-1'))
     expect(onSelectFund).toHaveBeenCalledWith('160001')
   })

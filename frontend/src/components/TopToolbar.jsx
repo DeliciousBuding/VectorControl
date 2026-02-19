@@ -59,6 +59,7 @@ export function TopToolbar({
 }) {
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showAdvancedStatus, setShowAdvancedStatus] = useState(false)
   const searchRef = useRef(null)
   const dropdownRef = useRef(null)
 
@@ -85,11 +86,12 @@ export function TopToolbar({
 
   const statusBadge = status?.type === 'error' ? 'error' : (status?.type === 'warning' ? 'warning' : 'processing')
 
-  // 控制下拉框显示/隐藏
+  // 控制下拉框显示/隐藏 - 输入即显示建议，不再只依赖焦点
   useEffect(() => {
     const hasSuggestions = suggestions.length > 0 && searchQuery
-    setShowSuggestions(hasSuggestions && isSearchFocused)
-  }, [suggestions, searchQuery, isSearchFocused])
+    // 有搜索词且有建议时显示，不管是否聚焦
+    setShowSuggestions(hasSuggestions)
+  }, [suggestions, searchQuery])
 
   // 点击外部关闭下拉框
   useEffect(() => {
@@ -121,6 +123,7 @@ export function TopToolbar({
 
   const statusContent = (
     <div className="vc-status-popover-content">
+      {/* 核心状态 - 默认显示 */}
       <div className="vc-status-section">
         <div className="vc-status-label">系统状态</div>
         <StatusPill status={status} />
@@ -146,68 +149,89 @@ export function TopToolbar({
             </Space>
             <span className="vc-status-value">{asofClock}</span>
           </div>
-        </Space>
-      </div>
-
-      <div className="vc-status-section">
-        <div className="vc-status-label">计算指标</div>
-        <Space direction="vertical" style={{ width: '100%' }} size={8}>
-          <div className="vc-status-row">
-            <Space size={8}>
-              <CloudServerOutlined className="vc-status-icon" />
-              <span>数据来源</span>
-            </Space>
-            <span>{estimateCacheHit ? '缓存快照' : '实时拉取'}</span>
-          </div>
-          <div className="vc-status-row">
-            <Space size={8}>
-              <DatabaseOutlined className="vc-status-icon" />
-              <span>计算模式</span>
-            </Space>
-            <span>
-              {incrementalMode === 'snapshot_hit' ? 'Hit' : 'Calc'}
-              <span className="vc-status-unit">({incrementalText})</span>
-            </span>
-          </div>
-          <div className="vc-status-row">
-            <Space size={8}>
-              <PieChartOutlined className="vc-status-icon" />
-              <span>覆盖率</span>
-            </Space>
-            <span className="vc-status-value">{coverage?.ok ?? 0}/{coverage?.total ?? 0}</span>
-          </div>
-        </Space>
-      </div>
-
-      <div className="vc-status-section">
-        <div className="vc-status-label">口径说明</div>
-        <Space direction="vertical" style={{ width: '100%' }} size={8}>
-          {confirmState && (
-            <div className="vc-status-row vc-status-row--center">
-              <span>结算状态</span>
-              <Tag
-                color={confirmState === 'confirmed' ? 'success' : confirmState === 'partial' ? 'warning' : 'processing'}
-                bordered={false}
-                className="vc-status-tag"
-              >
-                {confirmText}
-              </Tag>
-            </div>
-          )}
           <div className="vc-status-row">
             <Space size={8}>
               <InfoCircleOutlined className="vc-status-icon" />
-              <span>数据口径</span>
+              <span>结算状态</span>
             </Space>
-            <span>{dataStatusText}</span>
+            <Tag
+              color={confirmState === 'confirmed' ? 'success' : confirmState === 'partial' ? 'warning' : 'processing'}
+              bordered={false}
+              className="vc-status-tag"
+            >
+              {confirmText}
+            </Tag>
           </div>
-          {dataStatusNote && (
-            <div className="vc-status-note">
-              {dataStatusNote}
-            </div>
-          )}
         </Space>
       </div>
+
+      {/* 高级信息 - 可展开 */}
+      <div
+        style={{
+          marginTop: 12,
+          paddingTop: 12,
+          borderTop: '1px solid var(--vc-border-primary)',
+          cursor: 'pointer'
+        }}
+        onClick={() => setShowAdvancedStatus(!showAdvancedStatus)}
+      >
+        <Space>
+          <span style={{ color: 'var(--vc-text-secondary)', fontSize: 12 }}>
+            {showAdvancedStatus ? '收起高级信息' : '展开高级信息'}
+          </span>
+        </Space>
+      </div>
+
+      {showAdvancedStatus && (
+        <>
+          <div className="vc-status-section" style={{ marginTop: 12 }}>
+            <div className="vc-status-label">计算指标</div>
+            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+              <div className="vc-status-row">
+                <Space size={8}>
+                  <CloudServerOutlined className="vc-status-icon" />
+                  <span>数据来源</span>
+                </Space>
+                <span>{estimateCacheHit ? '缓存快照' : '实时拉取'}</span>
+              </div>
+              <div className="vc-status-row">
+                <Space size={8}>
+                  <DatabaseOutlined className="vc-status-icon" />
+                  <span>计算模式</span>
+                </Space>
+                <span>
+                  {incrementalMode === 'snapshot_hit' ? 'Hit' : 'Calc'}
+                  <span className="vc-status-unit">({incrementalText})</span>
+                </span>
+              </div>
+              <div className="vc-status-row">
+                <Space size={8}>
+                  <PieChartOutlined className="vc-status-icon" />
+                  <span>覆盖率</span>
+                </Space>
+                <span className="vc-status-value">{coverage?.ok ?? 0}/{coverage?.total ?? 0}</span>
+              </div>
+            </Space>
+          </div>
+
+          <div className="vc-status-section">
+            <div className="vc-status-label">口径说明</div>
+            <Space direction="vertical" style={{ width: '100%' }} size={8}>
+              <div className="vc-status-row">
+                <Space size={8}>
+                  <span>数据口径</span>
+                </Space>
+                <span>{dataStatusText}</span>
+              </div>
+              {dataStatusNote && (
+                <div className="vc-status-note">
+                  {dataStatusNote}
+                </div>
+              )}
+            </Space>
+          </div>
+        </>
+      )}
 
       {marketDataHint && (
         <div className="vc-status-hint">

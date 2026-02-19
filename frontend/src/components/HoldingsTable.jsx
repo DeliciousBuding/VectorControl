@@ -1,13 +1,14 @@
 import { memo, useMemo, useState } from 'react'
-import { Table, Tag, Tooltip, Button, Space, Badge, Checkbox, Dropdown } from 'antd'
-import { 
-  EditOutlined, 
-  AuditOutlined, 
+import { Table, Tag, Tooltip, Button, Space, Badge, Checkbox, Dropdown, Pagination } from 'antd'
+import {
+  EditOutlined,
+  AuditOutlined,
   SyncOutlined,
   CheckOutlined,
   CloseOutlined,
   MoreOutlined,
-  SettingOutlined
+  SettingOutlined,
+  PlusOutlined
 } from '@ant-design/icons'
 import { SparklineMini } from './SparklineMini.jsx'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney } from '../utils/format.js'
@@ -56,9 +57,13 @@ export const HoldingsTable = memo(function HoldingsTable({
   onSaveHolding,
   onOpenAudit,
   onAutoFillHolding,
-  autoFillLoadingFundId
+  autoFillLoadingFundId,
+  onQuickBuy,
+  pagination = { pageSize: 20, showSizeChanger: true, showQuickJumper: true }
 }) {
   const [editingId, setEditingId] = useState('')
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(pagination.pageSize || 20)
   const [draft, setDraft] = useState({})
   const [hoveredRowId, setHoveredRowId] = useState(null)
   const [visibleColumns, setVisibleColumns] = useState(() => {
@@ -70,6 +75,30 @@ export const HoldingsTable = memo(function HoldingsTable({
     return DEFAULT_VISIBLE_COLUMNS
   })
   const [columnSelectorOpen, setColumnSelectorOpen] = useState(false)
+  // 简洁模式 - 默认显示更少的列
+  const [simpleMode, setSimpleMode] = useState(() => {
+    try {
+      const saved = localStorage.getItem('holdings_table_simple_mode')
+      return saved !== 'false'
+    } catch {}
+    return true // 默认启用简洁模式
+  })
+
+  // 简洁模式列 - 只显示核心列
+  const SIMPLE_COLUMNS = ['name', 'market_value_cny', 'holding_profit_cny', 'day_profit_cny', 'action']
+
+  // 切换简洁/详细模式
+  const toggleSimpleMode = () => {
+    const newMode = !simpleMode
+    setSimpleMode(newMode)
+    try {
+      localStorage.setItem('holdings_table_simple_mode', String(newMode))
+    } catch {}
+    // 简洁模式下自动切换到默认列
+    if (newMode) {
+      setVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
+    }
+  }
   
   const totalMarket = useMemo(() => rows.reduce((sum, item) => sum + Number(item.market_value_cny || 0), 0), [rows])
   const dateSuffix = dateLabel && dateLabel !== '--' ? `(${dateLabel})` : ''
@@ -387,18 +416,18 @@ export const HoldingsTable = memo(function HoldingsTable({
       key: 'action',
       align: 'center',
       fixed: 'right',
-      width: 140,
+      width: onQuickBuy ? 180 : 140,
       render: (_, record) => {
         const autoFilling = String(autoFillLoadingFundId || '') === String(record.fund_id)
         const isHovered = hoveredRowId === record.fund_id
         const isSelected = selectedFundId === record.fund_id
-        
+
         if (editingId === record.fund_id) {
           return (
             <Space size="small" className="action-btns editing">
-              <Button 
-                type="primary" 
-                size="small" 
+              <Button
+                type="primary"
+                size="small"
                 icon={<CheckOutlined />}
                 aria-label="保存"
                 onClick={() => submitEdit(record.fund_id)}
@@ -406,8 +435,8 @@ export const HoldingsTable = memo(function HoldingsTable({
               >
                 保存
               </Button>
-              <Button 
-                size="small" 
+              <Button
+                size="small"
                 icon={<CloseOutlined />}
                 aria-label="取消"
                 onClick={cancelEdit}
@@ -421,10 +450,25 @@ export const HoldingsTable = memo(function HoldingsTable({
 
         return (
           <Space size="small" className={`action-btns ${isHovered || isSelected ? 'visible' : ''}`}>
+            {onQuickBuy && (
+              <Tooltip title="快速买入">
+                <Button
+                  type="primary"
+                  size="small"
+                  icon={<PlusOutlined />}
+                  aria-label="买入"
+                  onClick={() => onQuickBuy(record)}
+                  className="action-btn-buy"
+                  style={{ background: 'var(--vc-brand-primary)', borderColor: 'var(--vc-brand-primary)' }}
+                >
+                  买入
+                </Button>
+              </Tooltip>
+            )}
             <Tooltip title="编辑持仓">
-              <Button 
+              <Button
                 type="text"
-                size="small" 
+                size="small"
                 icon={<EditOutlined />}
                 aria-label="编辑"
                 onClick={() => beginEdit(record)}
@@ -432,9 +476,9 @@ export const HoldingsTable = memo(function HoldingsTable({
               />
             </Tooltip>
             <Tooltip title="审计日志">
-              <Button 
+              <Button
                 type="text"
-                size="small" 
+                size="small"
                 icon={<AuditOutlined />}
                 aria-label="审计"
                 onClick={() => onOpenAudit(record.fund_id)}
@@ -442,9 +486,9 @@ export const HoldingsTable = memo(function HoldingsTable({
               />
             </Tooltip>
             <Tooltip title="自动补全">
-              <Button 
+              <Button
                 type="text"
-                size="small" 
+                size="small"
                 icon={<SyncOutlined spin={autoFilling} />}
                 aria-label="自动补全"
                 onClick={() => handleAutoFill(record)}
@@ -488,6 +532,19 @@ export const HoldingsTable = memo(function HoldingsTable({
     </div>
   )
 
+  // 计算分页数据
+  const paginatedRows = useMemo(() => {
+    if (!pagination) return rows
+    const start = (currentPage - 1) * pageSize
+    return rows.slice(start, start + pageSize)
+  }, [rows, currentPage, pageSize, pagination])
+
+  // 分页变化处理
+  const handlePageChange = (page, size) => {
+    setCurrentPage(page)
+    setPageSize(size)
+  }
+
   return (
     <section className="panel holdings-section">
       <div className="section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -495,24 +552,46 @@ export const HoldingsTable = memo(function HoldingsTable({
           <h2>{title}</h2>
           <span>此表格显示基金持仓列表，包含基金名称、走势、持有金额、持有份额、占比、收益等信息。点击行可选中基金，点击编辑按钮可修改持仓数据。</span>
         </div>
-        <Dropdown
-          overlay={columnSelectorMenu}
-          trigger={['click']}
-          open={columnSelectorOpen}
-          onOpenChange={setColumnSelectorOpen}
-          placement="bottomRight"
-        >
-          <Button icon={<SettingOutlined />} size="small">
-            列设置
+        <Space>
+          {/* 简洁/详细模式切换 */}
+          <Button
+            size="small"
+            type={simpleMode ? 'primary' : 'default'}
+            onClick={toggleSimpleMode}
+          >
+            {simpleMode ? '简洁' : '详细'}
           </Button>
-        </Dropdown>
+          {/* 列设置 - 仅在详细模式显示 */}
+          {!simpleMode && (
+            <Dropdown
+              overlay={columnSelectorMenu}
+              trigger={['click']}
+              open={columnSelectorOpen}
+              onOpenChange={setColumnSelectorOpen}
+              placement="bottomRight"
+            >
+              <Button icon={<SettingOutlined />} size="small">
+                列设置
+              </Button>
+            </Dropdown>
+          )}
+        </Space>
       </div>
-      
+
       <Table
         rowKey="fund_id"
-        dataSource={rows}
+        dataSource={paginatedRows}
         columns={columns}
-        pagination={false}
+        pagination={pagination ? {
+          current: currentPage,
+          pageSize: pageSize,
+          total: rows.length,
+          onChange: handlePageChange,
+          showSizeChanger: pagination.showSizeChanger,
+          showQuickJumper: pagination.showQuickJumper,
+          showTotal: (total, range) => `${range[0]}-${range[1]} / 共 ${total} 条`,
+          size: 'small'
+        } : false}
         size="small"
         scroll={{ x: 'max-content' }}
         rowClassName={(record) => {
