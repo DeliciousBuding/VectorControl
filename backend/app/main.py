@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextvars
 import logging
+import time
 import uuid
 
 from fastapi import FastAPI, Request
@@ -25,14 +26,43 @@ from app.api.routers import (
     system,
     transactions,
 )
-from app.core.config_loader import load_all
+from app.bootstrap import initialize_app_state
 from app.core.settings import ensure_api_token
-from app.storage.db import get_user_by_session_token, init_db, sync_fund_catalog_from_config
+from app.storage.db import get_user_by_session_token
 
+SERVICE_NAME = "vectorcontrol-backend"
 API_TOKEN = ensure_api_token()
 REQUEST_ID_HEADER = "X-Request-ID"
 MAX_REQUEST_ID_LENGTH = 128
 DEFAULT_REQUEST_ID = "-"
+REQUEST_DURATION_HEADER = "X-Server-Elapsed-Ms"
+
+PUBLIC_PATHS = {
+    "/api/health",
+    "/api/healthz",
+    "/api/auth/register",
+    "/api/auth/login",
+}
+
+APP_ROUTERS = (
+    auth.router,
+    settings.router,
+    settings.compat_router,
+    config.router,
+    estimate.router,
+    risk.router,
+    advice.router,
+    actions.router,
+    holdings.router,
+    report.router,
+    profile.router,
+    funds.router,
+    charts.router,
+    benchmark.router,
+    system.router,
+    transactions.router,
+    sip.router,
+)
 
 _REQUEST_ID_CONTEXT: contextvars.ContextVar[str] = contextvars.ContextVar(
     "request_id",
@@ -47,22 +77,16 @@ def _request_id_record_factory(*args, **kwargs):
     return record
 
 
-logging.setLogRecordFactory(_request_id_record_factory)
+def _configure_logging() -> logging.Logger:
+    logging.setLogRecordFactory(_request_id_record_factory)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s [request_id=%(request_id)s]: %(message)s",
+    )
+    return logging.getLogger("vectorcontrol")
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(name)s [request_id=%(request_id)s]: %(message)s",
-)
-LOGGER = logging.getLogger("vectorcontrol")
 
-app = FastAPI(title="vectorcontrol-backend", version="0.1.0")
-
-PUBLIC_PATHS = {
-    "/api/health",
-    "/api/healthz",
-    "/api/auth/register",
-    "/api/auth/login",
-}
+LOGGER = _configure_logging()
 
 
 def _extract_token(request: Request) -> str | None:
@@ -81,7 +105,6 @@ def _resolve_request_id(request: Request) -> str:
     return uuid.uuid4().hex
 
 
-@app.middleware("http")
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
     if path.startswith("/api/") and path not in PUBLIC_PATHS:
@@ -106,52 +129,57 @@ async def auth_middleware(request: Request, call_next):
     return await call_next(request)
 
 
-@app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     request_id = _resolve_request_id(request)
     request.state.request_id = request_id
+    started_at = time.perf_counter()
+    request.state.request_started_at = started_at
     context_token = _REQUEST_ID_CONTEXT.set(request_id)
     try:
         response = await call_next(request)
     finally:
         _REQUEST_ID_CONTEXT.reset(context_token)
+    elapsed_ms = max(0, int((time.perf_counter() - started_at) * 1000))
+    request.state.server_elapsed_ms = elapsed_ms
     response.headers[REQUEST_ID_HEADER] = request_id
+    response.headers[REQUEST_DURATION_HEADER] = str(elapsed_ms)
     return response
 
 
-@app.on_event("startup")
-def on_startup() -> None:
-    app.state.config = load_all()
-    init_db()
-    sync_fund_catalog_from_config(app.state.config)
+async def health() -> dict[str, str | bool]:
+    return {"ok": True, "service": SERVICE_NAME}
 
 
-@app.get("/api/health")
-async def health() -> dict:
-    return {"ok": True, "service": "vectorcontrol-backend"}
+async def healthz() -> dict[str, str]:
+    return {"status": "ok", "service": SERVICE_NAME}
 
 
-@app.get("/api/healthz")
-async def healthz() -> dict:
-    return {"status": "ok", "service": "vectorcontrol-backend"}
+def _register_middleware(app: FastAPI) -> None:
+    app.middleware("http")(auth_middleware)
+    app.middleware("http")(request_id_middleware)
 
 
-app.include_router(auth.router)
-app.include_router(settings.router)
-app.include_router(settings.compat_router)
-app.include_router(config.router)
-app.include_router(estimate.router)
-app.include_router(risk.router)
-app.include_router(advice.router)
-app.include_router(actions.router)
-app.include_router(holdings.router)
-app.include_router(report.router)
-app.include_router(profile.router)
-app.include_router(funds.router)
-app.include_router(charts.router)
-app.include_router(benchmark.router)
-app.include_router(system.router)
-app.include_router(transactions.router)
-app.include_router(charts.router)
-app.include_router(benchmark.router)
-app.include_router(sip.router)
+def _register_startup(app: FastAPI) -> None:
+    @app.on_event("startup")
+    def on_startup() -> None:
+        initialize_app_state(app)
+
+
+
+def _register_routes(app: FastAPI) -> None:
+    app.add_api_route("/api/health", health, methods=["GET"])
+    app.add_api_route("/api/healthz", healthz, methods=["GET"])
+    for router in APP_ROUTERS:
+        app.include_router(router)
+
+
+
+def create_app() -> FastAPI:
+    app = FastAPI(title=SERVICE_NAME, version="0.1.0")
+    _register_middleware(app)
+    _register_startup(app)
+    _register_routes(app)
+    return app
+
+
+app = create_app()

@@ -13,33 +13,42 @@ from app.storage.db import list_estimate_snapshots
 router = APIRouter(prefix="/api/charts", tags=["图表"])
 ALLOWED_RETURNS_HISTORY_DAYS = {7, 30, 90}
 
-# 简单的 TTL 缓存（用户 -> (timestamp, data)）
-_returns_history_cache: dict[str, tuple[float, dict[str, Any]]] = {}
+# 简单的 TTL 缓存（cache_key -> (timestamp, data)）
+_chart_cache: dict[str, tuple[float, Any]] = {}
 _CACHE_TTL_SECONDS = 60  # 缓存 60 秒
+_CACHE_MAX_ENTRIES = 200
 
 
-def _get_cached_returns_history(user_id: str) -> dict[str, Any] | None:
-    """获取缓存的收益率历史数据"""
-    entry = _returns_history_cache.get(user_id)
+def _get_cached_chart_data(cache_key: str) -> Any | None:
+    """获取缓存的图表聚合数据"""
+    entry = _chart_cache.get(cache_key)
     if entry is None:
         return None
     timestamp, data = entry
     if time.time() - timestamp > _CACHE_TTL_SECONDS:
-        # 缓存过期，清除
-        _returns_history_cache.pop(user_id, None)
+        _chart_cache.pop(cache_key, None)
         return None
     return data
 
 
-def _set_cached_returns_history(user_id: str, data: dict[str, Any]) -> None:
-    """设置缓存的收益率历史数据"""
-    _returns_history_cache[user_id] = (time.time(), data)
-    # 清理过期缓存（最多保留 100 个用户）
-    if len(_returns_history_cache) > 100:
-        now = time.time()
-        expired = [uid for uid, (ts, _) in _returns_history_cache.items() if now - ts > _CACHE_TTL_SECONDS]
-        for uid in expired:
-            _returns_history_cache.pop(uid, None)
+def _set_cached_chart_data(cache_key: str, data: Any) -> None:
+    """设置缓存的图表聚合数据"""
+    _chart_cache[cache_key] = (time.time(), data)
+    if len(_chart_cache) <= _CACHE_MAX_ENTRIES:
+        return
+
+    now = time.time()
+    expired = [key for key, (ts, _) in _chart_cache.items() if now - ts > _CACHE_TTL_SECONDS]
+    for key in expired:
+        _chart_cache.pop(key, None)
+
+    overflow = len(_chart_cache) - _CACHE_MAX_ENTRIES
+    if overflow <= 0:
+        return
+
+    oldest_keys = sorted(_chart_cache.items(), key=lambda item: item[1][0])[:overflow]
+    for key, _ in oldest_keys:
+        _chart_cache.pop(key, None)
 
 
 def _to_float(value: Any) -> float | None:
@@ -114,14 +123,74 @@ def _summarize_snapshot(snapshot: dict[str, Any]) -> dict[str, float]:
     }
 
 
-def _calculate_total_return(snapshot: dict[str, Any]) -> float:
-    """计算单个快照的总收益率（%）"""
-    return float(_summarize_snapshot(snapshot).get("total_return") or 0.0)
+def _build_daily_chart_bundle(snapshots: list[dict[str, Any]]) -> dict[str, Any]:
+    """按日聚合快照，并保留同日最后一个快照。"""
+    daily_data: dict[str, dict[str, Any]] = {}
+
+    for snapshot in snapshots:
+        resolved = _resolve_snapshot_asof(snapshot)
+        if resolved is None:
+            continue
+        asof_text, asof_dt = resolved
+        date_key = asof_dt.date().isoformat()
+        summary = _summarize_snapshot(snapshot)
+
+        existing = daily_data.get(date_key)
+        existing_dt = existing.get("_asof_dt") if isinstance(existing, dict) else None
+        if not isinstance(existing_dt, datetime) or asof_dt > existing_dt:
+            daily_data[date_key] = {
+                "date": date_key,
+                "label": asof_dt.strftime("%m-%d"),
+                "asof": asof_text,
+                "total_market_value_cny": float(summary.get("total_market_value_cny") or 0.0),
+                "total_cost_basis_cny": float(summary.get("total_cost_basis_cny") or 0.0),
+                "total_return": float(summary.get("total_return") or 0.0),
+                "day_profit": float(summary.get("day_profit") or 0.0),
+                "_asof_dt": asof_dt,
+            }
+
+    daily_rows = sorted(daily_data.values(), key=lambda item: str(item.get("date") or ""))
+    return {
+        "has_snapshots": bool(snapshots),
+        "daily_rows": daily_rows,
+    }
 
 
-def _calculate_day_profit(snapshot: dict[str, Any]) -> float:
-    """计算单个快照的当日收益（CNY）"""
-    return float(_summarize_snapshot(snapshot).get("day_profit") or 0.0)
+def _get_daily_chart_bundle(user_id: str, days: int) -> dict[str, Any]:
+    """获取指定快照窗口的日级聚合结果，并在接口间复用。"""
+    limit = min(days * 2, 500)
+    cache_key = f"daily_chart_bundle:{user_id}:{limit}"
+    cached = _get_cached_chart_data(cache_key)
+    if isinstance(cached, dict) and isinstance(cached.get("daily_rows"), list):
+        return cached
+
+    snapshots = list_estimate_snapshots(user_id, limit=limit)
+    bundle = _build_daily_chart_bundle(snapshots)
+    _set_cached_chart_data(cache_key, bundle)
+    return bundle
+
+
+def _prepare_chart_window(daily_rows: list[dict[str, Any]], days: int) -> list[dict[str, Any]]:
+    """截取最近 N 天，保留内部聚合字段供各接口二次投影。"""
+    if len(daily_rows) > days:
+        return daily_rows[-days:]
+    return list(daily_rows)
+
+
+def _build_returns_history_rows(daily_rows: list[dict[str, Any]], days: int) -> list[dict[str, Any]]:
+    """按 returns_history 原始字段投影窗口数据。"""
+    rows = _prepare_chart_window(daily_rows, days)
+    return [
+        {
+            "date": str(item.get("date") or ""),
+            "asof": str(item.get("asof") or ""),
+            "total_market_value_cny": float(item.get("total_market_value_cny") or 0.0),
+            "total_cost_basis_cny": float(item.get("total_cost_basis_cny") or 0.0),
+            "total_return": float(item.get("total_return") or 0.0),
+            "day_profit": float(item.get("day_profit") or 0.0),
+        }
+        for item in rows
+    ]
 
 
 @router.get("/returns_history")
@@ -129,7 +198,7 @@ async def get_returns_history(
     request: Request,
     days: int | None = Query(default=None, description="仅允许 7/30/90，默认 30"),
 ) -> dict[str, Any]:
-    """获取历史收益率曲线数据（带 60 秒 TTL 缓存）"""
+    """获取历史收益率曲线数据（复用日级聚合缓存）"""
     user_id = get_snapshot_user_id(request)
 
     if days is None:
@@ -138,17 +207,11 @@ async def get_returns_history(
         trace_id = uuid.uuid4().hex[:12]
         raise HTTPException(status_code=422, detail=f"days 参数非法，仅允许 7/30/90 (trace_id={trace_id})")
 
-    # 尝试从缓存获取
-    cache_key = f"{user_id}:{days}"
-    cached = _get_cached_returns_history(cache_key)
-    if cached is not None:
-        return cached
+    bundle = _get_daily_chart_bundle(user_id, days)
+    has_snapshots = bool(bundle.get("has_snapshots"))
+    daily_rows = bundle.get("daily_rows") or []
 
-    # 获取足够多的历史快照：按每日至多 2 个估算快照粗略估算。
-    limit = min(days * 2, 500)
-    snapshots = list_estimate_snapshots(user_id, limit=limit)
-
-    if not snapshots:
+    if not has_snapshots:
         return {
             "data": [],
             "data_status": build_data_status(
@@ -158,37 +221,8 @@ async def get_returns_history(
             ),
         }
 
-    # 按日期分组，每天取最后一个快照。
-    daily_data: dict[str, dict[str, Any]] = {}
-
-    for snapshot in snapshots:
-        resolved = _resolve_snapshot_asof(snapshot)
-        if resolved is None:
-            continue
-        asof_text, asof_dt = resolved
-
-        date_key = asof_dt.date().isoformat()
-        summary = _summarize_snapshot(snapshot)
-
-        existing = daily_data.get(date_key)
-        existing_dt = existing.get("_asof_dt") if isinstance(existing, dict) else None
-        if not isinstance(existing_dt, datetime) or asof_dt > existing_dt:
-            daily_data[date_key] = {
-                "date": date_key,
-                "asof": asof_text,
-                "total_market_value_cny": float(summary.get("total_market_value_cny") or 0.0),
-                "total_cost_basis_cny": float(summary.get("total_cost_basis_cny") or 0.0),
-                "total_return": float(summary.get("total_return") or 0.0),
-                "day_profit": float(summary.get("day_profit") or 0.0),
-                "_asof_dt": asof_dt,
-            }
-
-    data = sorted(daily_data.values(), key=lambda x: str(x.get("date") or ""))
-    data = [{k: v for k, v in item.items() if k != "_asof_dt"} for item in data]
-    if len(data) > days:
-        data = data[-days:]
-
-    result = {
+    data = _build_returns_history_rows(daily_rows, days)
+    return {
         "data": data,
         "count": len(data),
         "days": days,
@@ -198,9 +232,6 @@ async def get_returns_history(
             note=f"包含最近 {len(data)} 天的收益率数据",
         ),
     }
-    # 存入缓存
-    _set_cached_returns_history(cache_key, result)
-    return result
 
 
 @router.get("/cumulative_returns")
@@ -211,10 +242,11 @@ async def get_cumulative_returns(
     """获取累计收益曲线数据（适配前端绘图）"""
     user_id = get_snapshot_user_id(request)
 
-    limit = min(days * 2, 500)
-    snapshots = list_estimate_snapshots(user_id, limit=limit)
+    bundle = _get_daily_chart_bundle(user_id, days)
+    has_snapshots = bool(bundle.get("has_snapshots"))
+    daily_rows = bundle.get("daily_rows") or []
 
-    if not snapshots:
+    if not has_snapshots:
         return {
             "labels": [],
             "values": [],
@@ -225,32 +257,7 @@ async def get_cumulative_returns(
             ),
         }
 
-    daily_data: dict[str, dict[str, Any]] = {}
-
-    for snapshot in snapshots:
-        resolved = _resolve_snapshot_asof(snapshot)
-        if resolved is None:
-            continue
-        asof_text, asof_dt = resolved
-
-        date_key = asof_dt.date().isoformat()
-
-        existing = daily_data.get(date_key)
-        existing_dt = existing.get("_asof_dt") if isinstance(existing, dict) else None
-        if not isinstance(existing_dt, datetime) or asof_dt > existing_dt:
-            daily_data[date_key] = {
-                "date": date_key,
-                "label": asof_dt.strftime("%m-%d"),
-                "asof": asof_text,
-                "total_return": _calculate_total_return(snapshot),
-                "_asof_dt": asof_dt,
-            }
-
-    data = sorted(daily_data.values(), key=lambda x: str(x.get("date") or ""))
-    data = [{k: v for k, v in item.items() if k != "_asof_dt"} for item in data]
-    if len(data) > days:
-        data = data[-days:]
-
+    data = _prepare_chart_window(daily_rows, days)
     labels = [str(item.get("label") or "") for item in data]
     values = [float(item.get("total_return") or 0.0) for item in data]
 
@@ -276,77 +283,25 @@ async def get_home_dashboard(
     首页仪表盘聚合API - 一次性返回首页需要的所有图表数据
     包括：累计收益曲线、收益历史、市场状态
     """
-    from app.api.deps import get_snapshot_user_id
     from app.utils.market_time import get_market_status
-    
+
     user_id = get_snapshot_user_id(request)
-    
-    # 获取累计收益数据
-    limit = min(returns_days * 2, 500)
-    snapshots = list_estimate_snapshots(user_id, limit=limit)
-    
-    # 处理累计收益数据
-    cumulative_data = []
-    returns_history_data = []
-    
-    if snapshots:
-        daily_cumulative: dict[str, dict[str, Any]] = {}
-        daily_returns: dict[str, dict[str, Any]] = {}
-        
-        for snapshot in snapshots:
-            resolved = _resolve_snapshot_asof(snapshot)
-            if resolved is None:
-                continue
-            asof_text, asof_dt = resolved
-            date_key = asof_dt.date().isoformat()
-            
-            # 累计收益数据
-            existing_cum = daily_cumulative.get(date_key)
-            existing_cum_dt = existing_cum.get("_asof_dt") if isinstance(existing_cum, dict) else None
-            if not isinstance(existing_cum_dt, datetime) or asof_dt > existing_cum_dt:
-                daily_cumulative[date_key] = {
-                    "date": date_key,
-                    "label": asof_dt.strftime("%m-%d"),
-                    "asof": asof_text,
-                    "total_return": _calculate_total_return(snapshot),
-                    "_asof_dt": asof_dt,
-                }
-            
-            # 收益历史数据
-            existing_ret = daily_returns.get(date_key)
-            existing_ret_dt = existing_ret.get("_asof_dt") if isinstance(existing_ret, dict) else None
-            if not isinstance(existing_ret_dt, datetime) or asof_dt > existing_ret_dt:
-                summary = _summarize_snapshot(snapshot)
-                daily_returns[date_key] = {
-                    "date": date_key,
-                    "asof": asof_text,
-                    "total_market_value_cny": float(summary.get("total_market_value_cny") or 0.0),
-                    "total_cost_basis_cny": float(summary.get("total_cost_basis_cny") or 0.0),
-                    "total_return": float(summary.get("total_return") or 0.0),
-                    "day_profit": float(summary.get("day_profit") or 0.0),
-                    "_asof_dt": asof_dt,
-                }
-        
-        # 处理累计收益
-        cum_sorted = sorted(daily_cumulative.values(), key=lambda x: str(x.get("date") or ""))
-        cum_sorted = [{k: v for k, v in item.items() if k != "_asof_dt"} for item in cum_sorted]
-        if len(cum_sorted) > returns_days:
-            cum_sorted = cum_sorted[-returns_days:]
-        
+    bundle = _get_daily_chart_bundle(user_id, returns_days)
+    has_snapshots = bool(bundle.get("has_snapshots"))
+    daily_rows = bundle.get("daily_rows") or []
+
+    cumulative_data: dict[str, Any] | list[Any] = []
+    returns_history_data: list[dict[str, Any]] = []
+
+    if has_snapshots:
+        window_rows = _prepare_chart_window(daily_rows, returns_days)
         cumulative_data = {
-            "labels": [str(item.get("label") or "") for item in cum_sorted],
-            "values": [float(item.get("total_return") or 0.0) for item in cum_sorted],
-            "count": len(cum_sorted),
+            "labels": [str(item.get("label") or "") for item in window_rows],
+            "values": [float(item.get("total_return") or 0.0) for item in window_rows],
+            "count": len(window_rows),
         }
-        
-        # 处理收益历史
-        ret_sorted = sorted(daily_returns.values(), key=lambda x: str(x.get("date") or ""))
-        ret_sorted = [{k: v for k, v in item.items() if k != "_asof_dt"} for item in ret_sorted]
-        if len(ret_sorted) > returns_days:
-            ret_sorted = ret_sorted[-returns_days:]
-        
-        returns_history_data = ret_sorted
-    
+        returns_history_data = _build_returns_history_rows(daily_rows, returns_days)
+
     return {
         "cumulative_returns": cumulative_data,
         "returns_history": returns_history_data,
