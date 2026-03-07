@@ -94,8 +94,8 @@ export function FundDetailPage({ fundId, onBack }) {
 
   if (loading) {
     return (
-      <div className="panel" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spin size="large" tip="加载基金详情..." />
+        <div className="panel" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Spin size="large" description="加载基金详情..." />
       </div>
     )
   }
@@ -156,7 +156,7 @@ export function FundDetailPage({ fundId, onBack }) {
               value={fundData.market_value_cny || 0} 
               precision={2} 
               prefix="¥"
-              valueStyle={{ fontSize: '18px', color: '#1890ff' }}
+              styles={{ content: { fontSize: '18px', color: '#1890ff' } }}
             />
           </Col>
           <Col xs={12} sm={6}>
@@ -165,7 +165,7 @@ export function FundDetailPage({ fundId, onBack }) {
               value={fundData.holding_profit_cny || 0} 
               precision={2} 
               prefix={fundData.holding_profit_cny >= 0 ? '+' : ''}
-              valueStyle={{ fontSize: '18px', color: fundData.holding_profit_cny >= 0 ? '#52c41a' : '#ff4d4f' }}
+              styles={{ content: { fontSize: '18px', color: fundData.holding_profit_cny >= 0 ? '#52c41a' : '#ff4d4f' } }}
             />
           </Col>
           <Col xs={12} sm={6}>
@@ -174,7 +174,7 @@ export function FundDetailPage({ fundId, onBack }) {
               value={(fundData.holding_profit_rate || 0) * 100} 
               precision={2} 
               suffix="%"
-              valueStyle={{ fontSize: '18px', color: fundData.holding_profit_rate >= 0 ? '#52c41a' : '#ff4d4f' }}
+              styles={{ content: { fontSize: '18px', color: fundData.holding_profit_rate >= 0 ? '#52c41a' : '#ff4d4f' } }}
             />
           </Col>
           <Col xs={12} sm={6}>

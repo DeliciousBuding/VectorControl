@@ -8,6 +8,7 @@
 - [x] 2.1 新增 `frontend/src/pages/FundDetailPage.test.jsx`
 - [x] 2.2 复用 `useAppNavigation.test.jsx` 验证独立路由跳转
 - [x] 2.3 运行最小前端测试组合验证独立页与详情布局
+- [x] 2.4 清理 `FundDetailPage.jsx` 中 `Spin tip` / `Statistic valueStyle` 的弃用用法，保持回归输出干净
 
 ## 3. 状态同步
 
