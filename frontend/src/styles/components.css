@@ -809,6 +809,70 @@
   overflow: hidden;
 }
 
+.holdings-section--refined {
+  padding: var(--vc-space-4);
+  display: grid;
+  gap: var(--vc-space-4);
+  background:
+    radial-gradient(circle at top right, rgba(49, 94, 251, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  box-shadow: 0 20px 40px -34px rgba(15, 23, 42, 0.22);
+}
+
+.holdings-section__head {
+  padding: 0;
+  border-bottom: 0;
+  background: transparent;
+  align-items: flex-start;
+}
+
+.holdings-section__eyebrow {
+  color: var(--vc-text-secondary);
+  font-size: var(--vc-font-size-xs);
+  font-weight: var(--vc-font-weight-semibold);
+  letter-spacing: var(--vc-letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.holdings-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--vc-space-3);
+  min-width: min(100%, 420px);
+}
+
+.holdings-overview__card {
+  display: grid;
+  gap: var(--vc-space-2);
+  min-height: 104px;
+  padding: var(--vc-space-3) var(--vc-space-4);
+  border-radius: var(--vc-radius-xl);
+  border: 1px solid var(--vc-border-secondary);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.holdings-overview__card span {
+  color: var(--vc-text-secondary);
+  font-size: var(--vc-font-size-xs);
+  font-weight: var(--vc-font-weight-semibold);
+  letter-spacing: var(--vc-letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.holdings-overview__card strong {
+  color: var(--vc-text-primary);
+  font-size: var(--vc-font-size-2xl);
+  font-weight: var(--vc-font-weight-semibold);
+  letter-spacing: -0.03em;
+}
+
+.holdings-overview__card p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: var(--vc-font-size-sm);
+  line-height: 1.6;
+}
+
 .section-head {
   display: flex;
   align-items: center;
@@ -829,6 +893,78 @@
   background: var(--vc-brand-primary) !important;
   box-shadow: 0 0 0 2px var(--vc-bg-primary);
   font-weight: var(--vc-font-weight-semibold);
+}
+
+.holdings-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vc-space-3);
+  flex-wrap: wrap;
+  padding: var(--vc-space-3) var(--vc-space-4);
+  border-radius: var(--vc-radius-xl);
+  border: 1px solid var(--vc-border-secondary);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.holdings-toolbar__copy {
+  display: grid;
+  gap: var(--vc-space-1);
+}
+
+.holdings-toolbar__copy span {
+  color: var(--vc-text-secondary);
+  font-size: var(--vc-font-size-xs);
+  font-weight: var(--vc-font-weight-semibold);
+  letter-spacing: var(--vc-letter-spacing-wide);
+  text-transform: uppercase;
+}
+
+.holdings-toolbar__copy p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: var(--vc-font-size-sm);
+  line-height: 1.6;
+}
+
+.holdings-toolbar__actions {
+  flex-wrap: wrap;
+}
+
+.holdings-toolbar__button {
+  min-height: 36px;
+  border-radius: var(--vc-radius-lg);
+}
+
+.holdings-column-menu {
+  padding: var(--vc-space-3);
+  width: 220px;
+}
+
+.holdings-column-menu__title {
+  margin-bottom: var(--vc-space-2);
+  padding-bottom: var(--vc-space-2);
+  border-bottom: 1px solid var(--vc-border-secondary);
+  color: var(--vc-text-primary);
+  font-weight: var(--vc-font-weight-semibold);
+}
+
+.holdings-column-menu__item + .holdings-column-menu__item {
+  margin-top: var(--vc-space-1);
+}
+
+.holdings-column-menu__footer {
+  margin-top: var(--vc-space-3);
+  padding-top: var(--vc-space-2);
+  border-top: 1px solid var(--vc-border-secondary);
+}
+
+.holdings-table-shell {
+  border-radius: var(--vc-radius-2xl);
+  border: 1px solid var(--vc-border-secondary);
+  background: rgba(255, 255, 255, 0.9);
+  overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 }
 
 /* Table Container */
@@ -1215,6 +1351,16 @@
   /* Holdings Table Mobile */
   .holdings-section {
     border-radius: var(--vc-radius-xl);
+  }
+
+  .holdings-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .holdings-section__head,
+  .holdings-toolbar {
+    flex-direction: column;
+    align-items: stretch;
   }
   
   .section-head {
