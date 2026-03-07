@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-08 04:19:32
+更新时间：2026-03-08 04:35:59
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -159,6 +159,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已落地 `scripts/perf_smoke.py` 与 `.perf/perf_smoke/latest.json`，当前首页/基金详情页/系统状态页本地基线已生成）。
 
 ### 已完成 (Done)
+- [√] [前端] 设置中心网络与消息凭据视觉升级 phase14：参考 Apple HIG、Google Material、GitHub Primer Form Control / Page Layout 与 OpenAI 官网的克制配置页语言，完成 `SettingsDrawer` 的网络测速、飞书机器人与 Telegram 机器人摘要层、参数网格与凭据容器统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
 - [√] [前端] 风险状态条视觉升级 phase13：参考 Apple HIG、Google Material、GitHub Primer Page Layout 与 OpenAI 官网的摘要入口组织方式，完成 `RiskStatusBar` 的快照说明区、三类风险摘要卡与详情 CTA 收敛；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
 - [√] [前端] 设置中心诊断区视觉升级 phase12：参考 Apple HIG、Google Material、GitHub Primer 与 OpenAI 官网的设置 / 诊断区组织方式，完成 `SettingsDrawer` 的系统状态与通知诊断摘要层、工具条和结果面统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
 - [√] [前端] 风险中枢视觉升级 phase11：参考 Apple HIG、Google Material、GitHub Primer 与 OpenAI 官网的摘要式工作台组织方式，完成 `RiskCenter` 头部摘要与风险卡片层级统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
