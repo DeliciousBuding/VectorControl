@@ -1,4 +1,5 @@
 # Postmortem: 测速 Not Found 与设置中心白屏双故障（后端视角）
+更新时间：2026-03-07 14:22:01
 
 - **故障编号**: P0-20260208-01
 - **发现时间**: 2026-02-08
@@ -29,7 +30,7 @@
 
 **详细分析**：
 - **路由缺失**: 后端服务 `VectorControl/backend` 未提供对历史 API 路径 (`/api/network-benchmark/*` 及其 `_` 变体) 的兼容，导致前端直接调用这些旧路径时返回 404。
-- **网关配置不全**: Nginx 反向代理层 (`VectorControl/deploy/nginx/site.conf`) 缺少针对旧路径到新标准路径 (`/api/settings/network-benchmark/*`) 的重写规则，未能屏蔽后端的接口路径变更。
+- **网关配置不全**: Nginx 反向代理层（当前以 `deploy/nginx/site.http.conf` 为准）曾缺少针对旧路径到新标准路径 (`/api/settings/network-benchmark/*`) 的重写规则，未能屏蔽后端的接口路径变更。
 
 ### 2. 设置中心白屏（前端侧）
 
@@ -55,7 +56,7 @@
    - 实现 `/api/network-benchmark/run` 兼容接口（第 938-940 行）
    - 实现 `/api/network_benchmark/run` 兼容接口（第 943-945 行）
 
-2. **网关层修复** (`deploy/nginx/site.conf`):
+2. **网关层修复** (`deploy/nginx/site.http.conf`):
    - 新增历史路径重写规则（第 44-47 行）
    - 配置内容：
      ```nginx
@@ -174,5 +175,4 @@
 - `docs/Gate-D设置中心测速前端证据.md` - 前端验收证据
 - `docs/Gate-D验收证据模板.md` - Gate-D 发布验收模板
 - `backend/app/api/routers/settings.py` - 后端路由实现
-- `deploy/nginx/site.conf` - Nginx 重写配置
-
+- `deploy/nginx/site.http.conf` - 当前 HTTP 基线下的 Nginx 重写配置

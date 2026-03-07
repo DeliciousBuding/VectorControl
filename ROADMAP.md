@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-07 14:17:31
+更新时间：2026-03-07 14:22:01
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -85,7 +85,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [协同] 无人值守执行闭环：将第二轮前端优化、后端观测、线上证据留档按“单闭环完成后再开下一闭环”的顺序持续推进，直到 `ROADMAP` 中高优先级优化项全部收口。
 - [ ] [前端] 基于 `docs/Gate-D验收证据模板.md` 补齐设置中心/测速页面实机验收证据（模板与 `docs/Gate-D设置中心测速前端证据.md` 已收敛到当前 HTTP + SQLite 基线；待生产实机截图、真实命令输出与实机结论补录后关单）。
 - [ ] [协同] 按 `docs/P0线上故障排查SOP.md` 完成"测速 Not Found + 设置中心白屏"双故障关闭留档（含根因、修复提交、回归证据）。
-- [ ] [协同] 双故障关闭留档（可审核版本）：后端主笔 postmortem + 前端补齐实机截图清单，占位符齐全，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）。
+- [ ] [协同] 双故障关闭留档（可审核版本）：后端 postmortem 与测速 Not Found 后端证据已收敛到当前 HTTP 基线；下一步由前端补齐实机截图清单，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）。
 
 ### 新需求（2026-02-15 庄方宜提出）
 - [ ] [前端] **基金专属独立页面**：点击基金跳转独立路由 `/fund/:fund_id`，而非滚动到底部查看
