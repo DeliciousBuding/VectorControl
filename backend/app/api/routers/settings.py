@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 import datetime
+import secrets
 import uuid
 from typing import Any, Literal
 
@@ -11,11 +12,17 @@ from urllib.parse import urlparse
 from app.api.deps import get_holdings_user_id
 from app.core.network_benchmark import DEFAULT_TIMEOUT_SECONDS, MAX_TIMEOUT_SECONDS, run_network_benchmark
 from app.core.rate_limit import InMemoryRateLimiter
+from app.core.settings import get_env
 from app.notifier import NotificationPayload
 from app.notifier import feishu_sender as feishu_mod
 from app.notifier import telegram_sender as telegram_mod
-from app.notifier.base import NotifierActionError, NotifierActionResult
-from app.storage.db import get_user_settings, list_audit_logs, upsert_user_settings
+from app.notifier.base import NotifierActionError
+from app.storage.db import (
+    find_user_settings_by_telegram_discovery_secret,
+    get_user_settings,
+    list_audit_logs,
+    upsert_user_settings,
+)
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 # Compatibility routes for historical service paths like `/api/network-benchmark/*`.
@@ -122,6 +129,76 @@ def _persist_last_test_history(
     )
 
 
+def _build_public_base_url(request: Request | None = None) -> str:
+    scheme = str(get_env("VC_SCHEME", "http") or "http").strip().lower() or "http"
+    domain = str(get_env("VC_DOMAIN", "") or "").strip().strip("/")
+    if not domain and request is not None:
+        return str(request.base_url).rstrip("/")
+    if not domain:
+        return ""
+    if domain.startswith("http://") or domain.startswith("https://"):
+        return domain.rstrip("/")
+    return f"{scheme}://{domain}"
+
+
+def _build_telegram_discovery_path(secret: str) -> str:
+    return f"/api/settings/notifications/telegram/inbound/{secret}"
+
+
+def _build_telegram_discovery_summary(section: dict[str, Any], request: Request | None = None) -> dict[str, Any]:
+    secret = str(section.get("chat_auto_discovery_secret", "")).strip()
+    path = _build_telegram_discovery_path(secret) if secret else ""
+    base_url = _build_public_base_url(request)
+    return {
+        "secret_configured": bool(secret),
+        "webhook_path": path,
+        "webhook_url": f"{base_url}{path}" if base_url and path else "",
+        "last_chat_id": str(section.get("chat_auto_discovery_last_chat_id", "")).strip(),
+        "last_seen_at": str(section.get("chat_auto_discovery_last_seen_at", "")).strip(),
+        "last_chat_type": str(section.get("chat_auto_discovery_last_chat_type", "")).strip(),
+        "last_chat_title": str(section.get("chat_auto_discovery_last_chat_title", "")).strip(),
+    }
+
+
+def _extract_telegram_chat(update: dict[str, Any]) -> dict[str, str]:
+    if not isinstance(update, dict):
+        return {"chat_id": "", "chat_type": "", "chat_title": ""}
+
+    candidates: list[Any] = [
+        update.get("message"),
+        update.get("edited_message"),
+        update.get("channel_post"),
+        update.get("edited_channel_post"),
+        update.get("my_chat_member"),
+        update.get("chat_member"),
+    ]
+    callback_query = update.get("callback_query")
+    if isinstance(callback_query, dict):
+        candidates.append(callback_query.get("message"))
+
+    for item in candidates:
+        if not isinstance(item, dict):
+            continue
+        chat = item.get("chat")
+        if not isinstance(chat, dict):
+            continue
+        chat_id = str(chat.get("id", "")).strip()
+        if not chat_id:
+            continue
+        title = str(chat.get("title") or chat.get("username") or "").strip()
+        if not title:
+            first_name = str(chat.get("first_name") or "").strip()
+            last_name = str(chat.get("last_name") or "").strip()
+            title = " ".join(part for part in (first_name, last_name) if part).strip()
+        return {
+            "chat_id": chat_id,
+            "chat_type": str(chat.get("type", "")).strip(),
+            "chat_title": title,
+        }
+
+    return {"chat_id": "", "chat_type": "", "chat_title": ""}
+
+
 def _redact_settings_for_response(settings: dict[str, Any]) -> dict[str, Any]:
     # Only redact a small set of known credentials; keep structure stable.
     if not isinstance(settings, dict):
@@ -145,6 +222,8 @@ def _redact_settings_for_response(settings: dict[str, Any]) -> dict[str, Any]:
         telegram_out: dict[str, Any] = dict(telegram)
         if str(telegram_out.get("bot_token", "")).strip():
             telegram_out["bot_token"] = REDACTED
+        if str(telegram_out.get("chat_auto_discovery_secret", "")).strip():
+            telegram_out["chat_auto_discovery_secret"] = REDACTED
         notif_out["telegram"] = telegram_out
 
     result["notifications"] = notif_out
@@ -166,6 +245,8 @@ def _strip_redacted_credentials_incoming(settings: dict[str, Any]) -> dict[str, 
     telegram = notifications.get("telegram")
     if isinstance(telegram, dict) and telegram.get("bot_token") == REDACTED:
         telegram.pop("bot_token", None)
+    if isinstance(telegram, dict) and telegram.get("chat_auto_discovery_secret") == REDACTED:
+        telegram.pop("chat_auto_discovery_secret", None)
 
     return settings
 
@@ -275,7 +356,11 @@ class FeishuWebhookCredentialIn(BaseModel):
 
 class TelegramCredentialIn(BaseModel):
     bot_token: str = Field(min_length=1, max_length=256)
-    chat_id: str = Field(min_length=1, max_length=64)
+    chat_id: str = Field(default="", max_length=64)
+
+
+class TelegramDiscoverySecretIn(BaseModel):
+    rotate: bool = False
 
 
 class NetworkBenchmarkRunIn(BaseModel):
@@ -367,8 +452,6 @@ async def put_telegram_credential(request: Request, payload: TelegramCredentialI
     chat_id = str(payload.chat_id or "").strip()
     if not bot_token:
         raise HTTPException(status_code=422, detail="bot_token 不能为空")
-    if not chat_id:
-        raise HTTPException(status_code=422, detail="chat_id 不能为空")
 
     settings = upsert_user_settings(
         user_id,
@@ -389,6 +472,7 @@ async def put_telegram_credential(request: Request, payload: TelegramCredentialI
         "credential": {
             "channel": "telegram",
             "fields": ["bot_token", "chat_id"],
+            "bot_token_configured": bool(str(telegram.get("bot_token", "")).strip()),
             "configured": bool(str(telegram.get("bot_token", "")).strip() and str(telegram.get("chat_id", "")).strip()),
         },
         "notifications": {
@@ -404,9 +488,88 @@ async def put_telegram_credential(request: Request, payload: TelegramCredentialI
     }
 
 
+@router.post("/notifications/telegram/discovery/secret")
+async def post_telegram_discovery_secret(request: Request, payload: TelegramDiscoverySecretIn) -> dict:
+    user_id = get_holdings_user_id(request)
+    settings = get_user_settings(user_id)
+    notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+    telegram = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+    bot_token = str(telegram.get("bot_token", "")).strip()
+    if not bot_token:
+        raise HTTPException(status_code=422, detail="bot_token 未配置，请先保存 Telegram 凭据")
+
+    current_secret = str(telegram.get("chat_auto_discovery_secret", "")).strip()
+    next_secret = current_secret
+    updated = False
+    if payload.rotate or not current_secret:
+        next_secret = secrets.token_urlsafe(24)
+        updated = True
+        settings = upsert_user_settings(
+            user_id,
+            {
+                "notifications": {
+                    "telegram": {
+                        "chat_auto_discovery_secret": next_secret,
+                    }
+                }
+            },
+        )
+        notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+        telegram = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+
+    discovery = _build_telegram_discovery_summary(telegram if isinstance(telegram, dict) else {}, request=request)
+    discovery["secret"] = next_secret
+    return {
+        "user_id": user_id,
+        "updated": updated,
+        "discovery": discovery,
+    }
+
+
+@router.post("/notifications/telegram/inbound/{discovery_secret}")
+async def post_telegram_inbound(discovery_secret: str, request: Request) -> dict:
+    clean_secret = str(discovery_secret or "").strip()
+    if not clean_secret:
+        raise HTTPException(status_code=404, detail="telegram discovery secret not found")
+
+    match = find_user_settings_by_telegram_discovery_secret(clean_secret)
+    if not match:
+        raise HTTPException(status_code=404, detail="telegram discovery secret not found")
+
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+
+    chat = _extract_telegram_chat(payload if isinstance(payload, dict) else {})
+    chat_id = str(chat.get("chat_id", "")).strip()
+    if not chat_id:
+        return {"ok": True, "updated": False, "reason": "chat_not_found"}
+
+    user_id, _settings = match
+    upsert_user_settings(
+        user_id,
+        {
+            "notifications": {
+                "telegram": {
+                    "chat_id": chat_id,
+                    "chat_auto_discovery_last_chat_id": chat_id,
+                    "chat_auto_discovery_last_seen_at": _now_iso_seconds(),
+                    "chat_auto_discovery_last_chat_type": str(chat.get("chat_type", "")).strip(),
+                    "chat_auto_discovery_last_chat_title": str(chat.get("chat_title", "")).strip(),
+                }
+            }
+        },
+    )
+    return {
+        "ok": True,
+        "updated": True,
+        "chat_id": chat_id,
+    }
+
 
 @router.post("/notifications/telegram/test_message")
-async def post_telegram_test_message(request: Request) -> NotifierActionResult:
+async def post_telegram_test_message(request: Request) -> dict[str, Any]:
     user_id = get_holdings_user_id(request)
 
     # Cooldown check
@@ -487,14 +650,14 @@ async def post_telegram_test_message(request: Request) -> NotifierActionResult:
                 )
                 # Record cooldown
                 _test_message_limiter.record_success(cooldown_key)
-                return NotifierActionResult(
-                    ok=True,
-                    sent=True,
-                    trace_id=trace_id,
-                    attempts=attempt,
-                    max_attempts=max_attempts,
-                    error=None,
-                )
+                return {
+                    "ok": True,
+                    "sent": True,
+                    "trace_id": trace_id,
+                    "attempts": attempt,
+                    "max_attempts": max_attempts,
+                    "error": None,
+                }
 
             error_code = resp_json.get("error_code") if isinstance(resp_json, dict) else None
             description = (
@@ -544,18 +707,18 @@ async def post_telegram_test_message(request: Request) -> NotifierActionResult:
         sent=False,
         error_category=str(last_error.category if last_error else "unknown"),
     )
-    return NotifierActionResult(
-        ok=False,
-        sent=False,
-        trace_id=trace_id,
-        attempts=max_attempts,
-        max_attempts=max_attempts,
-        error=last_error or _test_message_error("provider_error", "unknown"),
-    )
+    return {
+        "ok": False,
+        "sent": False,
+        "trace_id": trace_id,
+        "attempts": max_attempts,
+        "max_attempts": max_attempts,
+        "error": (last_error or _test_message_error("provider_error", "unknown")).model_dump(),
+    }
 
 
 @router.post("/notifications/feishu/test_message")
-async def post_feishu_test_message(request: Request) -> NotifierActionResult:
+async def post_feishu_test_message(request: Request) -> dict[str, Any]:
     user_id = get_holdings_user_id(request)
 
     # Cooldown check
@@ -625,14 +788,14 @@ async def post_feishu_test_message(request: Request) -> NotifierActionResult:
                 )
                 # Record cooldown on success
                 _test_message_limiter.record_success(cooldown_key)
-                return NotifierActionResult(
-                    ok=True,
-                    sent=True,
-                    trace_id=trace_id,
-                    attempts=attempt,
-                    max_attempts=max_attempts,
-                    error=None,
-                )
+                return {
+                    "ok": True,
+                    "sent": True,
+                    "trace_id": trace_id,
+                    "attempts": attempt,
+                    "max_attempts": max_attempts,
+                    "error": None,
+                }
 
             provider_message = str(resp_json.get("StatusMessage") or resp_json.get("msg") or "").strip() if isinstance(resp_json, dict) else ""
             category = "provider_error"
@@ -672,14 +835,14 @@ async def post_feishu_test_message(request: Request) -> NotifierActionResult:
         sent=False,
         error_category=str(last_error.category if last_error else "unknown"),
     )
-    return NotifierActionResult(
-        ok=False,
-        sent=False,
-        trace_id=trace_id,
-        attempts=max_attempts,
-        max_attempts=max_attempts,
-        error=last_error or _test_message_error("provider_error", "unknown"),
-    )
+    return {
+        "ok": False,
+        "sent": False,
+        "trace_id": trace_id,
+        "attempts": max_attempts,
+        "max_attempts": max_attempts,
+        "error": (last_error or _test_message_error("provider_error", "unknown")).model_dump(),
+    }
 
 
 @router.get("/notifications/status")
@@ -719,6 +882,7 @@ async def get_notifications_status(request: Request) -> dict:
     feishu_webhook = str(feishu.get("webhook_url", "")).strip()
     telegram_token = str(telegram.get("bot_token", "")).strip()
     telegram_chat = str(telegram.get("chat_id", "")).strip()
+    telegram_discovery = _build_telegram_discovery_summary(telegram if isinstance(telegram, dict) else {}, request=request)
 
     email_host = str(email.get("smtp_host", "")).strip()
     email_sender = str(email.get("sender", "")).strip()
@@ -754,11 +918,13 @@ async def get_notifications_status(request: Request) -> dict:
         },
         "telegram": {
             "enabled": bool(telegram.get("enabled", False)),
+            "bot_token_configured": bool(telegram_token),
             "credential_configured": bool(telegram_token and telegram_chat),
             "last_test_summary": telegram_last_test_summary,
             "last_test_history": telegram_last_test_history,
             "cooldown_seconds": TEST_MESSAGE_COOLDOWN_SECONDS,
             "cooldown_remaining": telegram_cooldown_remaining,
+            "discovery": telegram_discovery,
         },
         "email": {
             "enabled": bool(email.get("enabled", False)),

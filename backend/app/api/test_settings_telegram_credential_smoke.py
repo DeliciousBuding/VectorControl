@@ -65,6 +65,22 @@ class SettingsTelegramCredentialSmokeTest(unittest.TestCase):
             )
             self.assertEqual(resp.status_code, 422, resp.text)
 
+    def test_put_telegram_credential_allows_blank_chat_id_for_discovery(self) -> None:
+        with TestClient(app) as client:
+            headers = self._register_headers(client, prefix="tgcred_discovery")
+            bot_token = "bot_token_discovery_only"
+
+            resp = client.put(
+                "/api/settings/notifications/telegram/credential",
+                headers=headers,
+                json={"bot_token": bot_token, "chat_id": ""},
+            )
+            self.assertEqual(resp.status_code, 200, resp.text)
+            body = resp.json()
+            self.assertEqual(bool(body.get("credential", {}).get("bot_token_configured")), True)
+            self.assertEqual(bool(body.get("credential", {}).get("configured")), False)
+            self.assertEqual(str(body.get("notifications", {}).get("telegram", {}).get("chat_id", "")), "")
+
     def test_put_telegram_credential_keeps_non_secret_fields(self) -> None:
         with TestClient(app) as client:
             headers = self._register_headers(client)

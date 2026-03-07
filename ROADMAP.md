@@ -123,7 +123,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ### 待集成 (Queue)
 - [√] [协同] 通知通道"统一动作结果模型"：对 Telegram/飞书的 `test_message` 返回结构与错误分类做 SSOT 约束（`ok/sent/trace_id/attempts/error{category,message}`），并在 `docs/接口契约.md` 固化（前端仅依赖该结构渲染提示，不做 provider 特判）。
 - [√] [后端] 飞书抓取治理 v2（后续）：频控、缓存过期、日志审计、失败隔离（已在 `FeishuSender` 中补齐最小频控、失败隔离、TTL 清理与结构化治理日志，并由 sender smoke 覆盖）。
-- [ ] [协同] Telegram chat_id 自动发现（可选增强）：增加 inbound webhook 接收 Telegram update（带独立 secret），用于在不粘贴 token 的情况下辅助绑定 chat_id（需部署侧支持，不阻塞当前迭代）。
+- [√] [协同] Telegram chat_id 自动发现（可选增强）：已增加 inbound webhook 接收 Telegram update（带独立 secret），支持“保存 bot_token -> 生成 webhook URL -> 自动回写 chat_id”；`prod` 已实测通过，证据见 `docs/evidence/gate-d-20260307/-20260307.json`。
 
 ### 已完成 (Done)
 - [√] [后端] 统一 Telegram/飞书 `test_message` 返回结构与错误分类：两者返回字段完全一致（`ok/sent/trace_id/attempts/max_attempts/error{category,message}`），并同步更新 smoke + `docs/接口契约.md`。（已完成@bot cca0990）。

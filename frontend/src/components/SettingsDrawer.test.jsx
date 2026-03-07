@@ -8,6 +8,7 @@ import {
   fetchNotificationsStatus,
   fetchSIPPlans,
   fetchSystemStatus,
+  issueTelegramDiscoverySecret,
   runNetworkBenchmark
 } from '../api.js'
 
@@ -18,6 +19,7 @@ vi.mock('../api.js', () => ({
   fetchNotificationsStatus: vi.fn(),
   fetchSIPPlans: vi.fn(),
   fetchSystemStatus: vi.fn(),
+  issueTelegramDiscoverySecret: vi.fn(),
   runNetworkBenchmark: vi.fn(),
   updateSIPPlan: vi.fn(),
   deleteSIPPlan: vi.fn(),
@@ -37,6 +39,13 @@ describe('SettingsDrawer', () => {
     })
     fetchSystemStatus.mockResolvedValue({})
     fetchHealthz.mockResolvedValue({ status: 'ok' })
+    issueTelegramDiscoverySecret.mockResolvedValue({
+      discovery: {
+        secret: 'secret-123',
+        webhook_path: '/api/settings/notifications/telegram/inbound/secret-123',
+        webhook_url: 'https://vectorcontrol.test/api/settings/notifications/telegram/inbound/secret-123'
+      }
+    })
     runNetworkBenchmark.mockResolvedValue({ result: null })
     fetchSIPPlans.mockResolvedValue({ plans: [], count: 0, enabled_only: false })
     createSIPPlan.mockResolvedValue({ plan: { id: 1 } })
@@ -894,6 +903,38 @@ describe('SettingsDrawer', () => {
     expect(onUpdateTelegramCredential).not.toHaveBeenCalled()
     expect(onSave.mock.calls[0][0]?.notifications?.telegram?.bot_token).toBeUndefined()
     expect(onSave.mock.calls[0][0]?.notifications?.telegram?.chat_id).toBeUndefined()
+  })
+
+  it('can issue telegram discovery webhook after saving bot token only', async () => {
+    const onSave = vi.fn().mockResolvedValue(true)
+    const onUpdateTelegramCredential = vi.fn().mockResolvedValue(true)
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{
+          notifications: {
+            telegram: {
+              bot_token: '<REDACTED>',
+              chat_id: ''
+            }
+          }
+        }}
+        onClose={vi.fn()}
+        onSave={onSave}
+        onUpdateTelegramCredential={onUpdateTelegramCredential}
+      />
+    )
+
+    fireEvent.click(screen.getByTestId('telegram-discovery-issue-btn'))
+
+    await waitFor(() => {
+      expect(issueTelegramDiscoverySecret).toHaveBeenCalledTimes(1)
+    })
+
+    expect(await screen.findByTestId('telegram-discovery-preview')).toHaveTextContent(
+      'https://vectorcontrol.test/api/settings/notifications/telegram/inbound/secret-123'
+    )
   })
 
   it('can send telegram test message and show hint', async () => {

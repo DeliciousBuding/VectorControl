@@ -321,6 +321,10 @@ export function updateTelegramCredential(payload: { bot_token: string; chat_id: 
   return apiFetch<void>('/api/settings/notifications/telegram/credential', { method: 'PUT', body: payload });
 }
 
+export function issueTelegramDiscoverySecret(payload: { rotate?: boolean } = {}): Promise<unknown> {
+  return apiFetch<unknown>('/api/settings/notifications/telegram/discovery/secret', { method: 'POST', body: payload });
+}
+
 export function sendTelegramTestMessage(): Promise<unknown> {
   return apiFetch<unknown>('/api/settings/notifications/telegram/test_message', { method: 'POST' });
 }

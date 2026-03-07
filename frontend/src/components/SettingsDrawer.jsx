@@ -9,6 +9,7 @@ import {
   fetchSettingsAuditLogs,
   fetchSIPPlans,
   fetchSystemStatus,
+  issueTelegramDiscoverySecret,
   runNetworkBenchmark,
   testAllNotifications,
   updateSIPPlan
@@ -299,6 +300,9 @@ export function SettingsDrawer({
   const [editingTelegramCredential, setEditingTelegramCredential] = useState(false)
   const [pendingTelegramBotToken, setPendingTelegramBotToken] = useState('')
   const [pendingTelegramChatId, setPendingTelegramChatId] = useState('')
+  const [telegramDiscoveryLoading, setTelegramDiscoveryLoading] = useState(false)
+  const [telegramDiscoveryError, setTelegramDiscoveryError] = useState('')
+  const [telegramDiscoveryData, setTelegramDiscoveryData] = useState(null)
   const [notificationsStatusLoading, setNotificationsStatusLoading] = useState(false)
   const [notificationsStatusError, setNotificationsStatusError] = useState('')
   const [notificationsStatus, setNotificationsStatus] = useState(null)
@@ -359,6 +363,9 @@ export function SettingsDrawer({
       setNotificationsStatusLoading(false)
       setNotificationsStatus(null)
       setNotificationsStatusError('')
+      setTelegramDiscoveryLoading(false)
+      setTelegramDiscoveryError('')
+      setTelegramDiscoveryData(null)
       setSystemStatusLoading(false)
       setSystemStatusSnapshot(null)
       setSystemStatusError('')
@@ -590,12 +597,15 @@ export function SettingsDrawer({
   const currentTelegramChatId = String(draft.notifications.telegram.chat_id || '').trim()
   const requestedTelegramBotToken = String(pendingTelegramBotToken || '').trim()
   const requestedTelegramChatId = String(pendingTelegramChatId || '').trim()
-  const hasTelegramCredential = currentTelegramBotToken.length > 0 && currentTelegramChatId.length > 0
-  const showTelegramCredentialInput = editingTelegramCredential || !hasTelegramCredential
+  const hasTelegramBotToken = currentTelegramBotToken.length > 0
+  const hasTelegramCredential = hasTelegramBotToken && currentTelegramChatId.length > 0
+  const showTelegramCredentialInput = editingTelegramCredential || !hasTelegramBotToken
   const shouldUpdateTelegramCredential = showTelegramCredentialInput
     && requestedTelegramBotToken.length > 0
-    && requestedTelegramChatId.length > 0
     && (requestedTelegramBotToken !== currentTelegramBotToken || requestedTelegramChatId !== currentTelegramChatId)
+  const canIssueTelegramDiscovery = hasTelegramBotToken && !shouldUpdateTelegramCredential
+  const telegramDiscoveryPreview = asPlainObject(telegramDiscoveryData)
+  const telegramDiscoveryWebhook = String(telegramDiscoveryPreview.webhook_url || telegramDiscoveryPreview.webhook_path || '').trim()
   const telegramMode = String(draft.notifications.telegram.parse_mode || '').trim().toUpperCase() === 'HTML'
     ? 'HTML（安全转义）'
     : '纯文本'
@@ -783,6 +793,23 @@ export function SettingsDrawer({
       return false
     } finally {
       setNotificationsStatusLoading(false)
+    }
+  }
+
+  const handleIssueTelegramDiscovery = async () => {
+    setTelegramDiscoveryLoading(true)
+    setTelegramDiscoveryError('')
+    try {
+      const payload = await issueTelegramDiscoverySecret({ rotate: false })
+      const discovery = asPlainObject(payload?.discovery)
+      setTelegramDiscoveryData(discovery)
+      setDiagnosticHint('Telegram 自动发现地址已生成。下一步：复制 webhook URL，给 bot 发一条消息后再刷新诊断。')
+      await refreshNotificationsStatus()
+    } catch (error) {
+      setTelegramDiscoveryData(null)
+      setTelegramDiscoveryError(toGuidedError(error, 'telegram_discovery_issue', 'Telegram 自动发现地址生成失败'))
+    } finally {
+      setTelegramDiscoveryLoading(false)
     }
   }
 
@@ -1717,7 +1744,9 @@ export function SettingsDrawer({
             {!showTelegramCredentialInput ? (
               <div className="settings-secret-preview">
                 <code className="settings-secret-value">
-                  {hasTelegramCredential ? `已配置（chat_id=${currentTelegramChatId || '--'}）` : '未配置'}
+                  {hasTelegramCredential
+                    ? `已配置（chat_id=${currentTelegramChatId || '--'}）`
+                    : (hasTelegramBotToken ? '已配置 bot_token（等待自动发现或手工填写 chat_id）' : '未配置')}
                 </code>
                 <button
                   type="button"
@@ -1739,9 +1768,10 @@ export function SettingsDrawer({
                 <input
                   value={pendingTelegramChatId}
                   onChange={(e) => setPendingTelegramChatId(e.target.value)}
-                  placeholder="填入 chat_id（群通常为负数）"
+                  placeholder="可留空，后续通过自动发现或手工填入 chat_id（群通常为负数）"
                   autoComplete="off"
                 />
+                <p className="settings-note">`chat_id` 可留空；先保存 `bot_token` 后可通过自动发现回写。</p>
                 {hasTelegramCredential && (
                   <div className="settings-secret-actions">
                     <button
@@ -1760,6 +1790,46 @@ export function SettingsDrawer({
                 )}
               </div>
             )}
+            <div className="settings-secret-actions" style={{ marginTop: '8px' }}>
+              <button
+                type="button"
+                className="ghost"
+                data-testid="telegram-discovery-issue-btn"
+                onClick={handleIssueTelegramDiscovery}
+                disabled={telegramDiscoveryLoading || !canIssueTelegramDiscovery}
+              >
+                {telegramDiscoveryLoading ? '生成中...' : '生成自动发现地址'}
+              </button>
+              {!canIssueTelegramDiscovery ? (
+                <p className="settings-note">请先保存 Telegram `bot_token`；如已修改凭据，先点击保存。</p>
+              ) : null}
+            </div>
+            {telegramDiscoveryError ? <p className="settings-error">{telegramDiscoveryError}</p> : null}
+            {telegramDiscoveryWebhook ? (
+              <div className="settings-secret-preview" data-testid="telegram-discovery-preview">
+                <code className="settings-secret-value">{telegramDiscoveryWebhook}</code>
+                <button
+                  type="button"
+                  className="ghost"
+                  data-testid="telegram-discovery-copy-btn"
+                  onClick={async () => {
+                    const ok = await copyTextToClipboard(telegramDiscoveryWebhook)
+                    if (ok) {
+                      setDiagnosticHint('已复制 Telegram 自动发现 webhook URL。')
+                    } else {
+                      setTelegramDiscoveryError('复制失败：浏览器不支持剪贴板')
+                    }
+                  }}
+                >
+                  复制
+                </button>
+              </div>
+            ) : null}
+            {telegramDiscoveryWebhook ? (
+              <p className="settings-note">
+                下一步：把该 URL 配到 Telegram webhook，然后给 bot 发一条消息，系统会自动回写 `chat_id`。
+              </p>
+            ) : null}
           </div>
 
         </div>
@@ -1868,6 +1938,8 @@ export function SettingsDrawer({
 
             const feishuLast = feishuStatus.last_test_summary ?? null
             const telegramLast = telegramStatus.last_test_summary ?? null
+            const telegramDiscovery = asPlainObject(telegramStatus.discovery)
+            const telegramDiscoveryLastSeen = formatDateTime(telegramDiscovery.last_seen_at)
 
             const parseLast = (last) => {
               const raw = asPlainObject(last)
@@ -1944,7 +2016,7 @@ export function SettingsDrawer({
               ? `冷却中（${telegramCooldownRemaining}秒）`
               : (!telegramCredentialConfigured
               ? '请先配置并保存凭据'
-              : (!currentTelegramChatId ? 'chat_id 为空，请先配置并保存凭据' : (shouldUpdateTelegramCredential ? '已输入新凭据，请先保存设置' : '')))
+              : (!currentTelegramChatId ? 'chat_id 为空；可先生成自动发现地址并给 bot 发消息' : (shouldUpdateTelegramCredential ? '已输入新凭据，请先保存设置' : '')))
 
             const parseHistory = (history) => {
               if (!Array.isArray(history)) return []
@@ -2039,6 +2111,12 @@ export function SettingsDrawer({
                   <p>
                     Telegram：{telegramEnabled ? '已启用' : '未启用'}｜凭据：{telegramCredentialConfigured ? '已配置' : '未配置'}｜最近：
                     {renderLast(parseLast(telegramLast), 'telegram')}
+                  </p>
+                  <p>
+                    Telegram 自动发现：{telegramDiscovery.secret_configured ? '已生成地址' : '未生成地址'}｜
+                    最近 chat_id：{String(telegramDiscovery.last_chat_id || '--')}｜
+                    最近时间：{telegramDiscoveryLastSeen}
+                    {telegramDiscovery.last_chat_title ? `｜会话：${String(telegramDiscovery.last_chat_title)}` : ''}
                   </p>
                   {renderHistory('telegram', telegramStatus.last_test_history, telegramHistoryOpen, setTelegramHistoryOpen)}
                 </div>
