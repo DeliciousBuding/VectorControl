@@ -15,6 +15,7 @@ import {
 } from '../api.js'
 import { toGuidedError } from '../utils/errorFeedback.js'
 import { assertSettingsSchema } from '../utils/assertSettingsSchema.js'
+import { recordMetric } from '../utils/metrics.js'
 import { TestMessageButton } from './TestMessageButton.jsx'
 import { formatDateTime } from '../utils/format.js'
 import { 
@@ -440,7 +441,10 @@ export function SettingsDrawer({
     })
   }
 
-  const ensureBenchmarkHydrated = () => hydrateSection('benchmark')
+  const ensureBenchmarkHydrated = () => {
+    recordMetric('设置中心测速记录加载')
+    hydrateSection('benchmark')
+  }
   const ensureSipHydrated = () => hydrateSection('sip')
   const ensureDiagnosticsHydrated = () => hydrateSection('diagnostics')
   const ensureSystemHydrated = () => hydrateSection('system')
@@ -724,8 +728,17 @@ export function SettingsDrawer({
           last_result: result
         }
       }))
+      recordMetric('设置中心测速执行成功', {
+        profile: benchmarkProfile,
+        timeout_seconds: timeoutSeconds,
+        site_count: Array.isArray(result?.results) ? result.results.length : 0
+      })
     } catch (error) {
       setBenchmarkError(toGuidedError(error, 'settings_benchmark_run', '测速执行失败'))
+      recordMetric('设置中心测速执行失败', {
+        profile: benchmarkProfile,
+        timeout_seconds: timeoutSeconds
+      })
     } finally {
       setBenchmarkLoading(false)
     }

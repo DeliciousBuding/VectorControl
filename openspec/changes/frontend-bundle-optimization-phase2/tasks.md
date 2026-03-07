@@ -1,7 +1,7 @@
 ## 1. 基线整理
 
 - [x] 1.1 记录 `npm --prefix frontend run analyze` 当前 chunk 基线，标出 `antd-vendor`、`echarts-vendor`、主包与页面级 chunk
-- [ ] 1.2 结合现有 `recordMetric()` 输出，整理首页、交易入口、设置中心的关键交互基线
+- [x] 1.2 结合现有 `recordMetric()` 输出，整理首页、交易入口、设置中心的关键交互基线
 
 ## 2. 优化拆解
 
@@ -27,3 +27,4 @@
 - [x] 3.14 在首页主路径基本脱离 Ant Design 后，取消 `vite.config.js` 中对 `antd` 的统一 vendor 强切；重新执行 `test:run` 与 `analyze` 后，不再出现 `500 kB` 以上 chunk 警告，并得到新的页面级 chunk 基线
 - [x] 3.15 将 `TopToolbar.jsx` 改为延后加载，并补 `App.test.jsx` 兜住 `formatDateTime` / `StateShowcase` 运行时缺失引用；重新执行 `test:run` 与 `analyze` 后，`TopToolbar` 独立 chunk≈`34.81 kB`，主入口进一步拆小
 - [x] 3.16 将 `TopToolbar.jsx` 从 Ant Design 组件依赖中收敛出来；重新执行 `test:run` 与 `analyze` 后，`TopToolbar` chunk 进一步收敛到约 `17.05 kB`
+- [x] 3.17 使用本地临时代理抓取 `recordMetric()` 样本，确认首页 / 设置中心 / 交易入口的最小交互基线可被记录
