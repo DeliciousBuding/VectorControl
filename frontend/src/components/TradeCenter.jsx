@@ -11,7 +11,7 @@ import Spin from 'antd/es/spin'
 import Table from 'antd/es/table'
 import Tag from 'antd/es/tag'
 import Tooltip from 'antd/es/tooltip'
-import { EditOutlined } from '@ant-design/icons'
+import { EditOutlined, SwapOutlined, CheckCircleOutlined, ClockCircleOutlined, AlertOutlined } from '@ant-design/icons'
 import { DataStatusBanner } from './DataStatusBanner.jsx'
 import { computeNextRunDate, daysUntil, getDcaScheduleLabel } from '../utils/dca.js'
 
@@ -116,20 +116,66 @@ export function TradeCenter({
   handleTogglePlan,
   formatDate
 }) {
+  const overviewCards = [
+    {
+      key: 'pending',
+      icon: ClockCircleOutlined,
+      label: '待确认',
+      value: Number(transactionSummary.pending_count || 0),
+      hint: '等待净值与份额确认'
+    },
+    {
+      key: 'confirmed',
+      icon: CheckCircleOutlined,
+      label: '已确认',
+      value: Number(transactionSummary.confirmed_count || 0),
+      hint: '已计入执行记录'
+    },
+    {
+      key: 'followups',
+      icon: AlertOutlined,
+      label: '失败待办',
+      value: Number(dcaFailedPlans.length || 0),
+      hint: '需要人工补扣或排查'
+    }
+  ]
+
   return (
-        <section className="panel holdings-main">
-          <div className="section-head">
-            <h2>交易入口</h2>
-            <span>买入 / 定投 / 赎回 / 转换</span>
-          </div>
+        <section className="panel holdings-main trade-center-shell">
+          <header className="trade-center-hero">
+            <div className="trade-center-hero__copy">
+              <span className="trade-center-hero__eyebrow">Execution Workspace</span>
+              <div className="trade-center-hero__title-row">
+                <h2>交易工作台</h2>
+                <Tag color="blue" icon={<SwapOutlined />}>{TRADE_TYPES.find((item) => item.key === tradeType)?.label || '买入'}</Tag>
+              </div>
+              <p>用一屏完成交易录入、pending 对账、生命周期跟踪与定投执行管理。</p>
+            </div>
+            <div className="trade-center-overview" aria-label="交易工作台概览">
+              {overviewCards.map((card) => {
+                const Icon = card.icon
+                return (
+                  <article key={card.key} className="trade-center-overview__card">
+                    <span className="trade-center-overview__icon">
+                      <Icon aria-hidden="true" />
+                    </span>
+                    <span className="trade-center-overview__label">{card.label}</span>
+                    <strong>{card.value}</strong>
+                    <p>{card.hint}</p>
+                  </article>
+                )
+              })}
+            </div>
+          </header>
+
           <DataStatusBanner title="执行记录口径" dataStatus={actionDataStatus} />
 
-          <div className="trade-grid">
+          <div className="trade-grid trade-grid--tabs">
             {TRADE_TYPES.map((item) => (
               <button
                 key={item.key}
                 type="button"
-                className={tradeType === item.key ? 'primary' : 'ghost'}
+                className={`trade-type-tab ${tradeType === item.key ? 'trade-type-tab--active' : ''}`}
                 onClick={() => {
                   setTradeType(item.key)
                   setTradeSubmitError('')
@@ -228,7 +274,7 @@ export function TradeCenter({
           <p className="trade-tip">已打通买入/定投/赎回/转换入口，提交后写入执行记录并在下方列表回显。</p>
 
           <div className="sip-plans-section">
-            <Suspense fallback={<Spin tip="加载定投计划..." />}>
+            <Suspense fallback={<Spin description="加载定投计划..." />}>
               <SIPPlanManager user={user} />
             </Suspense>
           </div>
