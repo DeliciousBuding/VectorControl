@@ -2725,28 +2725,75 @@ button:disabled {
 
 .risk-status-bar {
   margin: 12px 0 14px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: linear-gradient(180deg, #fbfdff, #f6f9ff);
-  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at top right, rgba(49, 94, 251, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94));
+  padding: 16px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: minmax(220px, 1.1fr) minmax(0, 2fr) auto;
+  gap: 14px;
+  align-items: stretch;
+  box-shadow: 0 20px 40px -34px rgba(15, 23, 42, 0.2);
+}
+
+.risk-status-bar--empty {
+  grid-template-columns: 1fr;
+}
+
+.risk-status-bar__copy {
+  display: grid;
+  gap: 8px;
+}
+
+.risk-status-bar__eyebrow {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.risk-status-bar__copy strong {
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+.risk-status-bar__copy p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.risk-status-bar__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  align-items: center;
 }
 
 .risk-status-item {
   display: grid;
-  gap: 3px;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.84);
 }
 
 .risk-label {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--vc-text-secondary);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .risk-status-item strong {
-  font-size: 14px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--vc-text-primary);
 }
 
 .risk-chip {
@@ -2775,6 +2822,10 @@ button:disabled {
 .risk-jump-btn {
   white-space: nowrap;
   justify-self: end;
+  align-self: center;
+  min-height: 42px;
+  border-radius: 14px;
+  padding: 0 16px;
 }
 
 .risk-panel {
@@ -4015,6 +4066,14 @@ button.settings-inline-btn {
 
   .risk-jump-btn {
     justify-self: start;
+  }
+
+  .risk-status-bar {
+    grid-template-columns: 1fr;
+  }
+
+  .risk-status-bar__grid {
+    grid-template-columns: 1fr;
   }
 }
 

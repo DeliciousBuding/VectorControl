@@ -28,10 +28,11 @@ function drawdownLevel(worstDrawdown) {
 export function RiskStatusBar({ risk, onOpenRiskCenter }) {
   if (!risk || typeof risk !== 'object') {
     return (
-      <section className="risk-status-bar">
-        <div className="risk-status-item">
-          <span className="risk-label">风险状态</span>
+      <section className="risk-status-bar risk-status-bar--empty">
+        <div className="risk-status-bar__copy">
+          <span className="risk-status-bar__eyebrow">Risk Snapshot</span>
           <strong>暂无风险数据，请先刷新</strong>
+          <p>刷新持仓与估值后，这里会展示组合的集中度、回撤预估与结构预警。</p>
         </div>
       </section>
     )
@@ -46,24 +47,48 @@ export function RiskStatusBar({ risk, onOpenRiskCenter }) {
   const drawdown = drawdownLevel(worstDrawdown)
   const warningClass = warningsCount > 0 ? 'risk-chip-warn' : 'risk-chip-ok'
   const warningLabel = warningsCount > 0 ? `预警 ${warningsCount} 条` : '无结构预警'
+  const overviewItems = [
+    {
+      key: 'concentration',
+      label: '集中度',
+      value: `Top1 ${formatPct(top1)} ｜ Top3 ${formatPct(top3)}`,
+      chipClass: concentration.className,
+      chipLabel: concentration.label
+    },
+    {
+      key: 'drawdown',
+      label: '回撤预估',
+      value: formatPct(worstDrawdown),
+      chipClass: drawdown.className,
+      chipLabel: drawdown.label
+    },
+    {
+      key: 'warnings',
+      label: '结构预警',
+      value: warningLabel,
+      chipClass: warningClass,
+      chipLabel: warningsCount > 0 ? '需关注' : '正常'
+    }
+  ]
 
   return (
     <section className="risk-status-bar" aria-label="风险状态条">
-      <div className="risk-status-item">
-        <span className="risk-label">集中度</span>
-        <strong>Top1 {formatPct(top1)} ｜ Top3 {formatPct(top3)}</strong>
-        <span className={`risk-chip ${concentration.className}`}>{concentration.label}</span>
+      <div className="risk-status-bar__copy">
+        <span className="risk-status-bar__eyebrow">Risk Snapshot</span>
+        <strong>组合风险快照</strong>
+        <p>先看集中度、回撤预估与结构预警，再进入风险中枢查看完整细项。</p>
       </div>
-      <div className="risk-status-item">
-        <span className="risk-label">回撤预估</span>
-        <strong>{formatPct(worstDrawdown)}</strong>
-        <span className={`risk-chip ${drawdown.className}`}>{drawdown.label}</span>
+
+      <div className="risk-status-bar__grid">
+        {overviewItems.map((item) => (
+          <article key={item.key} className="risk-status-item">
+            <span className="risk-label">{item.label}</span>
+            <strong>{item.value}</strong>
+            <span className={`risk-chip ${item.chipClass}`}>{item.chipLabel}</span>
+          </article>
+        ))}
       </div>
-      <div className="risk-status-item">
-        <span className="risk-label">结构预警</span>
-        <strong>{warningLabel}</strong>
-        <span className={`risk-chip ${warningClass}`}>{warningsCount > 0 ? '需关注' : '正常'}</span>
-      </div>
+
       <button type="button" className="ghost risk-jump-btn" onClick={onOpenRiskCenter}>
         查看风险详情
       </button>
