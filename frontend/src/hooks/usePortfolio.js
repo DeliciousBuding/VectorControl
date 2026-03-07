@@ -304,8 +304,8 @@ export function usePortfolio({ user, sorter }) {
   const updateTelegramCredential = useCallback(async (botToken, chatId) => {
     const nextBotToken = String(botToken || '').trim()
     const nextChatId = String(chatId || '').trim()
-    if (!nextBotToken || !nextChatId) {
-      setStatus({ type: 'error', message: 'Telegram 凭据缺失：bot_token 与 chat_id 均不能为空' })
+    if (!nextBotToken) {
+      setStatus({ type: 'error', message: 'Telegram 凭据缺失：bot_token 不能为空' })
       return false
     }
 
@@ -319,7 +319,12 @@ export function usePortfolio({ user, sorter }) {
           }
         }
       }))
-      setStatus({ type: 'success', message: 'Telegram 凭据已更新' })
+      setStatus({
+        type: 'success',
+        message: nextChatId
+          ? 'Telegram 凭据已更新'
+          : 'Telegram bot_token 已更新，可继续使用自动发现补齐 chat_id'
+      })
       return true
     } catch (error) {
       setStatus({ type: 'error', message: toGuidedError(error, 'settings_save', 'Telegram 凭据更新失败') })

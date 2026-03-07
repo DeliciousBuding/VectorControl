@@ -45,6 +45,9 @@ PUBLIC_PATHS = {
     "/api/auth/register",
     "/api/auth/login",
 }
+PUBLIC_PATH_PREFIXES = (
+    "/api/settings/notifications/telegram/inbound/",
+)
 
 APP_ROUTERS = (
     auth.router,
@@ -109,7 +112,8 @@ def _resolve_request_id(request: Request) -> str:
 
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
-    if path.startswith("/api/") and path not in PUBLIC_PATHS:
+    is_public_prefix = any(path.startswith(prefix) for prefix in PUBLIC_PATH_PREFIXES)
+    if path.startswith("/api/") and path not in PUBLIC_PATHS and not is_public_prefix:
         token_value = _extract_token(request)
         if not token_value:
             return JSONResponse({"detail": "缺少访问令牌，请先登录"}, status_code=401)

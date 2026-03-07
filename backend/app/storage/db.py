@@ -528,6 +528,11 @@ def _default_user_settings() -> dict[str, Any]:
                 "enabled": False,
                 "bot_token": "",
                 "chat_id": "",
+                "chat_auto_discovery_secret": "",
+                "chat_auto_discovery_last_chat_id": "",
+                "chat_auto_discovery_last_seen_at": "",
+                "chat_auto_discovery_last_chat_type": "",
+                "chat_auto_discovery_last_chat_title": "",
                 "parse_mode": "Markdown",
                 "disable_web_page_preview": True,
                 "timeout_seconds": 3,
@@ -2967,6 +2972,33 @@ def get_user_settings(user_id: str) -> dict[str, Any]:
     return _merge_dict(defaults, loaded)
 
 
+def find_user_settings_by_telegram_discovery_secret(secret: str) -> tuple[str, dict[str, Any]] | None:
+    clean_secret = str(secret or "").strip()
+    if not clean_secret:
+        return None
+
+    defaults = _default_user_settings()
+    with connect() as conn:
+        rows = conn.execute("SELECT user_id, settings_json FROM user_settings").fetchall()
+
+    for row in rows:
+        try:
+            loaded = json.loads(str(row["settings_json"]))
+        except Exception:
+            continue
+        if not isinstance(loaded, dict):
+            continue
+
+        settings = _merge_dict(defaults, loaded)
+        notifications = settings.get("notifications", {}) if isinstance(settings, dict) else {}
+        telegram = notifications.get("telegram", {}) if isinstance(notifications, dict) else {}
+        stored_secret = str(telegram.get("chat_auto_discovery_secret", "")).strip()
+        if stored_secret and hmac.compare_digest(stored_secret, clean_secret):
+            return str(row["user_id"]), settings
+
+    return None
+
+
 def upsert_user_settings(
     user_id: str,
     incoming: dict[str, Any],
@@ -3017,7 +3049,7 @@ def _sanitize_settings_for_audit(settings: dict[str, Any]) -> dict[str, Any]:
                 if isinstance(cfg, dict):
                     sanitized = {}
                     for k, v in cfg.items():
-                        if k in ("webhook_url", "bot_token", "chat_id", "smtp_password"):
+                        if k in ("webhook_url", "bot_token", "chat_id", "chat_auto_discovery_secret", "smtp_password"):
                             sanitized[k] = "<REDACTED>" if v else ""
                         else:
                             sanitized[k] = v
