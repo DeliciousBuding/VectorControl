@@ -13,6 +13,7 @@
 - [x] 2.2 更新 `docs/Gate-D验收证据模板.md` 到当前 HTTP + SQLite 基线
 - [x] 2.3 更新 `docs/P0线上故障排查SOP.md`，将 Nginx 配置引用收敛到 `deploy/nginx/site.http.conf` / `nginx.conf`
 - [x] 2.4 更新 `docs/最新进度.md`，把已完成的本地预检 / 生产部署 / 下一步优化入口写清楚
+- [x] 2.5 更新 `docs/Gate-D设置中心测速前端证据.md`，将测速前端证据模板收敛到当前 HTTP + SQLite 基线
 
 ## 3. 门禁与性能入口补齐
 
