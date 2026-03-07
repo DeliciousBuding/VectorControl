@@ -68,11 +68,13 @@ function useAnimatedNumber(targetValue, duration = 600) {
  */
 const SummaryCard = memo(function SummaryCard({
   icon: Icon,
+  kicker,
   title,
   value,
   formattedValue,
   subValue,
   formattedSubValue,
+  note,
   variant = 'neutral',
   isLoading = false
 }) {
@@ -112,17 +114,27 @@ const SummaryCard = memo(function SummaryCard({
 
   return (
     <article className={`panel summary-card ${getVariantClass()}`}>
-      <Icon
-        className="summary-icon"
-        style={{ color: getIconColor() }}
-      />
-      <h3>{title}</h3>
-      <strong className={variant !== 'neutral' ? classBySign(value) : ''}>
-        {formattedValue}
-      </strong>
-      {subValue !== undefined && (
-        <span className={classBySign(subValue)}>{formattedSubValue}</span>
-      )}
+      <div className="summary-card__header">
+        <div className="summary-card__title-wrap">
+          <span className="summary-card__kicker">{kicker}</span>
+          <h3>{title}</h3>
+        </div>
+        <span className="summary-card__icon-shell">
+          <Icon
+            className="summary-icon"
+            style={{ color: getIconColor() }}
+          />
+        </span>
+      </div>
+      <div className="summary-card__body">
+        <strong className={variant !== 'neutral' ? classBySign(value) : ''}>
+          {formattedValue}
+        </strong>
+        {subValue !== undefined && (
+          <span className={classBySign(subValue)}>{formattedSubValue}</span>
+        )}
+        {note && <p className="summary-card__note">{note}</p>}
+      </div>
     </article>
   )
 })
@@ -180,58 +192,82 @@ export const SummaryCards = memo(function SummaryCards({ rows = [], loading = fa
       {/* 总持仓市值卡片 */}
       <SummaryCard
         icon={WalletOutlined}
+        kicker="资产总览"
         title="总持仓市值"
         value={totalMarket}
         formattedValue={formatMoney(totalMarket)}
+        note="当前组合总敞口"
         variant="neutral"
       />
 
       {/* 当日收益卡片 - 根据正负显示不同颜色 */}
       <article className={`panel summary-card summary-card--${dayVariant}`}>
-        {totalDay >= 0 ? (
-          <RiseOutlined
-            className="summary-icon summary-icon--animated"
-            style={{ color: 'var(--color-success)' }}
-          />
-        ) : (
-          <FallOutlined
-            className="summary-icon summary-icon--animated"
-            style={{ color: 'var(--color-error)' }}
-          />
-        )}
-        <h3>当日收益</h3>
-        <strong className={classBySign(totalDay)}>
-          <AnimatedNumber value={totalDay} formatter={formatSignedMoney} />
-        </strong>
+        <div className="summary-card__header">
+          <div className="summary-card__title-wrap">
+            <span className="summary-card__kicker">日内脉冲</span>
+            <h3>当日收益</h3>
+          </div>
+          <span className="summary-card__icon-shell">
+            {totalDay >= 0 ? (
+              <RiseOutlined
+                className="summary-icon summary-icon--animated"
+                style={{ color: 'var(--color-success)' }}
+              />
+            ) : (
+              <FallOutlined
+                className="summary-icon summary-icon--animated"
+                style={{ color: 'var(--color-error)' }}
+              />
+            )}
+          </span>
+        </div>
+        <div className="summary-card__body">
+          <strong className={classBySign(totalDay)}>
+            <AnimatedNumber value={totalDay} formatter={formatSignedMoney} />
+          </strong>
+          <p className="summary-card__note">相对上一估值日</p>
+        </div>
       </article>
 
       {/* 持有收益卡片 - 根据正负显示不同颜色 */}
       <article className={`panel summary-card summary-card--${holdingVariant}`}>
-        <HistoryOutlined
-          className="summary-icon"
-          style={{
-            color: holdingVariant === 'positive'
-              ? 'var(--color-success)'
-              : holdingVariant === 'negative'
-                ? 'var(--color-error)'
-                : 'var(--color-text-tertiary)'
-          }}
-        />
-        <h3>持有收益</h3>
-        <strong className={classBySign(totalHolding)}>
-          <AnimatedNumber value={totalHolding} formatter={formatSignedMoney} />
-        </strong>
-        <span className={classBySign(holdingRate)}>
-          <AnimatedNumber value={holdingRate} formatter={formatPercent} />
-        </span>
+        <div className="summary-card__header">
+          <div className="summary-card__title-wrap">
+            <span className="summary-card__kicker">累计表现</span>
+            <h3>持有收益</h3>
+          </div>
+          <span className="summary-card__icon-shell">
+            <HistoryOutlined
+              className="summary-icon"
+              style={{
+                color: holdingVariant === 'positive'
+                  ? 'var(--color-success)'
+                  : holdingVariant === 'negative'
+                    ? 'var(--color-error)'
+                    : 'var(--color-text-tertiary)'
+              }}
+            />
+          </span>
+        </div>
+        <div className="summary-card__body">
+          <strong className={classBySign(totalHolding)}>
+            <AnimatedNumber value={totalHolding} formatter={formatSignedMoney} />
+          </strong>
+          <span className={classBySign(holdingRate)}>
+            <AnimatedNumber value={holdingRate} formatter={formatPercent} />
+          </span>
+          <p className="summary-card__note">累计浮盈 / 浮亏</p>
+        </div>
       </article>
 
       {/* 持仓数量卡片 */}
       <SummaryCard
         icon={AppstoreOutlined}
+        kicker="持仓覆盖"
         title="持仓数量"
         value={rows.length}
         formattedValue={`${rows.length} 只`}
+        note="纳入估值的基金数量"
         variant="neutral"
       />
     </section>

@@ -1863,26 +1863,46 @@ function App() {
             {/* 只在非基金详情页时显示tab内容 */}
             {currentView !== 'fund-detail' && activeTab === 'home' && (
         <>
-          <SummaryCards rows={rows} loading={loading} />
-          <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
-          {reportDataQuality && reportDataQuality.total_funds > 0 && (
-            <div className="data-quality-bar">
-              <span className="quality-label">📊 数据质量</span>
-              <span className="quality-item">
-                覆盖率 {reportDataQuality.coverage_pct}%
-                <span className="quality-detail">({reportDataQuality.ok_funds}/{reportDataQuality.total_funds})</span>
-              </span>
-              {reportDataQuality.failed_funds > 0 && (
-                <span className="quality-item warning">失败 {reportDataQuality.failed_funds}</span>
-              )}
-              {reportDataQuality.missing_funds > 0 && (
-                <span className="quality-item warning">缺失 {reportDataQuality.missing_funds}</span>
-              )}
-              {reportDataQuality.low_confidence_count > 0 && (
-                <span className="quality-item info">低置信度 {reportDataQuality.low_confidence_count}</span>
-              )}
+          <section className="panel home-overview">
+            <div className="home-overview__head">
+              <div className="home-overview__copy">
+                <span className="section-kicker">投资驾驶舱</span>
+                <h1>先看组合脉冲，再处理交易与异常。</h1>
+                <p>把收益、估值时点和数据质量压缩在首屏顶部，减少来回切换。</p>
+              </div>
+              <div className="home-overview__meta">
+                <article className="home-overview__meta-card">
+                  <span>最近同步</span>
+                  <strong>{updatedAt ? formatDateTime(updatedAt) : asof ? formatDateTime(asof) : '--'}</strong>
+                </article>
+                <article className="home-overview__meta-card">
+                  <span>已纳入持仓</span>
+                  <strong>{rows.length} 只基金</strong>
+                </article>
+              </div>
             </div>
-          )}
+
+            <SummaryCards rows={rows} loading={loading} />
+            <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
+            {reportDataQuality && reportDataQuality.total_funds > 0 && (
+              <div className="data-quality-bar">
+                <span className="quality-label">数据质量</span>
+                <span className="quality-item">
+                  覆盖率 {reportDataQuality.coverage_pct}%
+                  <span className="quality-detail">({reportDataQuality.ok_funds}/{reportDataQuality.total_funds})</span>
+                </span>
+                {reportDataQuality.failed_funds > 0 && (
+                  <span className="quality-item warning">失败 {reportDataQuality.failed_funds}</span>
+                )}
+                {reportDataQuality.missing_funds > 0 && (
+                  <span className="quality-item warning">缺失 {reportDataQuality.missing_funds}</span>
+                )}
+                {reportDataQuality.low_confidence_count > 0 && (
+                  <span className="quality-item info">低置信度 {reportDataQuality.low_confidence_count}</span>
+                )}
+              </div>
+            )}
+          </section>
 
           <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
           {homeChartsReady ? (

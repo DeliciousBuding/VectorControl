@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { fetchPortfolioReturnsHistory } from '../api.js'
-import { classBySign, formatPercent, formatSignedMoney } from '../utils/format.js'
+import { classBySign, formatDateTime, formatPercent, formatSignedMoney } from '../utils/format.js'
 import { MultiLineChart } from './MultiLineChart.jsx'
 
 function toNumber(value, fallback = 0) {
@@ -64,6 +64,7 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
   }, [history])
 
   const latestTotalReturn = history.length ? history[history.length - 1].total_return : 0
+  const latestAsof = history.length ? history[history.length - 1].asof : ''
   const recent7 = useMemo(() => history.slice(-7).reverse(), [history])
 
   // v3: 计算摘要信息
@@ -106,14 +107,19 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
   const daysOptions = [7, 30, 90]
 
   return (
-    <section className="panel home-main" data-testid="portfolio-returns-panel">
-      <div className="section-head">
-        <div>
+    <section className="panel home-main returns-panel" data-testid="portfolio-returns-panel">
+      <div className="section-head section-head--rich">
+        <div className="section-head__copy">
+          <span className="section-kicker">收益监控</span>
           <h2>组合收益曲线</h2>
-          <span>最近 {days} 天（按估值快照）</span>
+          <p className="section-description">最近 {days} 天（按估值快照）</p>
         </div>
-        <div className="plan-actions">
-          <div className="trade-grid" style={{ gap: 8 }}>
+        <div className="returns-panel__head-actions">
+          <div className="returns-panel__snapshot">
+            <span>最新时点</span>
+            <strong>{latestAsof ? formatDateTime(latestAsof) : '--'}</strong>
+          </div>
+          <div className="trade-grid returns-panel__range-tabs" style={{ gap: 8 }}>
             {daysOptions.map((value) => (
               <button
                 key={value}
@@ -153,7 +159,7 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
       {!loading && !error && history.length >= 2 && (
         <>
           {/* v3: 摘要信息 */}
-          <div className="chart-panel summary-panel" data-testid="portfolio-returns-summary">
+          <div className="chart-panel summary-panel returns-summary-panel" data-testid="portfolio-returns-summary">
             <div className="summary-item">
               <span className="summary-label">累计收益</span>
               <strong className={`summary-value ${classBySign(latestTotalReturn)}`}>
@@ -177,7 +183,7 @@ export function PortfolioReturnsPanel({ user, lastRefresh }) {
             </div>
           </div>
 
-          <div className="chart-panel">
+          <div className="chart-panel chart-panel--featured">
             <div className="chart-head">
               <h4>累计收益率</h4>
               <strong className={classBySign(latestTotalReturn)}>{formatPercent(latestTotalReturn)}</strong>
