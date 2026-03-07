@@ -1,15 +1,16 @@
-# Gate-D 设置中心测速前端证据（本地回归）
-> 最后更新: 2026-02-11 09:05:00 (UTC+8)
-> 状态: [Closed]
+# Gate-D 设置中心测速前端证据（当前基线）
+更新时间：2026-03-07 14:16:00
+状态: [Open]
 
 ## 1. 目标
 
 - 覆盖 `设置中心 -> 网络测速` 的关键验收点：
   - 接口异常时页面不白屏
-  - 错误提示包含可执行"下一步"
-  - 异常响应可透传 `X-Request-ID` 便于联调追踪
+  - 错误提示包含可执行“下一步”
+  - 错误链路可携带 `X-Request-ID`
+  - 当前本地回归与 Gate-D 证据模板口径一致
 
-## 2. 验收范围
+## 2. 当前验收范围
 
 - 前端代码：
   - `frontend/src/components/SettingsDrawer.jsx`
@@ -19,48 +20,35 @@
   - `frontend/src/components/SettingsDrawer.test.jsx`
   - `frontend/src/api.test.js`
 
-## 3. 本地验收记录
+## 3. 本地回归记录
 
-- 验收时间：2026-02-08 19:44:26（测试）/ 19:44:54（构建）
-- 验收分支：`feat/frontend-agent1-holdings-autofill-phase2`
-- 相关提交：
-  - `57ed0fe`（飞书高级参数入口）
-  - `cea679a`（`X-Request-ID` 透传与 API 回归）
-  - `f36d94f`（ErrorBoundary 防止白屏修复）
+- 最近验证命令：
+  - `npm --prefix frontend run test:run`
+  - `npm --prefix frontend run build`
+- 最近结果：
+  - `vitest`：`49 passed`
+  - `vite build`：`PASS`
+- 备注：
+  - `SettingsDrawer` 相关测试目前仍会打印 `Drawer width is deprecated` 警告，但不影响通过态与功能回归
 
-执行命令：
+## 4. Gate-D 验收清单
 
-```powershell
-npm --prefix frontend run test:run
-npm --prefix frontend run build
-```
+- [ ] 设置中心抽屉可正常打开
+- [ ] 网络测速成功态可渲染摘要与站点明细
+- [ ] 网络测速失败态显示可执行“下一步”
+- [ ] 脏数据返回可降级渲染
+- [ ] 错误提示中可定位 `X-Request-ID`
 
-执行结果摘录：
+## 5. 截图与输出索引
 
-- `vitest`：`Test Files 3 passed`，`Tests 10 passed`
-- `vite build`：`built in 1.18s`
+| 文件名 | 验收点 | 状态 |
+|--------|--------|------|
+| `settings-drawer-open.png` | 抽屉正常打开 | `[待补]` |
+| `settings-benchmark-success.png` | 测速成功结果 | `[待补]` |
+| `settings-benchmark-error.png` | 测速失败提示 | `[待补]` |
+| `settings-benchmark-request-id.png` | 错误提示携带请求ID | `[待补]` |
 
-## 4. 验收结论（前端本地）
+## 6. 与 Gate-D 模板的关联
 
-- [x] 设置中心抽屉打开稳定，无白屏
-- [x] 测速加载异常时显示可解释提示（含"下一步"）
-- [x] 测速返回脏数据时可降级渲染
-- [x] 错误响应支持 `X-Request-ID` 透传，提示文案可用于日志定位
-- [x] 构建与测试通过
-
-## 5. 实机截图记录
-
-| 截图文件名 | 验收点 | 状态 |
-|-----------|--------|------|
-| `settings-benchmark-error.png` | 测速接口异常提示 | [已验证] |
-| `settings-benchmark-dirty-result.png` | 脏数据兜底渲染 | [已验证] |
-| `settings-benchmark-request-id.png` | 错误提示中请求ID | [已验证] |
-| `settings-drawer-open.png` | 抽屉正常打开 | [已验证] |
-| `settings-benchmark-success.png` | 测速成功展示 | [已验证] |
-| `settings-feishu-credential.png` | 飞书凭据掩码展示 | [已验证] |
-
-## 6. 当前状态
-
-- 前端本地验收：通过
-- 生产实机截图：已验证
-- 故障单状态：[Closed]
+- 本文件用于补齐 `docs/Gate-D验收证据模板.md` 中“状态解释与前端回归”部分的前端细项证据。
+- 每次 `main` 发布后的 Gate-D 验收，如测速口径、UI 或错误提示有变化，应与该模板同批更新。
