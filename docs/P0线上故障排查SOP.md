@@ -1,5 +1,5 @@
 # P0 线上故障排查 SOP（502 Bad Gateway / 测速 Not Found / 设置中心白屏）
-更新时间：2026-03-07 13:40:14
+更新时间：2026-03-08 00:50:22
 
 用途：为 `P0` 阻塞故障提供统一排查路径、最小复现命令与验收标准，避免重复口头排查。
 
@@ -56,7 +56,7 @@
      - `python -m uvicorn app.main:app --host 127.0.0.1 --port 21345`
      - `curl -i http://127.0.0.1:21345/api/settings/network-benchmark/latest`
 2. Nginx `/api` 反向代理
-   - 检查文件：`deploy/nginx/site.conf`
+   - 检查文件：运行态优先看 `deploy/nginx/site.rendered.conf`；模板来源为 `deploy/nginx/site.http.conf` 或 `deploy/nginx/site.conf`
    - 核心点：`/api` 必须转发到 backend 容器，不可被静态路由吞掉
    - 兼容要求：历史路径 `/network-benchmark/*`、`/settings/network-benchmark/*` 重写到 `/api/settings/network-benchmark/*`
    - VPS 命令（示例）：

@@ -1,0 +1,4 @@
+subject=CN=vectorcontrol.tech
+issuer=C=US, O=Let's Encrypt, CN=E8
+notBefore=Mar  7 15:37:37 2026 GMT
+notAfter=Jun  5 15:37:36 2026 GMT
