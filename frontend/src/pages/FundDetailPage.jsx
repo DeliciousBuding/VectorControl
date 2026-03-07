@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Spin, Card, Row, Col, Tag, Table } from 'antd'
+import { Button, Card, Row, Col, Tag, Table } from 'antd'
 import { ArrowLeftOutlined, LineChartOutlined, HistoryOutlined, WalletOutlined, RiseOutlined, FallOutlined } from '@ant-design/icons'
 import { MultiLineChart } from '../components/MultiLineChart.jsx'
+import { SurfaceState } from '../components/SurfaceState.jsx'
 import { fetchFundDetailPageData } from '../api.js'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney, formatDateTime, formatDate } from '../utils/format.js'
 
@@ -94,30 +95,45 @@ export function FundDetailPage({ fundId, onBack }) {
 
   if (loading) {
     return (
-        <div className="panel" style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Spin size="large" description="加载基金详情..." />
+      <div className="panel fund-detail-state-shell">
+        <SurfaceState
+          tone="loading"
+          title="正在加载基金详情"
+          description="正在同步净值走势、持仓收益和最近交易记录。"
+          hint="首次进入详情页时可能需要几秒钟。"
+        />
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="panel">
-        <div className="section-head" style={{ marginBottom: '20px' }}>
+      <div className="panel fund-detail-state-shell">
+        <div className="fund-detail-state-shell__actions">
           <Button icon={<ArrowLeftOutlined />} onClick={handleBack}>返回</Button>
         </div>
-        <div className="chart-empty" style={{ color: '#ff4d4f', padding: '40px' }}>{error}</div>
+        <SurfaceState
+          tone="error"
+          title="基金详情加载失败"
+          description={error}
+          hint="可先返回列表重试；若持续失败请检查接口与数据状态。"
+        />
       </div>
     )
   }
 
   if (!fundData) {
     return (
-      <div className="panel">
-        <div className="section-head" style={{ marginBottom: '20px' }}>
+      <div className="panel fund-detail-state-shell">
+        <div className="fund-detail-state-shell__actions">
           <Button icon={<ArrowLeftOutlined />} onClick={handleBack}>返回</Button>
         </div>
-        <div className="chart-empty" style={{ padding: '40px' }}>基金不存在或暂无数据</div>
+        <SurfaceState
+          tone="empty"
+          title="基金不存在或暂无数据"
+          description="当前没有可展示的持仓、净值或交易记录。"
+          hint="建议返回上一页重新选择基金，或等待数据同步完成。"
+        />
       </div>
     )
   }

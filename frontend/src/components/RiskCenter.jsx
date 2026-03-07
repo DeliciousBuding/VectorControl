@@ -1,4 +1,5 @@
 import { memo } from 'react'
+import { SurfaceState } from './SurfaceState.jsx'
 
 export const RiskCenter = memo(function RiskCenter({ risk }) {
   return (
@@ -8,7 +9,15 @@ export const RiskCenter = memo(function RiskCenter({ risk }) {
         <span>{risk ? `版本：${risk.version || 'risk-v0'}` : '暂无数据'}</span>
       </div>
 
-      {!risk && <div className="chart-empty">请先刷新数据后查看风险中枢</div>}
+      {!risk && (
+        <SurfaceState
+          tone="empty"
+          title="风险中枢尚未就绪"
+          description="请先刷新持仓与估值数据，再查看集中度、相关性和压力测试。"
+          hint="完成一次刷新后，这里会自动展示风险摘要。"
+          compact
+        />
+      )}
 
       {risk && (
         <div className="risk-grid">
