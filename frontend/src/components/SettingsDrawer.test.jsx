@@ -67,6 +67,7 @@ describe('SettingsDrawer', () => {
     expect(fetchNotificationsStatus).not.toHaveBeenCalled()
     expect(fetchSystemStatus).not.toHaveBeenCalled()
     expect(fetchHealthz).not.toHaveBeenCalled()
+    expect(screen.getByText('控制台设置')).toBeInTheDocument()
     expect(screen.getByText(/最近测速记录按需加载/)).toBeInTheDocument()
     expect(screen.getByText(/按需加载中。下一步：点击“加载计划”查看现有计划/)).toBeInTheDocument()
     expect(screen.getByText(/按需加载。下一步：点击“一键复制状态”或“加载系统状态”/)).toBeInTheDocument()
@@ -136,7 +137,7 @@ describe('SettingsDrawer', () => {
     await waitFor(() => {
       expect(fetchSIPPlans).toHaveBeenCalledTimes(1)
     })
-    expect(screen.getByText(/暂无定投计划/)).toBeInTheDocument()
+    expect(screen.getByText('当前暂无定投计划')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('diagnostic-load-btn'))
     await waitFor(() => {
