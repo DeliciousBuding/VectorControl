@@ -1,8 +1,10 @@
 ﻿from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import uuid
+from time import monotonic
 from typing import Any
 from urllib import request
 from urllib.error import HTTPError
@@ -27,6 +29,65 @@ DEFAULT_TIMEOUT_SECONDS = 3.0
 DEFAULT_RETRY_TIMES = 2
 MAX_RETRY_TIMES = 5
 MAX_TEXT_LENGTH = 4096
+FEISHU_GOVERNANCE_MIN_INTERVAL_SECONDS = 5.0
+FEISHU_GOVERNANCE_OPEN_SECONDS = 60.0
+FEISHU_GOVERNANCE_MAX_FAILURES = 3
+FEISHU_GOVERNANCE_STATE_TTL_SECONDS = 600.0
+_GOVERNANCE_STATE: dict[str, dict[str, Any]] = {}
+
+
+def _governance_now() -> float:
+    return monotonic()
+
+
+def _governance_key(webhook_url: str) -> str:
+    return hashlib.sha256(str(webhook_url).encode("utf-8")).hexdigest()[:16]
+
+
+def _prune_governance_state(now: float) -> None:
+    stale_keys = [
+        key
+        for key, value in _GOVERNANCE_STATE.items()
+        if now - float(value.get("updated_at", 0.0) or 0.0) > FEISHU_GOVERNANCE_STATE_TTL_SECONDS
+    ]
+    for key in stale_keys:
+        _GOVERNANCE_STATE.pop(key, None)
+
+
+def _get_governance_state(key: str) -> dict[str, Any]:
+    state = _GOVERNANCE_STATE.get(key)
+    if state is None:
+        state = {
+            "last_attempt_at": 0.0,
+            "last_success_at": 0.0,
+            "last_failure_at": 0.0,
+            "consecutive_failures": 0,
+            "blocked_until": 0.0,
+            "updated_at": 0.0,
+        }
+        _GOVERNANCE_STATE[key] = state
+    return state
+
+
+def _mark_governance_success(state: dict[str, Any], now: float) -> None:
+    state["last_attempt_at"] = now
+    state["last_success_at"] = now
+    state["consecutive_failures"] = 0
+    state["blocked_until"] = 0.0
+    state["updated_at"] = now
+
+
+def _mark_governance_failure(state: dict[str, Any], now: float) -> None:
+    state["last_attempt_at"] = now
+    state["last_failure_at"] = now
+    state["consecutive_failures"] = int(state.get("consecutive_failures") or 0) + 1
+    if int(state["consecutive_failures"]) >= FEISHU_GOVERNANCE_MAX_FAILURES:
+        state["blocked_until"] = now + FEISHU_GOVERNANCE_OPEN_SECONDS
+    state["updated_at"] = now
+
+
+def _clear_governance_state() -> None:
+    _GOVERNANCE_STATE.clear()
 
 
 def _http_post_json(url: str, payload: dict[str, Any], timeout_seconds: float) -> tuple[int, dict[str, Any]]:
@@ -146,6 +207,48 @@ class FeishuSender:
             "content": {"text": text},
         }
         max_attempts = retry_times + 1
+        governance_key = _governance_key(webhook_url)
+        current_time = _governance_now()
+        _prune_governance_state(current_time)
+        governance_state = _get_governance_state(governance_key)
+
+        blocked_until = float(governance_state.get("blocked_until") or 0.0)
+        if blocked_until > current_time:
+            retry_after = max(1, int(blocked_until - current_time))
+            LOGGER.warning(
+                "feishu governance isolate trace_id=%s key=%s retry_after=%ss consecutive_failures=%s",
+                trace_id,
+                governance_key,
+                retry_after,
+                governance_state.get("consecutive_failures"),
+            )
+            return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=0,
+                error=f"feishu sender isolated temporarily, retry after {retry_after}s",
+                channel=self.channel,
+            )
+
+        last_attempt_at = float(governance_state.get("last_attempt_at") or 0.0)
+        if last_attempt_at > 0 and current_time - last_attempt_at < FEISHU_GOVERNANCE_MIN_INTERVAL_SECONDS:
+            retry_after = max(1, int(FEISHU_GOVERNANCE_MIN_INTERVAL_SECONDS - (current_time - last_attempt_at)))
+            governance_state["updated_at"] = current_time
+            LOGGER.info(
+                "feishu governance throttle trace_id=%s key=%s retry_after=%ss",
+                trace_id,
+                governance_key,
+                retry_after,
+            )
+            return NotificationResult(
+                ok=False,
+                sent=False,
+                trace_id=trace_id,
+                attempts=0,
+                error=f"feishu sender throttled, retry after {retry_after}s",
+                channel=self.channel,
+            )
 
         for attempt in range(1, max_attempts + 1):
             try:
@@ -167,6 +270,7 @@ class FeishuSender:
                         attempt,
                         provider_message_id,
                     )
+                    _mark_governance_success(governance_state, _governance_now())
                     return NotificationResult(
                         ok=True,
                         sent=True,
@@ -191,6 +295,15 @@ class FeishuSender:
                     exc.__class__.__name__,
                 )
                 if attempt >= max_attempts:
+                    failed_now = _governance_now()
+                    _mark_governance_failure(governance_state, failed_now)
+                    LOGGER.warning(
+                        "feishu governance failure trace_id=%s key=%s consecutive_failures=%s blocked_until=%s",
+                        trace_id,
+                        governance_key,
+                        governance_state.get("consecutive_failures"),
+                        governance_state.get("blocked_until"),
+                    )
                     return NotificationResult(
                         ok=False,
                         sent=False,

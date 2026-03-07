@@ -9,6 +9,9 @@ from app.notifier.feishu_sender import FeishuSender
 
 class FeishuSenderSmokeTest(unittest.TestCase):
     def setUp(self) -> None:
+        from app.notifier.feishu_sender import _clear_governance_state
+
+        _clear_governance_state()
         self.sender = FeishuSender()
         self.payload = NotificationPayload(
             title="daily_report",
@@ -105,6 +108,57 @@ class FeishuSenderSmokeTest(unittest.TestCase):
         sent_text = sent_payload["content"]["text"]
         self.assertIn("profit +1.28%", sent_text)
         self.assertNotIn("account:", sent_text)
+
+    def test_governance_throttle_blocks_burst_requests(self) -> None:
+        settings = {
+            "notifications": {
+                "feishu": {
+                    "enabled": True,
+                    "webhook_url": "https://open.feishu.cn/webhook",
+                    "retry_times": 0,
+                }
+            }
+        }
+
+        with patch("app.notifier.feishu_sender._http_post_json", return_value=(200, {"StatusCode": 0})), patch(
+            "app.notifier.feishu_sender._governance_now",
+            side_effect=[100.0, 100.0, 101.0],
+        ):
+            first = self.sender.send(payload=self.payload, settings=settings)
+            second = self.sender.send(payload=self.payload, settings=settings)
+
+        self.assertTrue(first.ok)
+        self.assertFalse(second.ok)
+        self.assertIn("throttled", second.error)
+        self.assertEqual(second.attempts, 0)
+
+    def test_governance_failure_isolation_opens_after_repeated_failures(self) -> None:
+        settings = {
+            "notifications": {
+                "feishu": {
+                    "enabled": True,
+                    "webhook_url": "https://open.feishu.cn/webhook",
+                    "retry_times": 0,
+                }
+            }
+        }
+
+        with patch("app.notifier.feishu_sender._http_post_json", side_effect=RuntimeError("network down")) as mocked_post, patch(
+            "app.notifier.feishu_sender._governance_now",
+            side_effect=[100.0, 100.0, 106.0, 106.0, 112.0, 112.0, 113.0],
+        ):
+            first = self.sender.send(payload=self.payload, settings=settings)
+            second = self.sender.send(payload=self.payload, settings=settings)
+            third = self.sender.send(payload=self.payload, settings=settings)
+            fourth = self.sender.send(payload=self.payload, settings=settings)
+
+        self.assertEqual(mocked_post.call_count, 3)
+        self.assertFalse(first.ok)
+        self.assertFalse(second.ok)
+        self.assertFalse(third.ok)
+        self.assertFalse(fourth.ok)
+        self.assertIn("isolated", fourth.error)
+        self.assertEqual(fourth.attempts, 0)
 
 
 if __name__ == "__main__":
