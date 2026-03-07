@@ -103,6 +103,9 @@ export function TopToolbar({
     : confirmState === 'partial'
       ? 'status-warning'
       : 'status-info'
+  const coverageOk = Number(coverage?.ok ?? 0)
+  const coverageTotal = Number(coverage?.total ?? 0)
+  const coverageRatio = coverageTotal > 0 ? Math.round((coverageOk / coverageTotal) * 100) : 0
 
   useEffect(() => {
     const hasSuggestions = suggestions.length > 0 && searchQuery
@@ -142,12 +145,27 @@ export function TopToolbar({
     <header className="top-header">
       <div className="vc-header-main-row">
         <div className="vc-brand-section">
-          <div className="vc-brand-logo">
-            <span className="vc-brand-logo__text">VC</span>
-          </div>
           <div className="vc-brand-text">
+            <span className="vc-page-eyebrow">Workbench</span>
             <h1 className="vc-brand-text__title">持仓决策台</h1>
             <span className="vc-brand-text__subtitle">基金持仓与当日收益一屏掌握</span>
+            <div className="vc-header-snapshot-grid">
+              <article className="vc-header-snapshot-card">
+                <span>数据时点</span>
+                <strong>{asofClock}</strong>
+                <p>{dataStatusText}</p>
+              </article>
+              <article className="vc-header-snapshot-card">
+                <span>覆盖率</span>
+                <strong>{coverageRatio}%</strong>
+                <p>{coverageOk}/{coverageTotal || 0} 已纳入</p>
+              </article>
+              <article className="vc-header-snapshot-card">
+                <span>刷新状态</span>
+                <strong>{refreshClock}</strong>
+                <p>{estimateCacheHit ? '缓存快照优先' : '实时计算'}</p>
+              </article>
+            </div>
           </div>
         </div>
 
@@ -353,6 +371,28 @@ export function TopToolbar({
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="vc-context-bar" role="navigation" aria-label="首页上下文">
+        <span className="vc-context-pill">
+          <CheckCircleOutlined />
+          结算：{confirmText}
+        </span>
+        <span className="vc-context-pill">
+          <ClockCircleOutlined />
+          最近刷新：{refreshClock}
+        </span>
+        <span className="vc-context-pill">
+          <DatabaseOutlined />
+          计算：{incrementalMode === 'snapshot_hit' ? '快照直出' : incrementalText}
+        </span>
+        <span className="vc-context-pill">
+          <InfoCircleOutlined />
+          口径：{dataStatusText}
+        </span>
+        {marketDataHint ? (
+          <span className="vc-context-pill vc-context-pill--hint">{marketDataHint}</span>
+        ) : null}
       </div>
     </header>
   )

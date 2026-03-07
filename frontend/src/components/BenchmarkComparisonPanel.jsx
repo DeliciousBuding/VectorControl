@@ -130,13 +130,30 @@ export function BenchmarkComparisonPanel({ user, lastRefresh }) {
       }),
     [benchmarks, comparison, portfolioReturn, dataStatus]
   )
+  const readyCount = rows.filter((row) => row.canJudge).length
+  const unknownCount = rows.filter((row) => row.benchmarkReturn === null).length
 
   return (
-    <section className="panel home-main" data-testid="benchmark-comparison-panel">
-      <div className="section-head">
-        <div>
+    <section className="panel home-main benchmark-panel" data-testid="benchmark-comparison-panel">
+      <div className="section-head section-head--rich">
+        <div className="section-head__copy">
+          <span className="section-kicker">相对表现</span>
           <h2>基准对比</h2>
-          <span>只展示结果，unknown 时不做跑赢/跑输判断</span>
+          <p className="section-description">只展示结果，unknown 时不做跑赢/跑输判断</p>
+        </div>
+        <div className="benchmark-overview">
+          <article className="benchmark-overview__card">
+            <span>组合收益率</span>
+            <strong className={classBySign(portfolioReturn)}>{formatPercent(portfolioReturn)}</strong>
+          </article>
+          <article className="benchmark-overview__card">
+            <span>可判断基准</span>
+            <strong>{readyCount}/{rows.length || 0}</strong>
+          </article>
+          <article className="benchmark-overview__card">
+            <span>unknown 基准</span>
+            <strong>{unknownCount}</strong>
+          </article>
         </div>
       </div>
 
@@ -152,6 +169,7 @@ export function BenchmarkComparisonPanel({ user, lastRefresh }) {
             <article key={row.id} className="benchmark-item">
               <div className="benchmark-title">
                 <div>
+                  <span className="benchmark-item__eyebrow">Benchmark</span>
                   <h3>
                     {row.name}
                     <span className="benchmark-code">{row.code || row.id}</span>
