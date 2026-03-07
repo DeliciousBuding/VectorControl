@@ -26,3 +26,4 @@
 - [x] 3.13 将 `App.jsx` 外壳、`SideNav.jsx` 与 `PortfolioReturnsPanel.jsx` 从首页主路径的 Ant Design `Layout/Spin/Input.Search/Segmented/Sider` 依赖中收敛出来；重新执行 `test:run` 与 `analyze` 后，`antd-vendor` 进一步收敛到约 `997.66 kB`
 - [x] 3.14 在首页主路径基本脱离 Ant Design 后，取消 `vite.config.js` 中对 `antd` 的统一 vendor 强切；重新执行 `test:run` 与 `analyze` 后，不再出现 `500 kB` 以上 chunk 警告，并得到新的页面级 chunk 基线
 - [x] 3.15 将 `TopToolbar.jsx` 改为延后加载，并补 `App.test.jsx` 兜住 `formatDateTime` / `StateShowcase` 运行时缺失引用；重新执行 `test:run` 与 `analyze` 后，`TopToolbar` 独立 chunk≈`34.81 kB`，主入口进一步拆小
+- [x] 3.16 将 `TopToolbar.jsx` 从 Ant Design 组件依赖中收敛出来；重新执行 `test:run` 与 `analyze` 后，`TopToolbar` chunk 进一步收敛到约 `17.05 kB`

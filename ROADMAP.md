@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-07 19:24:38
+更新时间：2026-03-07 19:33:56
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -80,7 +80,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 
 ### 待集成 (Queue)
 - [√] [协同] 发布链路收敛：完成 `python scripts/check_docs_gate.py --strict` 与 `python scripts/check_release_preflight.py` 本地通过，并在 `prod` 以当前部署目录 `/opt/vectorcontrol` 完成 HTTP + SQLite 基线验收（已验证 `docker compose ... config`、`/api/healthz`、`python3 scripts/check_gate_d.py --base-url http://127.0.0.1` 全部通过）。
-- [ ] [前端] 第二轮 bundle 优化：按 `openspec/changes/frontend-bundle-optimization-phase2/` 记录页面级 chunk 基线，推进页面级懒加载与 bundle 收缩（已完成首页主路径瘦身、交易中心循环分块告警消除、`App.jsx` 外壳 / `SideNav.jsx` / `PortfolioReturnsPanel.jsx` 去 AntD、`LoginPanel` / `TopToolbar` / `HoldingsCreatePanel` / `ReminderRulesPanel` 懒加载，并取消 `antd` 的统一 vendor 强切；当前 analyze 已不再出现 `500 kB` 以上 chunk 警告，新的热点转为 `Table`≈222.73kB、`TradeCenter`≈198.84kB 与若干 `index-*` 公共 chunk，下一步继续按页面/能力压缩这些热点）。
+- [ ] [前端] 第二轮 bundle 优化：按 `openspec/changes/frontend-bundle-optimization-phase2/` 记录页面级 chunk 基线，推进页面级懒加载与 bundle 收缩（已完成首页主路径瘦身、交易中心循环分块告警消除、`App.jsx` 外壳 / `SideNav.jsx` / `PortfolioReturnsPanel.jsx` / `TopToolbar.jsx` 去 AntD、`LoginPanel` / `TopToolbar` / `HoldingsCreatePanel` / `ReminderRulesPanel` 懒加载，并取消 `antd` 的统一 vendor 强切；当前 analyze 已不再出现 `500 kB` 以上 chunk 警告，新的热点转为 `index-DQ3zwGHZ`≈231.68kB、`index-Dfh634J-`≈206.61kB、`TradeCenter`≈198.78kB，下一步继续按页面/能力压缩这些热点）。
 - [√] [后端] 第二轮观测优化：按 `openspec/changes/backend-observability-phase2/` 完成热点接口耗时、SQLite 热点查询与部署侧诊断增强的 phase2 收口（已落地 `estimate_snapshot` 索引化、charts 聚合收敛、`system/status` / `system/diagnostics` 结构化观测、`X-Server-Elapsed-Ms` 最小时长信号、请求完成结构化日志、最近请求摘要、SQLite 只读观测摘要，以及 `lock_risk / wal_state / db_dir.writable / observations` 最小排障提示；对应 tasks 已全部勾选）。
 - [ ] [协同] 无人值守执行闭环：将第二轮前端优化、后端观测、线上证据留档按“单闭环完成后再开下一闭环”的顺序持续推进，直到 `ROADMAP` 中高优先级优化项全部收口。
 - [√] [前端] 基于 `docs/Gate-D验收证据模板.md` 补齐设置中心/测速页面实机验收证据（已生成 `docs/Gate-D验收证据-20260307.md`，并补齐首页/设置中心/系统状态页实机截图索引）。

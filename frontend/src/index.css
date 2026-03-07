@@ -3340,19 +3340,19 @@ button.settings-inline-btn {
   display: flex;
 }
 
-.vc-btn-group .ant-btn {
+.vc-btn-group > .vc-toolbar-btn {
   border-radius: 0;
 }
 
-.vc-btn-group .ant-btn:first-child {
+.vc-btn-group > .vc-toolbar-btn:first-child {
   border-radius: var(--vc-radius-lg) 0 0 var(--vc-radius-lg);
 }
 
-.vc-btn-group .ant-btn:last-child {
+.vc-btn-group > .vc-toolbar-btn:last-child {
   border-radius: 0 var(--vc-radius-lg) var(--vc-radius-lg) 0;
 }
 
-.vc-btn-group--refresh .ant-btn:first-child {
+.vc-btn-group--refresh > .vc-toolbar-btn:first-child {
   border-right: none;
 }
 
@@ -3362,6 +3362,12 @@ button.settings-inline-btn {
   align-items: center;
   justify-content: center;
   gap: var(--vc-space-2);
+  padding: 0 var(--vc-space-3);
+  border: 1px solid var(--vc-border-primary);
+  border-radius: var(--vc-radius-lg);
+  background: var(--vc-bg-primary);
+  color: var(--vc-text-primary);
+  cursor: pointer;
   font-weight: var(--vc-font-weight-medium);
   transition: all var(--vc-transition-fast);
 }
@@ -3372,6 +3378,11 @@ button.settings-inline-btn {
 
 .vc-toolbar-btn:active:not(:disabled) {
   transform: translateY(0);
+}
+
+.vc-toolbar-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .vc-toolbar-btn--refresh:hover {
@@ -3415,14 +3426,16 @@ button.settings-inline-btn {
 /* 用户标签 */
 .vc-user-tag {
   height: 36px;
-  padding: 0 var(--vc-space-3) !important;
-  font-size: var(--vc-font-size-base) !important;
-  line-height: 34px !important;
-  border-radius: var(--vc-radius-lg) !important;
-  display: inline-flex !important;
+  padding: 0 var(--vc-space-3);
+  font-size: var(--vc-font-size-base);
+  line-height: 34px;
+  border-radius: var(--vc-radius-lg);
+  border: 1px solid var(--vc-info-200);
+  background: var(--vc-info-50);
+  color: var(--vc-info-700);
+  display: inline-flex;
   align-items: center;
   gap: var(--vc-space-2);
-  margin: 0 !important;
   transition: all var(--vc-transition-fast);
 }
 
@@ -3432,9 +3445,21 @@ button.settings-inline-btn {
 }
 
 /* 状态弹窗 */
-.vc-status-popover .ant-popover-inner {
-  border-radius: var(--vc-radius-2xl);
+.vc-status-popover-anchor {
+  position: relative;
+}
+
+.vc-status-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 360px;
   padding: var(--vc-space-4);
+  background: var(--vc-bg-primary);
+  border: 1px solid var(--vc-border-primary);
+  border-radius: var(--vc-radius-2xl);
+  box-shadow: var(--vc-shadow-elevation-2);
+  z-index: var(--vc-z-dropdown, 1000);
 }
 
 .vc-popover-title {
@@ -3448,6 +3473,37 @@ button.settings-inline-btn {
   display: flex;
   flex-direction: column;
   gap: var(--vc-space-5);
+}
+
+.vc-status-stack,
+.vc-status-inline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--vc-space-2);
+}
+
+.vc-status-inline {
+  flex-direction: row;
+  align-items: center;
+}
+
+.vc-badge-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.vc-badge-dot--error {
+  background: var(--vc-error-500, #ef4444);
+}
+
+.vc-badge-dot--warning {
+  background: var(--vc-warning-500, #f59e0b);
+}
+
+.vc-badge-dot--processing {
+  background: var(--vc-info-500, #3b82f6);
 }
 
 .vc-status-section {
