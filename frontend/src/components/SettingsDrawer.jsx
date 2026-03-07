@@ -284,11 +284,15 @@ export function SettingsDrawer({
   onSendFeishuTestMessage,
   onSendTelegramTestMessage
 }) {
-  const [draft, setDraft] = useState(() => normalizeDrawerSettings(settings))
+  const normalizedSettings = normalizeDrawerSettings(settings)
+  const initialBenchmarkState = normalizeBenchmarkResult(normalizedSettings.network_benchmark.last_result)
+
+  const [draft, setDraft] = useState(() => normalizedSettings)
   const [benchmarkProfile, setBenchmarkProfile] = useState('cn_fund')
   const [benchmarkLoading, setBenchmarkLoading] = useState(false)
-  const [benchmarkError, setBenchmarkError] = useState('')
-  const [benchmarkResult, setBenchmarkResult] = useState(null)
+  const [benchmarkLatestLoading, setBenchmarkLatestLoading] = useState(false)
+  const [benchmarkError, setBenchmarkError] = useState(() => initialBenchmarkState.warning || '')
+  const [benchmarkResult, setBenchmarkResult] = useState(() => initialBenchmarkState.result)
   const [editingFeishuWebhook, setEditingFeishuWebhook] = useState(false)
   const [pendingFeishuWebhook, setPendingFeishuWebhook] = useState('')
   const [editingTelegramCredential, setEditingTelegramCredential] = useState(false)
@@ -327,13 +331,54 @@ export function SettingsDrawer({
   const [sipDraft, setSipDraft] = useState(() => createEmptySIPDraft())
 
   const [internalOpen, setInternalOpen] = useState(open)
+  const [hydratedSections, setHydratedSections] = useState(() => ({
+    benchmark: false,
+    sip: false,
+    diagnostics: false,
+    system: false
+  }))
 
   useEffect(() => {
     setInternalOpen(open)
-  }, [open])
+    if (!open) {
+      const resetBenchmark = normalizeBenchmarkResult(normalizeDrawerSettings(settings).network_benchmark.last_result)
+      setHydratedSections({
+        benchmark: false,
+        sip: false,
+        diagnostics: false,
+        system: false
+      })
+      setBenchmarkResult(resetBenchmark.result)
+      setBenchmarkError(resetBenchmark.warning || '')
+      setBenchmarkLatestLoading(false)
+      setSipLoading(false)
+      setSipPlans([])
+      setSipError('')
+      setSipHint('')
+      setNotificationsStatusLoading(false)
+      setNotificationsStatus(null)
+      setNotificationsStatusError('')
+      setSystemStatusLoading(false)
+      setSystemStatusSnapshot(null)
+      setSystemStatusError('')
+      setHealthzLoading(false)
+      setHealthzSnapshot(null)
+      setHealthzError('')
+      setSystemPanelHint('')
+      setSystemPanelError('')
+      setAuditLogs([])
+      setAuditLogsLoading(false)
+      setAuditLogsOpen(false)
+      setDiagnosticHint('')
+      setDiagnosticError('')
+      setTestAllLoading(false)
+      setTestAllResult(null)
+    }
+  }, [open, settings])
 
   useEffect(() => {
     const normalized = normalizeDrawerSettings(settings)
+    const initialBenchmark = normalizeBenchmarkResult(normalized.network_benchmark.last_result)
     const webhook = String(normalized.notifications?.feishu?.webhook_url || '').trim()
     const telegramBotToken = String(normalized.notifications?.telegram?.bot_token || '').trim()
     const telegramChatId = String(normalized.notifications?.telegram?.chat_id || '').trim()
@@ -343,33 +388,68 @@ export function SettingsDrawer({
 
     setDraft(normalized)
     setBenchmarkProfile(normalized.network_benchmark.default_profile || 'cn_fund')
+    setBenchmarkResult(initialBenchmark.result)
+    setBenchmarkError(initialBenchmark.warning || '')
+    setBenchmarkLatestLoading(false)
     setEditingFeishuWebhook(!webhook)
     setPendingFeishuWebhook('')
     setEditingTelegramCredential(!telegramBotToken)
     setPendingTelegramBotToken('')
     setPendingTelegramChatId(telegramChatId)
+    setNotificationsStatusLoading(false)
     setNotificationsStatusError('')
     setNotificationsStatus(null)
+    setSystemStatusLoading(false)
     setSystemStatusError('')
     setSystemStatusSnapshot(null)
     setSystemPanelHint('')
     setSystemPanelError('')
+    setHealthzLoading(false)
     setHealthzError('')
     setHealthzSnapshot(null)
     setDiagnosticHint('')
     setDiagnosticError('')
     setSaveError('')
+    setSipLoading(false)
+    setSipPlans([])
     setSipError('')
     setSipHint('')
     setSipFormOpen(false)
     setEditingSipPlanId(null)
     setSipDraft(createEmptySIPDraft())
+    setHydratedSections({
+      benchmark: false,
+      sip: false,
+      diagnostics: false,
+      system: false
+    })
   }, [settings])
 
+  const updateDraft = (updater) => {
+    setDraft((prev) => {
+      const safePrev = normalizeDrawerSettings(prev)
+      const next = typeof updater === 'function' ? updater(safePrev) : safePrev
+      return normalizeDrawerSettings(next)
+    })
+  }
+
+  const hydrateSection = (sectionKey) => {
+    setHydratedSections((prev) => {
+      if (prev[sectionKey]) return prev
+      return { ...prev, [sectionKey]: true }
+    })
+  }
+
+  const ensureBenchmarkHydrated = () => hydrateSection('benchmark')
+  const ensureSipHydrated = () => hydrateSection('sip')
+  const ensureDiagnosticsHydrated = () => hydrateSection('diagnostics')
+  const ensureSystemHydrated = () => hydrateSection('system')
+
   useEffect(() => {
-    if (!open) return
+    if (!open || !hydratedSections.benchmark || benchmarkLoading || benchmarkLatestLoading) return
 
     let active = true
+    setBenchmarkLatestLoading(true)
     ;(async () => {
       try {
         const payload = await fetchNetworkBenchmarkLatest()
@@ -381,16 +461,19 @@ export function SettingsDrawer({
         if (!active) return
         setBenchmarkResult(null)
         setBenchmarkError(toGuidedError(error, 'settings_benchmark_load', '测速记录加载失败'))
+      } finally {
+        if (!active) return
+        setBenchmarkLatestLoading(false)
       }
     })()
 
     return () => {
       active = false
     }
-  }, [open])
+  }, [open, hydratedSections.benchmark])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || !hydratedSections.sip) return
 
     let active = true
     setSipLoading(true)
@@ -414,10 +497,10 @@ export function SettingsDrawer({
     return () => {
       active = false
     }
-  }, [open])
+  }, [open, hydratedSections.sip])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || !hydratedSections.diagnostics || notificationsStatusLoading) return
 
     let active = true
     setNotificationsStatusLoading(true)
@@ -440,10 +523,10 @@ export function SettingsDrawer({
     return () => {
       active = false
     }
-  }, [open])
+  }, [open, hydratedSections.diagnostics])
 
   useEffect(() => {
-    if (!open) return
+    if (!open || !hydratedSections.system || systemStatusLoading || healthzLoading) return
 
     let active = true
     setSystemStatusLoading(true)
@@ -487,15 +570,7 @@ export function SettingsDrawer({
     return () => {
       active = false
     }
-  }, [open])
-
-  const updateDraft = (updater) => {
-    setDraft((prev) => {
-      const safePrev = normalizeDrawerSettings(prev)
-      const next = typeof updater === 'function' ? updater(safePrev) : safePrev
-      return normalizeDrawerSettings(next)
-    })
-  }
+  }, [open, hydratedSections.system])
 
   const timeoutSeconds = Number(draft.network_benchmark.timeout_seconds || 6)
   const currentFeishuWebhook = String(draft.notifications.feishu.webhook_url || '').trim()
@@ -676,20 +751,50 @@ export function SettingsDrawer({
   }
 
   const refreshNotificationsStatus = async () => {
+    const shouldHydrate = !hydratedSections.diagnostics
+    if (shouldHydrate) {
+      ensureDiagnosticsHydrated()
+    }
+    if (notificationsStatusLoading && !shouldHydrate) {
+      return false
+    }
+    setNotificationsStatusLoading(true)
     try {
       const payload = await fetchNotificationsStatus()
       setNotificationsStatus(normalizeNotificationsStatus(payload))
       setNotificationsStatusError('')
+      return true
     } catch (error) {
       setNotificationsStatus(null)
       setNotificationsStatusError(toGuidedError(error, 'notifications_status_load', '通知诊断加载失败'))
+      return false
+    } finally {
+      setNotificationsStatusLoading(false)
     }
   }
 
   const handleCopyDiagnosticBundle = async () => {
+    ensureDiagnosticsHydrated()
     try {
-      const statusSnapshot = notificationsStatus ? asPlainObject(notificationsStatus) : null
-      const statusErrorSnapshot = String(notificationsStatusError || '').trim()
+      let statusSnapshot = notificationsStatus ? asPlainObject(notificationsStatus) : null
+      let statusErrorSnapshot = String(notificationsStatusError || '').trim()
+
+      if (!statusSnapshot || Object.keys(statusSnapshot).length === 0) {
+        setNotificationsStatusLoading(true)
+        try {
+          const payload = await fetchNotificationsStatus()
+          statusSnapshot = asPlainObject(normalizeNotificationsStatus(payload))
+          setNotificationsStatus(statusSnapshot)
+          setNotificationsStatusError('')
+          statusErrorSnapshot = ''
+        } catch (error) {
+          statusSnapshot = null
+          statusErrorSnapshot = toGuidedError(error, 'notifications_status_load', '通知诊断加载失败')
+          setNotificationsStatusError(statusErrorSnapshot)
+        } finally {
+          setNotificationsStatusLoading(false)
+        }
+      }
 
       let systemStatus = systemStatusSnapshot ? asPlainObject(systemStatusSnapshot) : null
       if (!systemStatus || Object.keys(systemStatus).length === 0) {
@@ -776,16 +881,57 @@ export function SettingsDrawer({
   }
 
   const handleCopySystemStatus = async () => {
+    ensureSystemHydrated()
     try {
-      const snapshot = systemStatusSnapshot ? asPlainObject(systemStatusSnapshot) : null
-      const statusErrorSnapshot = String(systemStatusError || '').trim()
-      const healthSnapshot = healthzSnapshot ? asPlainObject(healthzSnapshot) : null
-      const healthErrorSnapshot = String(healthzError || '').trim()
+      let snapshot = systemStatusSnapshot ? asPlainObject(systemStatusSnapshot) : null
+      let statusErrorSnapshot = String(systemStatusError || '').trim()
+      let healthSnapshot = healthzSnapshot ? asPlainObject(healthzSnapshot) : null
+      let healthErrorSnapshot = String(healthzError || '').trim()
+
+      const shouldFetchSystemStatus = !snapshot || Object.keys(snapshot).length === 0
+      const shouldFetchHealthz = !healthSnapshot || Object.keys(healthSnapshot).length === 0
+
+      if (shouldFetchSystemStatus) {
+        setSystemStatusLoading(true)
+      }
+      if (shouldFetchHealthz) {
+        setHealthzLoading(true)
+      }
+
+      if (shouldFetchSystemStatus) {
+        try {
+          snapshot = asPlainObject(await fetchSystemStatus())
+          setSystemStatusSnapshot(snapshot)
+          setSystemStatusError('')
+          statusErrorSnapshot = ''
+        } catch (error) {
+          statusErrorSnapshot = toGuidedError(error, 'system_status_load', '系统状态加载失败')
+          setSystemStatusError(statusErrorSnapshot)
+          snapshot = null
+        } finally {
+          setSystemStatusLoading(false)
+        }
+      }
+
+      if (shouldFetchHealthz) {
+        try {
+          healthSnapshot = asPlainObject(await fetchHealthz())
+          setHealthzSnapshot(healthSnapshot)
+          setHealthzError('')
+          healthErrorSnapshot = ''
+        } catch (error) {
+          healthErrorSnapshot = toGuidedError(error, 'healthz_check', '健康检查失败')
+          setHealthzError(healthErrorSnapshot)
+          healthSnapshot = null
+        } finally {
+          setHealthzLoading(false)
+        }
+      }
 
       // v2: 增强复制内容 - 包含版本/页面URL/request_id（脱敏）
       const pageUrl = typeof window !== 'undefined' ? window.location.href : ''
       const userAgent = typeof navigator !== 'undefined' ? navigator.userAgent : ''
-      
+
       const bundle = {
         copied_at: new Date().toISOString(),
         page_url: pageUrl,
@@ -1039,9 +1185,21 @@ export function SettingsDrawer({
           <div className="settings-secret-actions">
             <button
               type="button"
+              className="ghost"
+              data-testid="sip-plan-load-btn"
+              onClick={ensureSipHydrated}
+              disabled={sipLoading || sipSaving || sipBusyPlanId != null}
+            >
+              {hydratedSections.sip ? '已加载计划' : '加载计划'}
+            </button>
+            <button
+              type="button"
               className="primary"
               data-testid="sip-plan-create-toggle-btn"
-              onClick={startCreateSIPPlan}
+              onClick={() => {
+                ensureSipHydrated()
+                startCreateSIPPlan()
+              }}
               disabled={sipSaving || sipBusyPlanId != null}
             >
               {sipFormOpen && editingSipPlanId == null ? '取消新增' : '新增计划'}
@@ -1050,8 +1208,11 @@ export function SettingsDrawer({
               type="button"
               className="ghost"
               data-testid="sip-plan-refresh-btn"
-              onClick={() => refreshSIPPlans({ showLoading: true })}
-              disabled={sipLoading || sipSaving || sipBusyPlanId != null}
+              onClick={() => {
+                ensureSipHydrated()
+                refreshSIPPlans({ showLoading: true })
+              }}
+              disabled={!hydratedSections.sip || sipLoading || sipSaving || sipBusyPlanId != null}
             >
               刷新
             </button>
@@ -1177,13 +1338,16 @@ export function SettingsDrawer({
             </form>
           ) : null}
 
+          {!hydratedSections.sip ? (
+            <p className="settings-note">按需加载中。下一步：点击“加载计划”查看现有计划，或直接“新增计划”。</p>
+          ) : null}
           {sipLoading ? <p className="settings-note">加载中...</p> : null}
 
-          {!sipLoading && sipPlans.length === 0 ? (
+          {hydratedSections.sip && !sipLoading && sipPlans.length === 0 ? (
             <p className="settings-note">暂无定投计划。下一步：点击“新增计划”完成配置。</p>
           ) : null}
 
-          {sipPlans.length > 0 ? (
+          {hydratedSections.sip && sipPlans.length > 0 ? (
             <div className="plan-list" data-testid="sip-plan-list">
               {sipPlans.map((plan) => {
                 const planId = plan?.id
@@ -1276,12 +1440,25 @@ export function SettingsDrawer({
             />
           </label>
           <div className="settings-benchmark-actions">
-            <button type="button" className="primary" onClick={executeBenchmark} disabled={benchmarkLoading}>
+            <button
+              type="button"
+              className="ghost"
+              data-testid="benchmark-load-latest-btn"
+              onClick={ensureBenchmarkHydrated}
+              disabled={benchmarkLoading || benchmarkLatestLoading}
+            >
+              {hydratedSections.benchmark ? '已加载记录' : '加载最近记录'}
+            </button>
+            <button type="button" className="primary" onClick={executeBenchmark} disabled={benchmarkLoading || benchmarkLatestLoading}>
               {benchmarkLoading ? '测速中...' : '开始测速'}
             </button>
           </div>
+          {benchmarkLatestLoading ? <p className="settings-note">加载中...</p> : null}
+          {!hydratedSections.benchmark ? (
+            <p className="settings-note">最近测速记录按需加载。下一步：点击“加载最近记录”查看历史，或直接“开始测速”。</p>
+          ) : null}
           {benchmarkError && <p className="settings-error">{benchmarkError}</p>}
-          {!benchmarkError && !benchmarkSummary && !hasBenchmarkRows && (
+          {hydratedSections.benchmark && !benchmarkError && !benchmarkSummary && !hasBenchmarkRows && (
             <p className="settings-note">暂无测速记录。下一步：点击“开始测速”获取链路健康状态。</p>
           )}
           {benchmarkSummary && (
@@ -1571,6 +1748,7 @@ export function SettingsDrawer({
 
         <div className="settings-group">
           <h4>系统状态</h4>
+          {!hydratedSections.system ? <p className="settings-note">按需加载。下一步：点击“一键复制状态”或“加载系统状态”拉取最新后端状态。</p> : null}
           {systemStatusLoading || healthzLoading ? <p className="settings-note">加载中...</p> : null}
           {systemStatusError ? <p className="settings-error">{systemStatusError}</p> : null}
           {healthzError ? <p className="settings-error">{healthzError}</p> : null}
@@ -1594,6 +1772,15 @@ export function SettingsDrawer({
           </div>
 
           <div className="settings-secret-actions">
+            <button
+              type="button"
+              className="ghost"
+              data-testid="system-status-load-btn"
+              onClick={ensureSystemHydrated}
+              disabled={systemStatusLoading || healthzLoading}
+            >
+              {hydratedSections.system ? '已加载系统状态' : '加载系统状态'}
+            </button>
             <button
               type="button"
               className="ghost"
@@ -1642,6 +1829,7 @@ export function SettingsDrawer({
 
         <div className="settings-group">
           <h4>通知诊断</h4>
+          {!hydratedSections.diagnostics ? <p className="settings-note">按需加载。下一步：点击“加载诊断”或直接发送测试消息/复制诊断信息。</p> : null}
           {notificationsStatusLoading ? (
             <p className="settings-note">加载中...</p>
           ) : null}
@@ -1838,6 +2026,15 @@ export function SettingsDrawer({
                 </div>
 
                 <div className="settings-secret-actions">
+                  <button
+                    type="button"
+                    className="ghost"
+                    data-testid="diagnostic-load-btn"
+                    onClick={ensureDiagnosticsHydrated}
+                    disabled={notificationsStatusLoading}
+                  >
+                    {hydratedSections.diagnostics ? '已加载诊断' : '加载诊断'}
+                  </button>
                   <TestMessageButton
                     label="飞书"
                     dataTestId="diagnostic-feishu-test-message-btn"

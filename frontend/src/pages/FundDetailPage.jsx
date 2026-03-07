@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button, Spin, Card, Row, Col, Tag, Table, Statistic } from 'antd'
 import { ArrowLeftOutlined, LineChartOutlined, HistoryOutlined, WalletOutlined, RiseOutlined, FallOutlined } from '@ant-design/icons'
 import { MultiLineChart } from '../components/MultiLineChart.jsx'
-import { fetchFundFullDetail, fetchTransactions } from '../api.js'
+import { fetchFundDetailPageData } from '../api.js'
 import { classBySign, formatMoney, formatPercent, formatSignedMoney, formatDateTime, formatDate } from '../utils/format.js'
 
 function CompactMetric({ label, value, prefix = '', suffix = '', className = '' }) {
@@ -37,40 +37,22 @@ export function FundDetailPage({ fundId, onBack }) {
     
     ;(async () => {
       try {
-        const fullRes = await fetchFundFullDetail(fundId, 90)
-        
+        const detail = await fetchFundDetailPageData(fundId, { historyLimit: 90, transactionLimit: 20 })
+
         if (!active) return
-        
-        const fund = fullRes?.fund || {}
-        const holding = fullRes?.holding || {}
-        const mergedFundData = {
-          ...fund,
-          ...holding,
-          fund_id: fundId,
-          name: fund.name || holding.name || fundId
-        }
-        
-        setFundData(mergedFundData)
-        setNavLatest(fullRes?.latest || null)
-        setNavHistory(Array.isArray(fullRes?.history) ? fullRes.history : [])
+
+        setFundData(detail.fund)
+        setNavLatest(detail.latest)
+        setNavHistory(detail.history)
+        setTxList(detail.transactions)
+        setTxSummary(detail.transactionSummary)
         setLoading(false)
-        
-        // 异步加载交易记录
-        setTxLoading(true)
-        fetchTransactions({ fundId, status: 'all', limit: 20 })
-          .then(txRes => {
-            if (active) {
-              setTxList(txRes?.items || [])
-              setTxSummary(txRes?.summary || { total_count: 0, pending_count: 0, confirmed_count: 0 })
-            }
-          })
-          .finally(() => {
-            if (active) setTxLoading(false)
-          })
+        setTxLoading(false)
       } catch (err) {
         if (!active) return
         setError(err?.message || '加载基金详情失败')
         setLoading(false)
+        setTxLoading(false)
       }
     })()
     

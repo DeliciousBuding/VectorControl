@@ -27,6 +27,13 @@ import type {
 
 const SESSION_TOKEN_KEY = 'vectorcontrol_session_token';
 export const AUTH_EVENT_EXPIRY = 'vectorcontrol_auth_expiry';
+const AUTH_EXPIRY_EXCLUDED_PATHS = new Set(['/api/auth/login', '/api/auth/register']);
+const EMPTY_TRANSACTION_SUMMARY = {
+  total_count: 0,
+  pending_count: 0,
+  confirmed_count: 0,
+  last_occurred_at: ''
+};
 
 /** API 错误接口 */
 export interface ApiError extends Error {
@@ -57,6 +64,22 @@ export interface EstimateResponse {
   risk_overview: RiskOverview | null;
 }
 
+export interface TransactionSummary {
+  total_count: number;
+  pending_count: number;
+  confirmed_count: number;
+  last_occurred_at: string;
+}
+
+export interface FundDetailPagePayload {
+  fund: Record<string, unknown> | null;
+  latest: Record<string, unknown> | null;
+  history: Record<string, unknown>[];
+  transactions: Transaction[];
+  transactionSummary: TransactionSummary;
+  dataStatus: EstimateDataStatus;
+}
+
 /** 读取请求ID */
 function readRequestId(headers: Headers): string {
   if (!headers || typeof headers.get !== 'function') return '';
@@ -74,6 +97,84 @@ function withRequestId(message: string, requestId: string): string {
   if (!trace) return base;
   if (base.includes(trace)) return base;
   return `${base}（请求ID: ${trace}）`;
+}
+
+function notifyAuthExpiry(detail: Record<string, unknown> = {}): void {
+  if (typeof window === 'undefined' || typeof window.dispatchEvent !== 'function') return;
+  window.dispatchEvent(new CustomEvent(AUTH_EVENT_EXPIRY, { detail }));
+}
+
+function attachAuthExpiry(error: ApiError, response: Response, payload: unknown): ApiError {
+  const status = Number(response?.status || error?.status || 0);
+  const path = String(error?.path || '').trim();
+  if (status !== 401 || !path || AUTH_EXPIRY_EXCLUDED_PATHS.has(path)) {
+    return error;
+  }
+
+  const detailPayload = payload as { detail?: string; message?: string } | null;
+  const detail = {
+    path,
+    status,
+    requestId: String(error?.requestId || error?.request_id || '').trim(),
+    reason: String(detailPayload?.detail || detailPayload?.message || error?.message || '').trim()
+  };
+
+  (error as ApiError & { authExpired?: boolean }).authExpired = true;
+  notifyAuthExpiry(detail);
+  return error;
+}
+
+function clampDays(days: number | string | undefined, fallback = 30): number {
+  return Math.max(1, Math.min(Number(days) || fallback, 365));
+}
+
+function toQueryString(params: Record<string, unknown> = {}): string {
+  const query = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === null || value === '') continue;
+    query.set(key, String(value));
+  }
+  const text = query.toString();
+  return text ? `?${text}` : '';
+}
+
+function buildFundDetailPayload(payload: Record<string, unknown> = {}, fundId = ''): FundDetailPagePayload {
+  const fund = payload?.fund && typeof payload.fund === 'object' ? payload.fund as Record<string, unknown> : {};
+  const holding = payload?.holding && typeof payload.holding === 'object' ? payload.holding as Record<string, unknown> : {};
+  const latest = payload?.latest && typeof payload.latest === 'object' ? payload.latest as Record<string, unknown> : null;
+  const history = Array.isArray(payload?.history) ? payload.history as Record<string, unknown>[] : [];
+  const mergedFund = {
+    ...fund,
+    ...holding,
+    fund_id: String(fund?.fund_id || holding?.fund_id || fundId || '').trim(),
+    name: String(fund?.name || holding?.name || fundId || '').trim(),
+    market_group: String(holding?.market_group || fund?.market_group || 'cn_hk').trim()
+  };
+  return {
+    fund: mergedFund,
+    latest,
+    history,
+    transactions: Array.isArray(payload?.transactions) ? payload.transactions as Transaction[] : [],
+    transactionSummary:
+      payload?.transaction_summary && typeof payload.transaction_summary === 'object'
+        ? { ...EMPTY_TRANSACTION_SUMMARY, ...(payload.transaction_summary as Partial<TransactionSummary>) }
+        : { ...EMPTY_TRANSACTION_SUMMARY },
+    dataStatus:
+      payload?.data_status && typeof payload.data_status === 'object'
+        ? payload.data_status as EstimateDataStatus
+        : { status: 'estimating', asof: '', note: '基金详情已加载' }
+  };
+}
+
+export function getFundDetailEmptyState(): FundDetailPagePayload {
+  return {
+    fund: null,
+    latest: null,
+    history: [],
+    transactions: [],
+    transactionSummary: { ...EMPTY_TRANSACTION_SUMMARY },
+    dataStatus: { status: 'estimating', asof: '', note: '基金详情待加载' }
+  };
 }
 
 /** 获取存储的Token */
@@ -149,7 +250,7 @@ export async function apiFetch<T = unknown>(path: string, options: FetchOptions 
     error.path = path;
     error.requestId = requestId;
     error.request_id = requestId;
-    throw error;
+    throw attachAuthExpiry(error, response, payload);
   }
 
   return payload as T;
@@ -275,13 +376,11 @@ export function fetchConfig(): Promise<unknown> {
 // ============================================
 
 export function fetchPortfolioCumulativeReturns(days = 30): Promise<{ data: CumulativeReturnsPoint[] }> {
-  const safeDays = Math.max(1, Math.min(Number(days) || 30, 365));
-  return apiFetch<{ data: CumulativeReturnsPoint[] }>(`/api/charts/cumulative_returns?days=${encodeURIComponent(String(safeDays))}`);
+  return apiFetch<{ data: CumulativeReturnsPoint[] }>(`/api/charts/cumulative_returns${toQueryString({ days: clampDays(days) })}`);
 }
 
 export function fetchPortfolioReturnsHistory(days = 30): Promise<{ data: ReturnsHistoryPoint[] }> {
-  const safeDays = Math.max(1, Math.min(Number(days) || 30, 365));
-  return apiFetch<{ data: ReturnsHistoryPoint[] }>(`/api/charts/returns_history?days=${encodeURIComponent(String(safeDays))}`);
+  return apiFetch<{ data: ReturnsHistoryPoint[] }>(`/api/charts/returns_history${toQueryString({ days: clampDays(days) })}`);
 }
 
 // ============================================
@@ -289,15 +388,10 @@ export function fetchPortfolioReturnsHistory(days = 30): Promise<{ data: Returns
 // ============================================
 
 export function fetchEstimate(options: { forceRefresh?: boolean; preferCached?: boolean } = {}): Promise<EstimateResponse> {
-  const query = new URLSearchParams();
-  if (options.forceRefresh !== undefined) {
-    query.set('force_refresh', options.forceRefresh ? '1' : '0');
-  }
-  if (options.preferCached !== undefined) {
-    query.set('prefer_cached', options.preferCached ? '1' : '0');
-  }
-  const suffix = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<EstimateResponse>(`/api/estimate${suffix}`);
+  return apiFetch<EstimateResponse>(`/api/estimate${toQueryString({
+    force_refresh: options.forceRefresh !== undefined ? (options.forceRefresh ? '1' : '0') : undefined,
+    prefer_cached: options.preferCached !== undefined ? (options.preferCached ? '1' : '0') : undefined
+  })}`);
 }
 
 export function fetchRiskOverview(): Promise<RiskOverview> {
@@ -313,8 +407,7 @@ export function fetchAdvice(): Promise<unknown> {
 // ============================================
 
 export function fetchActions(date = ''): Promise<unknown> {
-  const query = date ? `?date=${encodeURIComponent(date)}` : '';
-  return apiFetch<unknown>(`/api/actions${query}`);
+  return apiFetch<unknown>(`/api/actions${toQueryString({ date })}`);
 }
 
 export function saveAction(payload: unknown): Promise<unknown> {
@@ -326,16 +419,13 @@ export function saveAction(payload: unknown): Promise<unknown> {
 // ============================================
 
 export function fetchTransactions(options: TransactionFilter = {}): Promise<{ items: Transaction[]; summary: unknown; data_status?: EstimateDataStatus }> {
-  const query = new URLSearchParams();
-  if (options.status) query.set('status', String(options.status));
-  if (options.from) query.set('from', String(options.from));
-  if (options.to) query.set('to', String(options.to));
-  if (options.fundId) query.set('fund_id', String(options.fundId));
-  if (options.limit !== undefined && options.limit !== null) {
-    query.set('limit', String(options.limit));
-  }
-  const suffix = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<{ items: Transaction[]; summary: unknown; data_status?: EstimateDataStatus }>(`/api/transactions${suffix}`);
+  return apiFetch<{ items: Transaction[]; summary: unknown; data_status?: EstimateDataStatus }>(`/api/transactions${toQueryString({
+    status: options.status,
+    from: options.from,
+    to: options.to,
+    fund_id: options.fundId,
+    limit: options.limit
+  })}`);
 }
 
 export function syncPendingTransactions(payload: { limit?: number; fund_id?: string } = {}): Promise<unknown> {
@@ -392,8 +482,7 @@ export function fetchHoldingDetail(fundId: string): Promise<{ fund_id: string; h
 // ============================================
 
 export function fetchDailyReport(date = ''): Promise<unknown> {
-  const query = date ? `?date=${encodeURIComponent(date)}` : '';
-  return apiFetch<unknown>(`/api/report/daily${query}`);
+  return apiFetch<unknown>(`/api/report/daily${toQueryString({ date })}`);
 }
 
 // ============================================
@@ -401,23 +490,42 @@ export function fetchDailyReport(date = ''): Promise<unknown> {
 // ============================================
 
 export function fetchFundSuggest(keyword: string, limit = 8): Promise<{ items: FundDetail[]; data_status?: EstimateDataStatus }> {
-  const query = new URLSearchParams({
-    keyword: String(keyword || ''),
-    limit: String(limit)
-  });
-  return apiFetch<{ items: FundDetail[]; data_status?: EstimateDataStatus }>(`/api/funds/suggest?${query.toString()}`);
+  return apiFetch<{ items: FundDetail[]; data_status?: EstimateDataStatus }>(`/api/funds/suggest${toQueryString({ keyword, limit })}`);
 }
 
 export function searchFunds(q: string, limit = 10): Promise<{ items: FundDetail[] }> {
-  const query = new URLSearchParams({
-    q: String(q || ''),
-    limit: String(limit)
-  });
-  return apiFetch<{ items: FundDetail[] }>(`/api/funds/search?${query.toString()}`);
+  return apiFetch<{ items: FundDetail[] }>(`/api/funds/search${toQueryString({ q, limit })}`);
 }
 
 export function fetchFundDetail(fundId: string): Promise<{ fund: FundDetail; data_status?: EstimateDataStatus }> {
   return apiFetch<{ fund: FundDetail; data_status?: EstimateDataStatus }>(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}`);
+}
+
+export function fetchFundFullDetail(fundId: string, historyLimit = 90): Promise<Record<string, unknown>> {
+  const cleanFundId = encodeURIComponent(String(fundId || '').trim());
+  return apiFetch<Record<string, unknown>>(`/api/funds/${cleanFundId}/full${toQueryString({ history_limit: clampDays(historyLimit, 90) })}`);
+}
+
+export async function fetchFundDetailPageData(fundId: string, options: { historyLimit?: number; transactionLimit?: number } = {}): Promise<FundDetailPagePayload> {
+  const payload = await fetchFundFullDetail(fundId, options.historyLimit ?? 90);
+  const txPayload = await fetchTransactions({
+    fundId,
+    status: 'all',
+    limit: options.transactionLimit ?? 20
+  }).catch(() => null);
+
+  const detail = buildFundDetailPayload(payload, fundId);
+  detail.transactions = Array.isArray(txPayload?.items) ? txPayload.items : [];
+  detail.transactionSummary =
+    txPayload?.summary && typeof txPayload.summary === 'object'
+      ? { ...EMPTY_TRANSACTION_SUMMARY, ...(txPayload.summary as Partial<TransactionSummary>) }
+      : { ...EMPTY_TRANSACTION_SUMMARY };
+
+  if (txPayload?.data_status && typeof txPayload.data_status === 'object') {
+    detail.dataStatus = txPayload.data_status as EstimateDataStatus;
+  }
+
+  return detail;
 }
 
 export function fetchFundNavLatest(fundId: string): Promise<{ latest: NavHistoryPoint; data_status?: EstimateDataStatus }> {
@@ -425,14 +533,11 @@ export function fetchFundNavLatest(fundId: string): Promise<{ latest: NavHistory
 }
 
 export function fetchFundNavHistory(fundId: string, options: { from?: string; to?: string; limit?: number } = {}): Promise<{ items: NavHistoryPoint[]; data_status?: EstimateDataStatus }> {
-  const query = new URLSearchParams();
-  if (options.from) query.set('from', String(options.from));
-  if (options.to) query.set('to', String(options.to));
-  if (options.limit !== undefined && options.limit !== null) {
-    query.set('limit', String(options.limit));
-  }
-  const suffix = query.toString() ? `?${query.toString()}` : '';
-  return apiFetch<{ items: NavHistoryPoint[]; data_status?: EstimateDataStatus }>(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}/nav/history${suffix}`);
+  return apiFetch<{ items: NavHistoryPoint[]; data_status?: EstimateDataStatus }>(`/api/funds/${encodeURIComponent(String(fundId || '').trim())}/nav/history${toQueryString({
+    from: options.from,
+    to: options.to,
+    limit: options.limit
+  })}`);
 }
 
 // ============================================
@@ -440,13 +545,15 @@ export function fetchFundNavHistory(fundId: string, options: { from?: string; to
 // ============================================
 
 export function fetchCumulativeReturns(days = 30): Promise<{ data: CumulativeReturnsPoint[] }> {
-  const query = new URLSearchParams({ days: String(days) });
-  return apiFetch<{ data: CumulativeReturnsPoint[] }>(`/api/charts/cumulative_returns?${query.toString()}`);
+  return apiFetch<{ data: CumulativeReturnsPoint[] }>(`/api/charts/cumulative_returns${toQueryString({ days: clampDays(days) })}`);
 }
 
 export function fetchReturnsHistory(days = 30): Promise<{ data: ReturnsHistoryPoint[] }> {
-  const query = new URLSearchParams({ days: String(days) });
-  return apiFetch<{ data: ReturnsHistoryPoint[] }>(`/api/charts/returns_history?${query.toString()}`);
+  return apiFetch<{ data: ReturnsHistoryPoint[] }>(`/api/charts/returns_history${toQueryString({ days: clampDays(days) })}`);
+}
+
+export function fetchHomeDashboard(returnsDays = 30): Promise<unknown> {
+  return apiFetch<unknown>(`/api/charts/home_dashboard${toQueryString({ returns_days: clampDays(returnsDays) })}`);
 }
 
 // ============================================
@@ -470,8 +577,7 @@ export function fetchBenchmarkList(): Promise<{ items: Benchmark[] }> {
 // ============================================
 
 export function fetchSIPPlans(enabledOnly = false): Promise<SIPPlan[]> {
-  const query = new URLSearchParams({ enabled_only: String(enabledOnly) });
-  return apiFetch<SIPPlan[]>(`/api/sip?${query.toString()}`);
+  return apiFetch<SIPPlan[]>(`/api/sip${toQueryString({ enabled_only: enabledOnly })}`);
 }
 
 export function createSIPPlan(payload: SIPPlanPayload): Promise<SIPPlan> {
@@ -498,6 +604,5 @@ export function executeSIPPlan(planId: string): Promise<unknown> {
 }
 
 export function fetchUpcomingSIPPlans(days = 7): Promise<unknown> {
-  const query = new URLSearchParams({ days: String(days) });
-  return apiFetch<unknown>(`/api/sip/upcoming?${query.toString()}`);
+  return apiFetch<unknown>(`/api/sip/upcoming${toQueryString({ days: clampDays(days, 7) })}`);
 }
