@@ -1,5 +1,5 @@
 # Git 工作流（VectorControl）
-> 最后更新: 2026-02-10 17:55:40 (UTC+8)
+更新时间：2026-03-07 13:40:14
 
 ## 1. 当前执行模式
 
@@ -25,6 +25,8 @@
 2. 本地验证：
    - 前端：`npm --prefix frontend run build`
    - 后端：`python -m compileall backend/app`
+   - 前端测试：`npm --prefix frontend run test:run`
+   - 文档门禁：`python scripts/check_docs_gate.py --strict`
 3. 单 commit 单主题，提交信息直接说明完成了什么。
 4. 定期评估 `bot` 分支的变更，合并有价值的内容到 `dev`：
    ```bash

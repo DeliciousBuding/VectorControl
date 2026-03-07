@@ -1,6 +1,6 @@
 # VectorControl
 
-> 最后更新: 2026-02-10 17:50:51 (UTC+8)
+更新时间：2026-03-07 13:40:14
 
 VectorControl 是一个面向个人投资决策的全栈系统，核心目标是把“数据获取 -> 估值汇总 -> 动作建议 -> 执行记录 -> 日报复盘”做成可审计、可回放、可部署的闭环。
 
@@ -156,7 +156,7 @@ npm run dev -- --host 127.0.0.1 --port 5173
 - 推荐先执行一键预检：`python scripts/check_release_preflight.py`（默认串行执行文档门禁严格模式、后端 compileall、前端 build）。
 - push 前自动检查：`.githooks/pre-push` 已接入 `python scripts/check_docs_gate.py --strict`。
 - 云端 PR 检查：`.github/workflows/docs-gate.yml` 会在 PR 到 `dev/main` 时执行文档门禁。
-- 分支保护固化脚本：`python scripts/branch_protection.py --mode check|apply --required-contexts "Docs Gate / docs-gate" --main-required-contexts "Release Consistency / verify-release"`（当前敏捷阶段后置治理，不阻塞本地迭代，详见 `docs/Git工作流.md`）。
+- 分支保护当前作为远端治理回补项，不再依赖仓库内 仓库内已下线的分支保护脚本；当前本地迭代以 `docs gate / release consistency` 工作流为准，后续治理口径见 `docs/Git工作流.md`。
 - 提交信息校验：`.githooks/commit-msg` 已接入 `python scripts/check_release_message.py`，发布提交自动校验 `vX.Y.Z` 与 `新增/修复/优化/文档` 四段。
 - 发布提交中的 `文档:` 段会被脚本强校验：必须包含“检查范围 / 更新结论 / 延后项（无则写无）”。
 - 发布后一致性校验：`python scripts/check_main_release.py --commit HEAD --check-remote-tag --remote origin`。
