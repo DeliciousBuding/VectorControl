@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Layout } from 'antd'
 import { 
   HomeOutlined, 
   FundOutlined, 
@@ -9,8 +8,6 @@ import {
   MenuOutlined,
   CloseOutlined
 } from '@ant-design/icons'
-
-const { Sider } = Layout
 
 // 导航项配置
 const NAV_ITEMS = [
@@ -59,11 +56,7 @@ function NavItem({ item, isActive, onClick }) {
 // 桌面端侧边栏
 function DesktopSider({ active, onChange }) {
   return (
-    <Sider
-      width={240}
-      theme="light"
-      className="sidenav-desktop"
-    >
+    <aside className="sidenav-desktop" style={{ width: 240 }}>
       <BrandLogo />
       <nav className="sidenav-nav">
         {NAV_ITEMS.map((item) => (
@@ -75,7 +68,7 @@ function DesktopSider({ active, onChange }) {
           />
         ))}
       </nav>
-    </Sider>
+    </aside>
   )
 }
 
@@ -207,39 +200,5 @@ export function SideNav({ active, onChange }) {
 
 // 为了保持向后兼容，导出原始的简单版本
 export function SideNavLegacy({ active, onChange }) {
-  const items = [
-    { key: 'home', icon: <HomeOutlined />, label: '首页' },
-    { key: 'watch', icon: <FundOutlined />, label: '自选' },
-    { key: 'trade', icon: <TransactionOutlined />, label: '交易' },
-    { key: 'holdings', icon: <PieChartOutlined />, label: '持仓' },
-    { key: 'profile', icon: <UserOutlined />, label: '我的' }
-  ]
-
-  return (
-    <Sider 
-      width={220}
-      theme="light"
-      style={{
-        borderRight: '1px solid #e2e8f0',
-        height: '100vh',
-        position: 'sticky',
-        top: 0,
-        left: 0,
-        zIndex: 100
-      }}
-      className="desktop-sider"
-    >
-      <div className="brand-logo-area" style={{ height: 64, display: 'flex', alignItems: 'center', paddingLeft: 24 }}>
-        <div style={{ width: 32, height: 32, background: 'linear-gradient(135deg, #4f46e5, #3730a3)', borderRadius: 8, color: '#fff', display: 'grid', placeItems: 'center', fontWeight: 'bold' }}>VC</div>
-        <span style={{ marginLeft: 12, fontSize: 18, fontWeight: 700, color: '#1e293b' }}>VectorControl</span>
-      </div>
-      <Menu
-        mode="inline"
-        selectedKeys={[active]}
-        onClick={({ key }) => onChange(key)}
-        items={items}
-        style={{ borderRight: 0 }}
-      />
-    </Sider>
-  )
+  return <DesktopSider active={active} onChange={onChange} />
 }

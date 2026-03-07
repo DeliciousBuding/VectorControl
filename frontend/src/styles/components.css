@@ -1302,6 +1302,8 @@
   top: 0;
   left: 0;
   z-index: var(--vc-z-sticky);
+  display: flex;
+  flex-direction: column;
   background: var(--vc-bg-primary) !important;
   border-right: 1px solid var(--vc-border-primary);
   box-shadow: var(--vc-shadow-sm);
