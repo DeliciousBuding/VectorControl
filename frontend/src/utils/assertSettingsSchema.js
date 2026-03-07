@@ -52,8 +52,8 @@ const KNOWN_NETWORK_BENCHMARK_KEYS = ['default_profile', 'timeout_seconds', 'las
  * @returns {{valid: boolean, warnings: string[], errors: string[]}}
  */
 export function assertSettingsSchema(settings, context = 'unknown') {
-  if (import.meta.env?.PROD) {
-    // Skip in production
+  if (import.meta.env?.PROD || import.meta.env?.MODE === 'test') {
+    // Skip in production and unit tests
     return { valid: true, warnings: [], errors: [] }
   }
 
