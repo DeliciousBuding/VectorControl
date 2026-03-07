@@ -22,3 +22,4 @@
 - [x] 3.9 将 `TradeCenter.jsx` 的 AntD 引用改成直达入口，并移除 `vite.config.js` 中对 `trade-antd` 的手工硬切；重新执行 `test:run` 与 `analyze` 后，循环分块告警消失，`index` 保持在约 `105.44 kB`
 - [x] 3.10 将 `assertSettingsSchema()` 在测试环境短路，避免 `SettingsDrawer.test.jsx` 输出开发态 schema 警告噪音
 - [x] 3.11 将 `新增持仓` 与 `提醒规则` 表单从 `App.jsx` 主路径抽离为懒加载面板；重新执行 `test:run` 与 `analyze` 后，`index` 进一步收敛到约 `101.51 kB`
+- [x] 3.12 将 `LoginPanel.jsx` 改为懒加载；重新执行 `test:run` 与 `analyze` 后，`LoginPanel` 独立 chunk≈`2.14 kB`，`index` 进一步收敛到约 `99.90 kB`
