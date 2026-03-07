@@ -17,3 +17,4 @@
 - [x] 3.4 在 `request_id` 中间件补齐请求完成结构化日志（`method/path/status_code/request_id/server_elapsed_ms`），并通过 `test_request_id_middleware_smoke.py` 覆盖
 - [x] 3.5 将应用启动从 `FastAPI.on_event("startup")` 收敛到 `lifespan`，并通过 `test_app_assembly_smoke.py` + `check_release_preflight.py` 验证预检噪音减少
 - [x] 3.6 在 `/api/system/status` 与 `/api/system/diagnostics` 暴露最近请求摘要，并在 `diagnostic_text` 中输出最近请求列表，供热点接口排障直接使用
+- [x] 3.7 将 phase2 结果回写到 `ROADMAP.md` / `docs/最新进度.md`，并将第二轮后端观测优化从待办转为已完成
