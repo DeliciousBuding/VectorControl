@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-07 21:06:01
+更新时间：2026-03-08 01:54:05
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -159,6 +159,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已落地 `scripts/perf_smoke.py` 与 `.perf/perf_smoke/latest.json`，当前首页/基金详情页/系统状态页本地基线已生成）。
 
 ### 已完成 (Done)
+- [√] [前端] 首页工作台视觉升级 phase1：参考 Ant Design Workbench / Data Display 与 GitHub Primer 层级原则，完成首页概览区、指标卡、数据口径横幅、收益监控面板与 Ant Design 主题的视觉收敛；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run build`、`npm --prefix frontend run analyze`。
 - [√] [运维] prod HTTPS 恢复：已补齐证书、UFW 443 放行与 TLS 配置渲染链，`https://vectorcontrol.tech/` 与 `https://vectorcontrol.tech/api/healthz` 已恢复可访问；部署脚本已追加 backend 健康等待，避免更新后即刻验收时返回 `502`，证据见 `docs/evidence/gate-d-20260307/https-head-20260308.txt`、`docs/evidence/gate-d-20260307/https-healthz-20260308.json`、`docs/evidence/gate-d-20260307/https-cert-20260308.txt`。
 - [√] [后端] 登录安全增强：细粒度限流、失败观测、告警阈值。（已完成@bot e70e401）。
 - [√] [后端] 数据导入幂等键 v1：`POST /api/transactions/import` 支持幂等键防重复落库，补 smoke + 契约。（已完成@bot）。

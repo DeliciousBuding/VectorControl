@@ -16,15 +16,19 @@ if (typeof window !== 'undefined' && window.Capacitor) {
 
 const theme = {
   token: {
-    colorPrimary: '#4361ee',
-    colorInfo: '#4361ee',
-    borderRadius: 8,
-    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    colorPrimary: '#315efb',
+    colorInfo: '#315efb',
+    colorLink: '#315efb',
+    colorSuccess: '#0f9f6e',
+    colorWarning: '#c27b18',
+    colorError: '#dc4c4c',
+    borderRadius: 14,
+    fontFamily: "'Segoe UI Variable', 'PingFang SC', 'Hiragino Sans GB', -apple-system, BlinkMacSystemFont, sans-serif",
   },
   components: {
-    Button: { borderRadius: 8 },
-    Card: { borderRadius: 12 },
-    Input: { borderRadius: 8 },
+    Button: { borderRadius: 12 },
+    Card: { borderRadius: 18 },
+    Input: { borderRadius: 12 },
   },
 };
 
