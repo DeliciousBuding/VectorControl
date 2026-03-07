@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-07 14:22:01
+更新时间：2026-03-07 14:32:43
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -81,7 +81,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ### 待集成 (Queue)
 - [ ] [协同] 发布链路收敛：完成 `python scripts/check_docs_gate.py --strict` 与 `python scripts/check_release_preflight.py` 本地通过，并在 `prod` 以干净目录完成 HTTP + SQLite 基线验收（当前主仓已再次实跑通过 docs gate / release preflight；`scripts/check_release_message.py` 也已收敛为中文提交前缀 + 发布提交四段说明校验，待补 `ROADMAP` 关单记录与审计化验收闭环）。
 - [ ] [前端] 第二轮 bundle 优化：按 `openspec/changes/frontend-bundle-optimization-phase2/` 记录 `antd-vendor` 与页面级 chunk 基线，推进页面级懒加载与 bundle 收缩（已完成基线刷新：`antd-vendor`≈849.94kB、`index`≈105.56kB，并新增 `trade-antd`≈159.42kB；SettingsDrawer、metrics 缓冲写入、首页重图表延后加载、非首页主路径组件 lazy 化、交易中心抽离为 `TradeCenter.jsx`、`App.jsx` 未使用 Ant Design / icon 依赖清理、删除 `echartsCore.js` / `ReturnsChart.jsx` / `BenchmarkComparison.jsx` 并移除 `echarts` + `echarts-for-react` 依赖后，前端源码与 analyze 均已不再存在 ECharts runtime；下一步继续消化 `trade-antd -> antd-vendor` 循环分块告警并收紧 `manualChunks`）。
-- [ ] [后端] 第二轮观测优化：按 `openspec/changes/backend-observability-phase2/` 整理热点接口耗时、SQLite 热点查询与部署侧诊断增强（已落地 `estimate_snapshot` 索引化、charts 聚合收敛、`system/status` / `system/diagnostics` 结构化观测、`X-Server-Elapsed-Ms` 最小时长信号、请求完成结构化日志、SQLite 只读观测摘要，以及 `lock_risk / wal_state / db_dir.writable / observations` 最小排障提示；下一步进入更细粒度耗时记录与锁/排障提示文案继续收紧）。
+- [ ] [后端] 第二轮观测优化：按 `openspec/changes/backend-observability-phase2/` 整理热点接口耗时、SQLite 热点查询与部署侧诊断增强（已落地 `estimate_snapshot` 索引化、charts 聚合收敛、`system/status` / `system/diagnostics` 结构化观测、`X-Server-Elapsed-Ms` 最小时长信号、请求完成结构化日志、SQLite 只读观测摘要，以及 `lock_risk / wal_state / db_dir.writable / observations` 最小排障提示；应用启动也已切到 `lifespan`，当前下一步进入更细粒度耗时记录与锁/排障提示文案继续收紧）。
 - [ ] [协同] 无人值守执行闭环：将第二轮前端优化、后端观测、线上证据留档按“单闭环完成后再开下一闭环”的顺序持续推进，直到 `ROADMAP` 中高优先级优化项全部收口。
 - [ ] [前端] 基于 `docs/Gate-D验收证据模板.md` 补齐设置中心/测速页面实机验收证据（模板与 `docs/Gate-D设置中心测速前端证据.md` 已收敛到当前 HTTP + SQLite 基线；待生产实机截图、真实命令输出与实机结论补录后关单）。
 - [ ] [协同] 按 `docs/P0线上故障排查SOP.md` 完成"测速 Not Found + 设置中心白屏"双故障关闭留档（含根因、修复提交、回归证据）。
