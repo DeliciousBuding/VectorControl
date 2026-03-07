@@ -552,6 +552,7 @@ describe('SettingsDrawer', () => {
       expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
     })
 
+    expect(screen.getByLabelText('通知诊断概览')).toBeInTheDocument()
     // 当前前端只渲染飞书/Telegram 两通道，email 会被过滤掉
     expect(screen.getAllByText(/未测试\/无记录/).length).toBeGreaterThanOrEqual(2)
   })

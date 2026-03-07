@@ -1896,14 +1896,20 @@ export function SettingsDrawer({
 
         </div>
 
-        <div className="settings-group">
-          <h4>系统状态</h4>
+        <div className="settings-group settings-group--diagnostics">
+          <div className="settings-panel-header">
+            <div className="settings-panel-header__copy">
+              <span className="settings-panel-header__eyebrow">System Snapshot</span>
+              <h4>系统状态</h4>
+              <p>按需加载服务版本、健康检查和变更记录，先看快照，再决定是否继续排障。</p>
+            </div>
+          </div>
           {!hydratedSections.system ? <p className="settings-note">按需加载。下一步：点击“一键复制状态”或“加载系统状态”拉取最新后端状态。</p> : null}
           {systemStatusLoading || healthzLoading ? <p className="settings-note">加载中...</p> : null}
           {systemStatusError ? <p className="settings-error">{systemStatusError}</p> : null}
           {healthzError ? <p className="settings-error">{healthzError}</p> : null}
 
-          <div className="settings-note" data-testid="system-status-panel">
+          <div className="settings-status-grid" data-testid="system-status-panel">
             <p data-testid="system-status-service">
               服务：<code>{String(systemStatusSnapshot?.service || '--')}</code>
             </p>
@@ -1921,7 +1927,7 @@ export function SettingsDrawer({
             </p>
           </div>
 
-          <div className="settings-secret-actions">
+          <div className="settings-secret-actions settings-secret-actions--toolbar">
             <button
               type="button"
               className="ghost"
@@ -1945,7 +1951,7 @@ export function SettingsDrawer({
           {systemPanelHint ? <p className="settings-note">{systemPanelHint}</p> : null}
           {systemPanelError ? <p className="settings-error">{systemPanelError}</p> : null}
 
-          <div className="settings-secret-actions" style={{ marginTop: '12px' }}>
+          <div className="settings-secret-actions settings-secret-actions--toolbar" style={{ marginTop: '12px' }}>
             <button
               type="button"
               className="ghost"
@@ -1977,8 +1983,14 @@ export function SettingsDrawer({
           )}
         </div>
 
-        <div className="settings-group">
-          <h4>通知诊断</h4>
+        <div className="settings-group settings-group--diagnostics">
+          <div className="settings-panel-header">
+            <div className="settings-panel-header__copy">
+              <span className="settings-panel-header__eyebrow">Notification Diagnostics</span>
+              <h4>通知诊断</h4>
+              <p>统一查看 Feishu / Telegram 通道状态、最近测试结果与诊断动作，减少散装排障。</p>
+            </div>
+          </div>
           {!hydratedSections.diagnostics ? <p className="settings-note">按需加载。下一步：点击“加载诊断”或直接发送测试消息/复制诊断信息。</p> : null}
           {notificationsStatusLoading ? (
             <p className="settings-note">加载中...</p>
@@ -2002,6 +2014,26 @@ export function SettingsDrawer({
             const telegramLast = telegramStatus.last_test_summary ?? null
             const telegramDiscovery = asPlainObject(telegramStatus.discovery)
             const telegramDiscoveryLastSeen = formatDateTime(telegramDiscovery.last_seen_at)
+            const diagnosticOverview = [
+              {
+                key: 'feishu',
+                label: 'Feishu',
+                value: feishuEnabled ? '已启用' : '未启用',
+                hint: feishuCredentialConfigured ? '凭据已配置' : '凭据未配置'
+              },
+              {
+                key: 'telegram',
+                label: 'Telegram',
+                value: telegramEnabled ? '已启用' : '未启用',
+                hint: telegramCredentialConfigured ? '凭据已配置' : '凭据未配置'
+              },
+              {
+                key: 'discovery',
+                label: '自动发现',
+                value: telegramDiscovery.secret_configured ? '已生成地址' : '未生成地址',
+                hint: `最近 chat_id：${String(telegramDiscovery.last_chat_id || '--')}`
+              }
+            ]
 
             const parseLast = (last) => {
               const raw = asPlainObject(last)
@@ -2163,8 +2195,18 @@ export function SettingsDrawer({
             }
 
             return (
-              <div>
-                <div className="settings-note">
+              <div className="settings-diagnostic-shell">
+                <div className="settings-diagnostic-overview" aria-label="通知诊断概览">
+                  {diagnosticOverview.map((item) => (
+                    <article key={item.key} className="settings-diagnostic-overview__card">
+                      <span>{item.label}</span>
+                      <strong>{item.value}</strong>
+                      <p>{item.hint}</p>
+                    </article>
+                  ))}
+                </div>
+
+                <div className="settings-diagnostic-summary">
                   <p>
                     飞书：{feishuEnabled ? '已启用' : '未启用'}｜凭据：{feishuCredentialConfigured ? '已配置' : '未配置'}｜最近：
                     {renderLast(parseLast(feishuLast), 'feishu')}
@@ -2183,7 +2225,7 @@ export function SettingsDrawer({
                   {renderHistory('telegram', telegramStatus.last_test_history, telegramHistoryOpen, setTelegramHistoryOpen)}
                 </div>
 
-                <div className="settings-secret-actions">
+                <div className="settings-secret-actions settings-secret-actions--toolbar">
                   <button
                     type="button"
                     className="ghost"

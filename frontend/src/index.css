@@ -3162,6 +3162,40 @@ button:disabled {
   letter-spacing: -0.02em;
 }
 
+.settings-group--diagnostics {
+  gap: 12px;
+  background:
+    radial-gradient(circle at top right, rgba(49, 94, 251, 0.08), transparent 26%),
+    rgba(255, 255, 255, 0.88);
+}
+
+.settings-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-panel-header__copy {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-panel-header__eyebrow {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-panel-header__copy p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .settings-group label {
   display: grid;
   gap: 4px;
@@ -3220,7 +3254,93 @@ button:disabled {
   flex-wrap: wrap;
 }
 
+.settings-secret-actions--toolbar {
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.86);
+}
+
 .settings-secret-actions .settings-note {
+  margin: 0;
+}
+
+.settings-status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-status-grid p {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(248, 250, 252, 0.92);
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+}
+
+.settings-status-grid code {
+  color: var(--vc-text-primary);
+  font-size: 13px;
+  word-break: break-word;
+}
+
+.settings-diagnostic-shell {
+  display: grid;
+  gap: 12px;
+}
+
+.settings-diagnostic-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-diagnostic-overview__card {
+  display: grid;
+  gap: 8px;
+  min-height: 104px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.settings-diagnostic-overview__card span {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-diagnostic-overview__card strong {
+  color: var(--vc-text-primary);
+  font-size: 20px;
+  letter-spacing: -0.03em;
+}
+
+.settings-diagnostic-overview__card p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.settings-diagnostic-summary {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.settings-diagnostic-summary p {
   margin: 0;
 }
 
@@ -3728,6 +3848,16 @@ button.settings-inline-btn {
 
   .settings-overview {
     grid-template-columns: 1fr;
+  }
+
+  .settings-panel-header,
+  .settings-status-grid,
+  .settings-diagnostic-overview {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-panel-header {
+    flex-direction: column;
   }
 
   .fund-detail-page {
