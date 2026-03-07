@@ -511,6 +511,11 @@ function App() {
     setAutoRefreshEnabled(!settings.display.auto_refresh_enabled)
   }
 
+  const handleOpenSettings = useCallback(() => {
+    recordMetric('设置中心打开')
+    setSettingsOpen(true)
+  }, [])
+
   const handleOpenTradeEntry = useCallback((source = 'unknown') => {
     recordMetric('交易入口点击', { source })
     setActiveTab('trade')
@@ -1837,7 +1842,7 @@ function App() {
                 autoRefreshEnabled={Boolean(settings.display.auto_refresh_enabled)}
                 onRefresh={() => refresh()}
                 onToggleAutoRefresh={handleToggleAutoRefresh}
-                onOpenSettings={() => setSettingsOpen(true)}
+                onOpenSettings={handleOpenSettings}
                 onLogout={logout}
                 marketDataHint={marketDataHint}
               />
