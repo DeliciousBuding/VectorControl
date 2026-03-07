@@ -2779,36 +2779,196 @@ button:disabled {
 
 .risk-panel {
   margin-top: 16px;
-  padding: 16px;
+  padding: 18px;
+}
+
+.risk-panel--refined {
+  display: grid;
+  gap: 14px;
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  background:
+    radial-gradient(circle at top right, rgba(49, 94, 251, 0.08), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+  box-shadow: 0 20px 40px -34px rgba(15, 23, 42, 0.22);
+}
+
+.risk-panel__head {
+  align-items: flex-start;
+}
+
+.risk-panel__eyebrow {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.risk-panel__aside {
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.risk-panel__aside span {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.risk-panel__aside strong {
+  color: var(--vc-text-primary);
+  font-size: 18px;
+  letter-spacing: -0.03em;
+}
+
+.risk-panel__aside p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.risk-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.risk-overview__card {
+  display: grid;
+  gap: 8px;
+  min-height: 108px;
+  padding: 14px 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.risk-overview__card span {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.risk-overview__card strong {
+  color: var(--vc-text-primary);
+  font-size: 24px;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.risk-overview__card p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .risk-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  gap: 12px;
 }
 
 .risk-card {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: #f8fbff;
-  padding: 12px;
+  display: grid;
+  gap: 12px;
+  min-height: 180px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  padding: 16px;
+}
+
+.risk-card--metric {
+  background:
+    radial-gradient(circle at top right, rgba(49, 94, 251, 0.08), transparent 24%),
+    rgba(255, 255, 255, 0.88);
+}
+
+.risk-card__eyebrow {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .risk-card h4 {
-  margin: 0 0 8px;
-  font-size: 16px;
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: -0.03em;
 }
 
 .risk-card p,
 .risk-card li {
-  margin: 4px 0;
+  margin: 0;
   font-size: 14px;
+  line-height: 1.65;
+  color: var(--vc-text-secondary);
 }
 
-.risk-card ul {
+.risk-card__metrics {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.risk-card__metrics div {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.risk-card__metrics span {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.risk-card__metrics strong {
+  color: var(--vc-text-primary);
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.risk-list {
+  display: grid;
+  gap: 10px;
   margin: 0;
-  padding-left: 18px;
+  padding: 0;
+  list-style: none;
+}
+
+.risk-list li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(248, 250, 252, 0.9);
+}
+
+.risk-list li strong {
+  color: var(--vc-text-primary);
+  font-size: 14px;
 }
 
 .settings-mask {
@@ -3606,6 +3766,19 @@ button.settings-inline-btn {
   .trade-inline-actions,
   .trade-segmented-control {
     width: 100%;
+  }
+
+  .risk-panel__head,
+  .risk-list li {
+    flex-direction: column;
+  }
+
+  .risk-panel__aside,
+  .risk-overview,
+  .risk-card__metrics {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: 1fr;
   }
 
   .sip-manager__header,
