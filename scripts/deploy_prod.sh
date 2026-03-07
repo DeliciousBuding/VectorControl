@@ -41,4 +41,26 @@ if [[ "${VC_ENABLE_TLS:-false}" =~ ^(1|true|yes|on)$ ]]; then
   fi
 fi
 
+wait_for_backend_ready() {
+  local container_id=""
+  local status="missing"
+
+  for _ in $(seq 1 30); do
+    container_id="$(docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps -q backend)"
+    if [ -n "$container_id" ]; then
+      status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id" 2>/dev/null || true)"
+      if [ "$status" = "healthy" ] || [ "$status" = "running" ]; then
+        echo "[OK] backend 已就绪: $status"
+        return 0
+      fi
+    fi
+    sleep 2
+  done
+
+  echo "等待 backend 就绪超时，当前状态: ${status}" >&2
+  docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps >&2 || true
+  return 1
+}
+
 docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build
+wait_for_backend_ready
