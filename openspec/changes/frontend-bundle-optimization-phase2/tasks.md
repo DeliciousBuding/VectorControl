@@ -17,3 +17,4 @@
 - [x] 3.4 去除 `echarts-for-react` 运行时包装后，将首页图表 runtime chunk 从约 `581.33 kB` 收敛到约 `552.04 kB`，并保持 `ReturnsChart` / `BenchmarkComparison` 行为不变
 - [x] 3.5 将首页主路径切回 `PortfolioReturnsPanel` / `BenchmarkComparisonPanel` 轻量实现后，analyze 输出中不再出现独立 ECharts runtime chunk
 - [x] 3.6 确认前端源码已无真实 ECharts 运行时引用后，删除 `echartsCore.js` / `ReturnsChart.jsx` / `BenchmarkComparison.jsx` 并移除 `echarts`、`echarts-for-react` 依赖；重新执行 `test:run` 与 `analyze` 后，源码与产物中均不再存在 ECharts runtime
+- [x] 3.7 将交易中心抽离为懒加载 `TradeCenter.jsx` 并拆出 `trade-antd` 分块；重新执行 `test:run` 与 `analyze` 后，`index` 收敛到约 `105.56 kB`、`antd-vendor` 收敛到约 `849.94 kB`，同时记录当前仍存在的循环分块告警作为下一刀输入
