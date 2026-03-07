@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-07 16:50:27
+更新时间：2026-03-07 17:19:30
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -83,9 +83,9 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [前端] 第二轮 bundle 优化：按 `openspec/changes/frontend-bundle-optimization-phase2/` 记录 `antd-vendor` 与页面级 chunk 基线，推进页面级懒加载与 bundle 收缩（已完成基线刷新：`index`≈105.44kB；交易中心循环分块告警已消除；SettingsDrawer、metrics 缓冲写入、首页重图表延后加载、非首页主路径组件 lazy 化、交易中心抽离为 `TradeCenter.jsx`、`SettingsDrawer` 的 `Drawer width` 弃用噪音已清、`App.jsx` 未使用 Ant Design / icon 依赖清理、删除 `echartsCore.js` / `ReturnsChart.jsx` / `BenchmarkComparison.jsx` 并移除 `echarts` + `echarts-for-react` 依赖后，前端源码与 analyze 均已不再存在 ECharts runtime；当前新热点是 `antd-vendor`≈1006.91kB，下一步需继续压缩 vendor 体积）。
 - [√] [后端] 第二轮观测优化：按 `openspec/changes/backend-observability-phase2/` 完成热点接口耗时、SQLite 热点查询与部署侧诊断增强的 phase2 收口（已落地 `estimate_snapshot` 索引化、charts 聚合收敛、`system/status` / `system/diagnostics` 结构化观测、`X-Server-Elapsed-Ms` 最小时长信号、请求完成结构化日志、最近请求摘要、SQLite 只读观测摘要，以及 `lock_risk / wal_state / db_dir.writable / observations` 最小排障提示；对应 tasks 已全部勾选）。
 - [ ] [协同] 无人值守执行闭环：将第二轮前端优化、后端观测、线上证据留档按“单闭环完成后再开下一闭环”的顺序持续推进，直到 `ROADMAP` 中高优先级优化项全部收口。
-- [ ] [前端] 基于 `docs/Gate-D验收证据模板.md` 补齐设置中心/测速页面实机验收证据（模板与 `docs/Gate-D设置中心测速前端证据.md` 已收敛到当前 HTTP + SQLite 基线；待生产实机截图、真实命令输出与实机结论补录后关单）。
+- [√] [前端] 基于 `docs/Gate-D验收证据模板.md` 补齐设置中心/测速页面实机验收证据（已生成 `docs/Gate-D验收证据-20260307.md`，并补齐首页/设置中心/系统状态页实机截图索引）。
 - [√] [协同] 按 `docs/P0线上故障排查SOP.md` 完成"测速 Not Found + 设置中心白屏"双故障关闭留档（含根因、修复提交、回归证据；当前证据入口为 `docs/Gate-D测速NotFound后端证据.md`、`docs/Gate-D设置中心测速前端证据.md`、`docs/Postmortem-测速NotFound与设置中心白屏-后端.md`）。
-- [ ] [协同] 双故障关闭留档（可审核版本）：后端 postmortem 与测速 Not Found 后端证据已收敛到当前 HTTP 基线；下一步由前端补齐实机截图清单，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）。
+- [√] [协同] 双故障关闭留档（可审核版本）：后端 postmortem、测速 Not Found 后端证据、前端实机截图索引与 `docs/Gate-D验收证据-20260307.md` 已形成可审核证据链。
 
 ### 新需求（2026-02-15 庄方宜提出）
 - [√] [前端] **基金专属独立页面**：点击基金跳转独立路由 `/fund/:fund_id`，而非滚动到底部查看（已由 `useAppNavigation.test.jsx` 验证路由跳转）

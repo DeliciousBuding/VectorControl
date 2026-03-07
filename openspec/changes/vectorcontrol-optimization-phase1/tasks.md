@@ -16,6 +16,7 @@
 - [x] 2.5 更新 `docs/Gate-D设置中心测速前端证据.md`，将测速前端证据模板收敛到当前 HTTP + SQLite 基线
 - [x] 2.6 更新 `docs/Gate-D测速NotFound后端证据.md` 与 `docs/Postmortem-测速NotFound与设置中心白屏-后端.md`，将历史 `site.conf` / HTTPS 口径收敛到当前 HTTP 基线
 - [x] 2.7 按 `docs/P0线上故障排查SOP.md` 将“双故障关闭留档”整理为可引用证据链，并同步回写 `ROADMAP.md`
+- [x] 2.8 生成 `docs/Gate-D验收证据-20260307.md` 与 `docs/evidence/gate-d-20260307/`，补齐生产首页 / 设置中心 / 系统状态页实机截图与命令输出
 
 ## 3. 门禁与性能入口补齐
 
