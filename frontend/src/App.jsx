@@ -20,7 +20,6 @@ import { splitMarketGroups } from './utils/chart.js'
 import { classBySign, formatDate, formatPercent } from './utils/format.js'
 import { toGuidedError } from './utils/errorFeedback.js'
 import { ErrorBoundary } from './components/ErrorBoundary.jsx'
-import { LoginPanel } from './components/LoginPanel.jsx'
 import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
 import { PortfolioReturnsPanel } from './components/PortfolioReturnsPanel.jsx'
@@ -31,6 +30,7 @@ import { recordMetric } from './utils/metrics.js'
 import { normalizeDcaSchedule } from './utils/dca.js'
 
 // 懒加载大型组件 - 使用命名导出
+const LoginPanel = lazy(() => import('./components/LoginPanel.jsx').then(m => ({ default: m.LoginPanel })))
 const BenchmarkComparisonPanel = lazy(() => import('./components/BenchmarkComparisonPanel.jsx').then(m => ({ default: m.BenchmarkComparisonPanel })))
 const SettingsDrawer = lazy(() => import('./components/SettingsDrawer.jsx').then(m => ({ default: m.SettingsDrawer })))
 const HoldingsTable = lazy(() => import('./components/HoldingsTable.jsx').then(m => ({ default: m.HoldingsTable })))
@@ -1791,7 +1791,9 @@ function App() {
 
   if (!user) {
     return (
-      <LoginPanel loading={authLoading} onSubmit={onAuthSubmit} />
+      <Suspense fallback={<div className="page-shell" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><Spin size="large" tip="正在加载登录面板..." /></div>}>
+        <LoginPanel loading={authLoading} onSubmit={onAuthSubmit} />
+      </Suspense>
     )
   }
 
