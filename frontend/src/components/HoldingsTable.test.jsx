@@ -90,4 +90,31 @@ describe('HoldingsTable 50+ 回归', () => {
     })
     expect(onSaveHolding).toHaveBeenCalledWith('160001', expect.objectContaining({ market_value_cny: 12345 }))
   })
+
+  it('支持隐藏零份额持仓', () => {
+    const rows = [buildRow(1), { ...buildRow(2), fund_id: '160002', name: '基金-2', shares: 0 }]
+
+    render(
+      <HoldingsTable
+        title="国内股 / 港股"
+        rows={rows}
+        dateLabel="2026-02-08"
+        sortState={{ key: 'market_value_cny', order: 'desc' }}
+        onSort={vi.fn()}
+        selectedFundId=""
+        onSelectFund={vi.fn()}
+        sparklineMap={buildSparklineMap(rows)}
+        onSaveHolding={vi.fn().mockResolvedValue(true)}
+        onOpenAudit={vi.fn()}
+        pagination={false}
+      />
+    )
+
+    expect(screen.getByText('基金-1')).toBeInTheDocument()
+    expect(screen.queryByText('基金-2')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: '隐藏空仓' }))
+    expect(screen.getByText('基金-2')).toBeInTheDocument()
+
+  })
 })
