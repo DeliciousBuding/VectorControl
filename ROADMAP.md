@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-02-15
+更新时间：2026-03-07 12:42:40
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -11,8 +11,8 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ## 全局发布门禁（每次 `main` 更新都必须执行）
 
 1. 文档全量巡检与必要完善（至少覆盖：`README.md`、`<local>\AGENT\ROADMAP.md`、`ROADMAP.md`（镜像）、`docs/架构说明.md`、`docs/开发规范.md`、`docs/接口契约.md`、`docs/交易流水YAML导入规范.md`、`docs/P0线上故障排查SOP.md`、`docs/状态解释验收样例.md`、`docs/最新进度.md`、`docs/Git工作流.md`、`docs/部署与运行.md`）。
-2. 发布前执行：`python scripts/check_release_preflight.py`（默认包含文档门禁严格模式、后端 compileall、前端 build）。
-3. push 前确保 `.githooks/pre-push` 严格检查通过（`python scripts/check_docs_gate.py --strict`）。
+2. 发布前执行：`python scripts/check_release_preflight.py`（默认包含文档门禁严格模式、敏感信息扫描、后端 compileall、后端烟测、前端测试、前端 build）。
+3. push 前确保 `.githooks/pre-push` 严格检查通过（`python scripts/check_secrets_leak.py` + `python scripts/check_docs_gate.py --strict`）。
 4. 发布提交必须包含 `新增/修复/优化/文档` 四段，且 `文档` 段必须写清"检查范围 + 更新结论 + 延后项（无则写无）"。
 5. 发布后执行：`python scripts/check_main_release.py --commit HEAD --check-remote-tag --remote origin`。
 
@@ -21,6 +21,54 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 1. 本阶段忽略分支保护相关治理项，不作为迭代阻塞条件（按你的当前指令执行）。
 2. 每轮只推进 1-2 个可验收闭环，优先线上可用性与核心交易链路。
 3. 每轮必须同时更新：代码 + 文档 + `ROADMAP` + 验收记录。
+4. 进入无人值守连续推进模式时，严格按“一个闭环完成 -> 运行验证 -> 更新文档/OpenSpec/ROADMAP -> 再进入下一个闭环”的顺序执行，不允许跳过验证直接堆叠改动。
+5. 不得进行权限外操作：不修改 SSH 主密钥、不修改 SSH config、不改网络拓扑、不做未获授权的外发或系统级破坏性操作。
+6. 只有当以下条件同时满足时，才允许视为“当前轮次已无值得继续优化的内容”：
+   - 发布链路、docs gate、preflight、Gate-D 持续稳定为绿；
+   - 第二轮前端 bundle / 加载时机 / metrics 优化项全部完成；
+   - 第二轮后端热点 / 观测 / SQLite 排障出口全部完成；
+   - P0 线上证据、故障关闭留档、Gate-D 实机证据全部补齐；
+   - 当前 `ROADMAP.md` 中不再存在可继续推进的高优先级优化项。
+
+### 无人值守执行顺序（总控）
+
+按以下顺序循环推进，前一闭环未完成不得切下一闭环：
+
+1. **发布与治理闭环**
+   - docs gate
+   - release preflight
+   - release consistency
+   - Gate-D 证据与故障留档
+2. **前端性能闭环**
+   - analyze 基线
+   - 页面级懒加载
+   - 重依赖拆分
+   - metrics 对照与回归
+3. **后端观测闭环**
+   - request_id / elapsed
+   - system diagnostics
+   - SQLite 只读观测
+   - 热点接口耗时与排障出口
+4. **业务体验闭环**
+   - 基金详情页
+   - 持仓表
+   - JSON 导入
+   - 交易与设置相关体验增强
+5. **线上证据闭环**
+   - 实机截图
+   - postmortem
+   - 审核版归档
+
+### 每个闭环的固定动作
+
+1. 先更新对应 OpenSpec change / tasks / 设计说明。
+2. 再做最小代码改动，不扩大无关回归面。
+3. 跑 focused tests / build / compileall / docs gate / preflight 中与该闭环相关的最小验证。
+4. 将结果回写：
+   - `docs/最新进度.md`
+   - `ROADMAP.md`
+   - 对应 `openspec/changes/*/tasks.md`
+5. 若验证失败，先修复当前闭环，不开启下一个闭环。
 
 ## 集成队列（总控维护）
 
@@ -31,6 +79,10 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ## P0（最优先：稳定性、发布门禁、线上可用）
 
 ### 待集成 (Queue)
+- [ ] [协同] 发布链路收敛：完成 `python scripts/check_docs_gate.py --strict` 与 `python scripts/check_release_preflight.py` 本地通过，并在 `prod` 以干净目录完成 HTTP + SQLite 基线验收（当前命令链已通过，待补 `ROADMAP` 关单记录与审计化验收闭环）。
+- [ ] [前端] 第二轮 bundle 优化：按 `openspec/changes/frontend-bundle-optimization-phase2/` 记录 `antd-vendor` 与页面级 chunk 基线，推进页面级懒加载与 bundle 收缩（已完成基线刷新：`antd-vendor`≈960.94kB、`index`≈124.96kB；SettingsDrawer、metrics 缓冲写入、首页重图表延后加载、非首页主路径组件 lazy 化、`App.jsx` 未使用 Ant Design / icon 依赖清理、删除 `echartsCore.js` / `ReturnsChart.jsx` / `BenchmarkComparison.jsx` 并移除 `echarts` + `echarts-for-react` 依赖后，前端源码与 analyze 均已不再存在 ECharts runtime；下一步进入 `antd-vendor` 热点继续收紧）。
+- [ ] [后端] 第二轮观测优化：按 `openspec/changes/backend-observability-phase2/` 整理热点接口耗时、SQLite 热点查询与部署侧诊断增强（已落地 `estimate_snapshot` 索引化、charts 聚合收敛、`system/status` / `system/diagnostics` 结构化观测、`X-Server-Elapsed-Ms` 最小时长信号、SQLite 只读观测摘要，以及 `lock_risk / wal_state / db_dir.writable / observations` 最小排障提示；下一步进入更细粒度耗时记录与锁/排障提示文案继续收紧）。
+- [ ] [协同] 无人值守执行闭环：将第二轮前端优化、后端观测、线上证据留档按“单闭环完成后再开下一闭环”的顺序持续推进，直到 `ROADMAP` 中高优先级优化项全部收口。
 - [ ] [前端] 基于 `docs/Gate-D验收证据模板.md` 补齐设置中心/测速页面实机验收证据（已合并 `f36d94f -> dev@943c7a9`；本地证据文档已完成：`docs/Gate-D设置中心测速前端证据.md`，待生产实机截图补录后关单）。
 - [ ] [协同] 按 `docs/P0线上故障排查SOP.md` 完成"测速 Not Found + 设置中心白屏"双故障关闭留档（含根因、修复提交、回归证据）。
 - [ ] [协同] 双故障关闭留档（可审核版本）：后端主笔 postmortem + 前端补齐实机截图清单，占位符齐全，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）。
@@ -114,5 +166,5 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [前端] 认证错误 UX 收敛（401/429）：ErrorBoundary 防止白屏（已完成@bot 89df631）
 - [√] [后端] 设置保存审计日志 v1：`PUT /api/settings` 落库变更摘要 + `GET /api/settings/audit_logs`（已完成@bot 94a1d89）
 - [√] [前端] 设置变更可视化 v1：保存成功后展示变更摘要（已完成@bot a75210f）
-- [√] [后端] 配置一致性检查 v1（settings schema lint）：scripts/check_settings_schema.py（已完成@bot 47758b5）
+- [√] [后端] 配置一致性检查 v1（settings schema lint）：补齐 settings schema 规则与对应文档约束（已完成@bot 47758b5）
 - [√] [前端] 前端 settings schema 断言：开发期禁止未知 key/敏感明文 payload（已完成@bot 6a06a2c）
