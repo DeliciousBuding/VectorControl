@@ -153,7 +153,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ## P3（持续改进）
 
 ### 待集成 (Queue)
-- [ ] [后端] 分支保护治理回补：恢复 `Docs Gate / docs-gate` 与 `Release Consistency / verify-release` 的远端必需检查留档。
+- [√] [后端] 分支保护治理回补：已恢复 `dev` 分支 `Docs Gate / docs-gate`、`main` 分支 `Docs Gate / docs-gate` 与 `Release Consistency / verify-release` 的远端必需检查，并补齐 GitHub API 留档（`docs/evidence/gate-d-20260307/github-branch-protection-dev-20260307.json`、`docs/evidence/gate-d-20260307/github-branch-protection-main-20260307.json`）。
 - [√] [后端] 前端构建缓存优化（CI/本地）：`check_release_preflight.py` 运行速度优化（不改变默认行为），补文档说明（已通过并发前置步骤实现，并在主仓实跑通过）。
 - [√] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已落地 `scripts/perf_smoke.py` 与 `.perf/perf_smoke/latest.json`，当前首页/基金详情页/系统状态页本地基线已生成）。
 
