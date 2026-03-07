@@ -1,0 +1,3 @@
+NAME                    IMAGE                          COMMAND                  SERVICE   CREATED        STATUS                  PORTS
+vectorcontrol-backend   vectorcontrol-backend:latest   "python -m uvicorn a…"   backend   21 hours ago   Up 21 hours (healthy)   8000/tcp
+vectorcontrol-nginx     vectorcontrol-nginx:latest     "/docker-entrypoint.…"   nginx     21 hours ago   Up 21 hours             0.0.0.0:80->80/tcp, [::]:80->80/tcp

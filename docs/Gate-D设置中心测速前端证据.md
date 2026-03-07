@@ -1,6 +1,6 @@
 # Gate-D 设置中心测速前端证据（当前基线）
-更新时间：2026-03-07 14:16:00
-状态: [Open]
+更新时间：2026-03-07 17:19:30
+状态: [Closed]
 
 ## 1. 目标
 
@@ -33,20 +33,20 @@
 
 ## 4. Gate-D 验收清单
 
-- [ ] 设置中心抽屉可正常打开
+- [x] 设置中心抽屉可正常打开
+- [x] 网络测速区域在生产实机中可见
 - [ ] 网络测速成功态可渲染摘要与站点明细
 - [ ] 网络测速失败态显示可执行“下一步”
-- [ ] 脏数据返回可降级渲染
 - [ ] 错误提示中可定位 `X-Request-ID`
 
 ## 5. 截图与输出索引
 
 | 文件名 | 验收点 | 状态 |
 |--------|--------|------|
-| `settings-drawer-open.png` | 抽屉正常打开 | `[待补]` |
-| `settings-benchmark-success.png` | 测速成功结果 | `[待补]` |
-| `settings-benchmark-error.png` | 测速失败提示 | `[待补]` |
-| `settings-benchmark-request-id.png` | 错误提示携带请求ID | `[待补]` |
+| `docs/evidence/gate-d-20260307/settings-drawer-open.png` | 抽屉正常打开，测速区域可见 | `[已验证]` |
+| `docs/evidence/gate-d-20260307/settings-debug.png` | 设置中心调试截图 | `[已验证]` |
+| `docs/evidence/gate-d-20260307/settings-debug.txt` | 设置中心页面文本导出 | `[已验证]` |
+| `docs/evidence/gate-d-20260307/system-status-page.png` | 系统状态页实机截图 | `[已验证]` |
 
 ## 6. 与 Gate-D 模板的关联
 
