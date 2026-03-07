@@ -98,6 +98,18 @@ class ChartsReturnsHistorySmokeTest(unittest.TestCase):
             self.assertGreaterEqual(len(labels), 2)
             self.assertIn("data_status", cumulative)
 
+            dashboard_resp = client.get("/api/charts/home_dashboard?returns_days=30", headers=headers)
+            self.assertEqual(dashboard_resp.status_code, 200, dashboard_resp.text)
+            dashboard = dashboard_resp.json()
+            self.assertEqual(dashboard.get("cumulative_returns", {}).get("labels"), labels)
+            self.assertEqual(dashboard.get("cumulative_returns", {}).get("values"), values)
+            dashboard_history = dashboard.get("returns_history") or []
+            self.assertEqual(len(dashboard_history), len(data))
+            self.assertEqual(dashboard_history[0].get("date"), first.get("date"))
+            self.assertEqual(dashboard_history[0].get("asof"), first.get("asof"))
+            self.assertAlmostEqual(float(dashboard_history[0].get("total_return") or 0.0), 25.0, places=3)
+            self.assertNotIn("label", dashboard_history[0])
+
             bad_resp = client.get("/api/charts/returns_history?days=15", headers=headers)
             self.assertEqual(bad_resp.status_code, 422, bad_resp.text)
             detail = (bad_resp.json() or {}).get("detail")

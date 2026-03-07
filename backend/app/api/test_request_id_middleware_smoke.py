@@ -4,7 +4,7 @@ import unittest
 
 from fastapi.testclient import TestClient
 
-from app.main import REQUEST_ID_HEADER, app
+from app.main import REQUEST_DURATION_HEADER, REQUEST_ID_HEADER, app
 
 
 class RequestIdMiddlewareSmokeTest(unittest.TestCase):
@@ -13,8 +13,11 @@ class RequestIdMiddlewareSmokeTest(unittest.TestCase):
             resp = client.get("/api/health")
             self.assertEqual(resp.status_code, 200, resp.text)
             request_id = str(resp.headers.get(REQUEST_ID_HEADER, "")).strip()
+            elapsed_ms = str(resp.headers.get(REQUEST_DURATION_HEADER, "")).strip()
             self.assertTrue(request_id)
             self.assertGreaterEqual(len(request_id), 8)
+            self.assertTrue(elapsed_ms)
+            self.assertTrue(elapsed_ms.isdigit())
 
     def test_request_id_header_echoes_client_value(self) -> None:
         with TestClient(app) as client:

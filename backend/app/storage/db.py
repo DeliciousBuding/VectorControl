@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import os
 import re
 import secrets
 import sqlite3
@@ -11,8 +12,130 @@ from typing import Any
 
 from app.core.market_group import decide_market_group
 from app.core.settings import DATA_DIR
+from app.storage.catalog_sync import build_catalog_rows_from_config
 
 DB_PATH = DATA_DIR / "app.db"
+
+
+def get_sqlite_observability_snapshot() -> dict[str, Any]:
+    db_path = DB_PATH
+    db_dir = db_path.parent
+    wal_path = db_path.with_name(f"{db_path.name}-wal")
+    shm_path = db_path.with_name(f"{db_path.name}-shm")
+
+    def _file_info(path: Any) -> dict[str, Any]:
+        target = path if hasattr(path, "exists") else DB_PATH
+        exists = bool(target.exists())
+        size_bytes = int(target.stat().st_size) if exists else 0
+        modified_at = datetime.fromtimestamp(target.stat().st_mtime).astimezone().isoformat() if exists else ""
+        return {
+            "path": str(target),
+            "exists": exists,
+            "size_bytes": size_bytes,
+            "modified_at": modified_at,
+        }
+
+    def _dir_info(path: Any) -> dict[str, Any]:
+        target = path if hasattr(path, "exists") else db_dir
+        exists = bool(target.exists())
+        writable = bool(exists and os.access(target, os.W_OK))
+        return {
+            "path": str(target),
+            "exists": exists,
+            "writable": writable,
+        }
+
+    db_file = _file_info(db_path)
+    wal_file = _file_info(wal_path)
+    shm_file = _file_info(shm_path)
+    db_dir_info = _dir_info(db_dir)
+
+    try:
+        with connect() as conn:
+            journal_mode_row = conn.execute("PRAGMA journal_mode").fetchone()
+            page_size_row = conn.execute("PRAGMA page_size").fetchone()
+            page_count_row = conn.execute("PRAGMA page_count").fetchone()
+            freelist_row = conn.execute("PRAGMA freelist_count").fetchone()
+            busy_timeout_row = conn.execute("PRAGMA busy_timeout").fetchone()
+            synchronous_row = conn.execute("PRAGMA synchronous").fetchone()
+            wal_autocheckpoint_row = conn.execute("PRAGMA wal_autocheckpoint").fetchone()
+
+        journal_mode = str(journal_mode_row[0] or "") if journal_mode_row else ""
+        page_size = int(page_size_row[0] or 0) if page_size_row else 0
+        page_count = int(page_count_row[0] or 0) if page_count_row else 0
+        freelist_count = int(freelist_row[0] or 0) if freelist_row else 0
+        busy_timeout_ms = int(busy_timeout_row[0] or 0) if busy_timeout_row else 0
+        synchronous = str(synchronous_row[0] or "") if synchronous_row else ""
+        wal_autocheckpoint_pages = int(wal_autocheckpoint_row[0] or 0) if wal_autocheckpoint_row else 0
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "db_file": db_file,
+            "wal_file": wal_file,
+            "shm_file": shm_file,
+            "db_dir": db_dir_info,
+            "derived": {
+                "persistence_mode": "unknown",
+                "wal_state": "unknown",
+                "free_ratio_pct": 0.0,
+                "lock_risk": "unknown",
+                "observations": ["snapshot_error"],
+            },
+            "error": str(exc),
+        }
+
+    persistence_mode = "wal" if journal_mode.lower() == "wal" else ("rollback" if journal_mode else "unknown")
+    wal_state = "present" if wal_file["exists"] else ("not_applicable" if persistence_mode != "wal" else "missing")
+    free_ratio_pct = round((freelist_count / page_count) * 100, 2) if page_count > 0 else 0.0
+
+    observations: list[str] = []
+    if not db_file["exists"]:
+        observations.append("db_missing")
+    if not db_dir_info["writable"]:
+        observations.append("db_dir_not_writable")
+    if persistence_mode not in {"wal", "unknown"}:
+        observations.append("journal_not_wal")
+    if busy_timeout_ms <= 0:
+        observations.append("busy_timeout_disabled")
+    if wal_file["exists"] and not shm_file["exists"]:
+        observations.append("wal_without_shm")
+    if wal_file["exists"] and db_file["size_bytes"] > 0 and wal_file["size_bytes"] > db_file["size_bytes"]:
+        observations.append("wal_larger_than_db")
+    if free_ratio_pct >= 20:
+        observations.append("freelist_high")
+
+    lock_risk = "unknown"
+    if db_file["exists"]:
+        lock_risk = (
+            "elevated"
+            if any(
+                item in observations
+                for item in ("journal_not_wal", "busy_timeout_disabled", "wal_without_shm", "wal_larger_than_db")
+            )
+            else "low"
+        )
+
+    return {
+        "db_file": db_file,
+        "wal_file": wal_file,
+        "shm_file": shm_file,
+        "db_dir": db_dir_info,
+        "journal_mode": journal_mode,
+        "busy_timeout_ms": busy_timeout_ms,
+        "page_size": page_size,
+        "page_count": page_count,
+        "freelist_count": freelist_count,
+        "estimated_db_size_bytes": page_size * page_count,
+        "estimated_live_bytes": page_size * max(page_count - freelist_count, 0),
+        "synchronous": synchronous,
+        "wal_autocheckpoint_pages": wal_autocheckpoint_pages,
+        "derived": {
+            "persistence_mode": persistence_mode,
+            "wal_state": wal_state,
+            "free_ratio_pct": free_ratio_pct,
+            "lock_risk": lock_risk,
+            "observations": observations,
+        },
+    }
 
 
 def _now_iso() -> str:
@@ -736,6 +859,18 @@ def init_db() -> None:
         _migrate_holdings(conn)
         _migrate_actions_log(conn)
         _migrate_estimate_snapshot(conn)
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_estimate_snapshot_user_id
+            ON estimate_snapshot (user_id, id DESC)
+            """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_estimate_snapshot_user_asof
+            ON estimate_snapshot (user_id, asof DESC, id DESC)
+            """
+        )
         _ensure_columns(
             conn,
             "holdings",
@@ -3120,50 +3255,7 @@ def _upsert_fund_master(conn: sqlite3.Connection, rows: list[dict[str, Any]], up
 
 
 def sync_fund_catalog_from_config(config: dict[str, Any]) -> int:
-    if not isinstance(config, dict):
-        return 0
-
-    catalog_rows: list[dict[str, Any]] = []
-    funds = config.get("funds", [])
-    if isinstance(funds, list):
-        for item in funds:
-            if not isinstance(item, dict):
-                continue
-            catalog_rows.append(
-                {
-                    "fund_id": item.get("fund_id"),
-                    "name": item.get("name"),
-                    "pinyin": item.get("pinyin", ""),
-                    "abbr": item.get("abbr", ""),
-                    "aliases": item.get("aliases", []),
-                    "tags": item.get("tags", []),
-                    "status": item.get("status", "active"),
-                    "notify_email_placeholder": item.get("notify_email_placeholder", ""),
-                    "notify_feishu_placeholder": item.get("notify_feishu_placeholder", ""),
-                }
-            )
-
-    portfolio = config.get("portfolio", {})
-    holdings = portfolio.get("holdings", []) if isinstance(portfolio, dict) else []
-    if isinstance(holdings, list):
-        for item in holdings:
-            if not isinstance(item, dict):
-                continue
-            catalog_rows.append(
-                {
-                    "fund_id": item.get("fund_id"),
-                    "name": item.get("name"),
-                    "pinyin": item.get("pinyin", ""),
-                    "abbr": item.get("abbr", ""),
-                    "aliases": item.get("aliases", []),
-                    "tags": item.get("tags", []),
-                    "status": item.get("status", "active"),
-                    "notify_email_placeholder": item.get("notify_email_placeholder", ""),
-                    "notify_feishu_placeholder": item.get("notify_feishu_placeholder", ""),
-                }
-            )
-
-    return upsert_fund_catalog(catalog_rows)
+    return upsert_fund_catalog(build_catalog_rows_from_config(config))
 
 
 def list_fund_suggestions(keyword: str, limit: int = 10) -> list[dict[str, Any]]:
