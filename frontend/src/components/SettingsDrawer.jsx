@@ -1119,13 +1119,18 @@ export function SettingsDrawer({
 
   if (!internalOpen && !open) return null
 
+  const drawerSize =
+    typeof window !== 'undefined' && window.innerWidth <= 768
+      ? 'default'
+      : 'large'
+
   return (
     <Drawer
       title="设置中心"
       placement="right"
       onClose={handleClose}
       open={internalOpen}
-      width={Math.min(540, typeof window !== 'undefined' ? window.innerWidth - 48 : 540)}
+      size={drawerSize}
       footer={
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
           <Button onClick={handleClose}>关闭</Button>
