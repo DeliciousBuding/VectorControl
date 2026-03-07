@@ -15,3 +15,4 @@
 - [x] 3.2 将本轮后端观测优化结果同步到 `docs/最新进度.md` 与 `ROADMAP.md`
 - [x] 3.3 扩展 SQLite 诊断字段（`db_dir`、`synchronous`、`wal_autocheckpoint_pages`、`derived.lock_risk/observations`）并通过 smoke 覆盖稳定输出
 - [x] 3.4 在 `request_id` 中间件补齐请求完成结构化日志（`method/path/status_code/request_id/server_elapsed_ms`），并通过 `test_request_id_middleware_smoke.py` 覆盖
+- [x] 3.5 将应用启动从 `FastAPI.on_event("startup")` 收敛到 `lifespan`，并通过 `test_app_assembly_smoke.py` + `check_release_preflight.py` 验证预检噪音减少
