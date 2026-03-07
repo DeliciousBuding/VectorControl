@@ -56,6 +56,7 @@ describe('HoldingsTable 50+ 回归', () => {
     )
 
     // 验证表格渲染成功（第一行可见）
+    expect(screen.getByLabelText('持仓概览')).toBeInTheDocument()
     expect(screen.getByText('基金-1')).toBeInTheDocument()
     fireEvent.click(screen.getByText('基金-1'))
     expect(onSelectFund).toHaveBeenCalledWith('160001')

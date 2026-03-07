@@ -124,6 +124,26 @@ export const HoldingsTable = memo(function HoldingsTable({
     [displayRows]
   )
   const dateSuffix = dateLabel && dateLabel !== '--' ? `(${dateLabel})` : ''
+  const overviewCards = [
+    {
+      key: 'visible',
+      label: '当前行数',
+      value: String(displayRows.length),
+      hint: hideZeroShareRows ? '已隐藏零份额持仓' : '当前展示全部持仓'
+    },
+    {
+      key: 'market',
+      label: '持仓总额',
+      value: formatMoney(totalMarket),
+      hint: dateLabel && dateLabel !== '--' ? `数据日期 ${dateLabel}` : '使用当前持仓口径汇总'
+    },
+    {
+      key: 'mode',
+      label: '当前视图',
+      value: simpleMode ? '简洁模式' : '详细模式',
+      hint: pagination ? `每页 ${pageSize} 行` : '当前展示全量列表'
+    }
+  ]
 
   const beginEdit = (row) => {
     setEditingId(row.fund_id)
@@ -533,12 +553,12 @@ export const HoldingsTable = memo(function HoldingsTable({
 
   // 列选择器菜单
   const columnSelectorMenu = (
-    <div style={{ padding: '12px', maxWidth: '200px' }}>
-      <div style={{ marginBottom: '8px', fontWeight: 500, borderBottom: '1px solid #eee', paddingBottom: '8px' }}>
+    <div className="holdings-column-menu">
+      <div className="holdings-column-menu__title">
         选择显示列
       </div>
       {ALL_COLUMNS.map(col => (
-        <div key={col.key} style={{ marginBottom: '4px' }}>
+        <div key={col.key} className="holdings-column-menu__item">
           <Checkbox
             checked={visibleColumns.includes(col.key)}
             onChange={() => toggleColumn(col.key)}
@@ -548,7 +568,7 @@ export const HoldingsTable = memo(function HoldingsTable({
           </Checkbox>
         </div>
       ))}
-      <div style={{ marginTop: '12px', borderTop: '1px solid #eee', paddingTop: '8px' }}>
+      <div className="holdings-column-menu__footer">
         <Button size="small" onClick={resetColumns} block>重置默认</Button>
       </div>
     </div>
@@ -568,29 +588,46 @@ export const HoldingsTable = memo(function HoldingsTable({
   }
 
   return (
-    <section className="panel holdings-section">
-      <div className="section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
+    <section className="panel holdings-section holdings-section--refined">
+      <div className="section-head section-head--rich holdings-section__head">
+        <div className="section-head__copy">
+          <span className="holdings-section__eyebrow">Portfolio Grid</span>
           <h2>{title}</h2>
-          <span>此表格显示基金持仓列表，包含基金名称、走势、持有金额、持有份额、占比、收益等信息。点击行可选中基金，点击编辑按钮可修改持仓数据。</span>
+          <p className="section-description">聚焦当前持仓、收益与动作入口，让高频表格先给摘要，再进入明细。</p>
         </div>
-        <Space>
+        <div className="holdings-overview" aria-label="持仓概览">
+          {overviewCards.map((card) => (
+            <article key={card.key} className="holdings-overview__card">
+              <span>{card.label}</span>
+              <strong>{card.value}</strong>
+              <p>{card.hint}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+
+      <div className="holdings-toolbar">
+        <div className="holdings-toolbar__copy">
+          <span>表格操作</span>
+          <p>点击行可选中基金，点击操作按钮可编辑持仓、查看审计或触发自动补全。</p>
+        </div>
+        <Space className="holdings-toolbar__actions">
           <Button
             size="small"
             type={hideZeroShareRows ? 'primary' : 'default'}
             onClick={toggleHideZeroShareRows}
+            className="holdings-toolbar__button"
           >
             {hideZeroShareRows ? '隐藏空仓' : '显示空仓'}
           </Button>
-          {/* 简洁/详细模式切换 */}
           <Button
             size="small"
             type={simpleMode ? 'primary' : 'default'}
             onClick={toggleSimpleMode}
+            className="holdings-toolbar__button"
           >
             {simpleMode ? '简洁' : '详细'}
           </Button>
-          {/* 列设置 - 仅在详细模式显示 */}
           {!simpleMode && (
             <Dropdown
               overlay={columnSelectorMenu}
@@ -599,7 +636,7 @@ export const HoldingsTable = memo(function HoldingsTable({
               onOpenChange={setColumnSelectorOpen}
               placement="bottomRight"
             >
-              <Button icon={<SettingOutlined />} size="small">
+              <Button icon={<SettingOutlined />} size="small" className="holdings-toolbar__button">
                 列设置
               </Button>
             </Dropdown>
@@ -607,33 +644,42 @@ export const HoldingsTable = memo(function HoldingsTable({
         </Space>
       </div>
 
-      <Table
-        rowKey="fund_id"
-        dataSource={paginatedRows}
-        columns={columns}
-        pagination={pagination ? {
-          current: currentPage,
-          pageSize: pageSize,
-          total: displayRows.length,
-          onChange: handlePageChange,
-          showSizeChanger: pagination.showSizeChanger,
-          showQuickJumper: pagination.showQuickJumper,
-          showTotal: (total, range) => `${range[0]}-${range[1]} / 共 ${total} 条`,
-          size: 'small'
-        } : false}
-        size="small"
-        scroll={{ x: 'max-content' }}
-        rowClassName={(record) => {
-          const isSelected = String(selectedFundId) === String(record.fund_id)
-          return isSelected ? 'row-selected' : ''
-        }}
-        onRow={(record) => ({
-          onClick: () => onSelectFund(record.fund_id),
-          onMouseEnter: () => setHoveredRowId(record.fund_id),
-          onMouseLeave: () => setHoveredRowId(null),
-          style: { cursor: 'pointer' }
-        })}
-      />
+      <div className="holdings-table-shell">
+        <Table
+          className="holdings-table"
+          rowKey="fund_id"
+          dataSource={paginatedRows}
+          columns={columns}
+          pagination={pagination ? {
+            current: currentPage,
+            pageSize: pageSize,
+            total: displayRows.length,
+            onChange: handlePageChange,
+            showSizeChanger: pagination.showSizeChanger,
+            showQuickJumper: pagination.showQuickJumper,
+            showTotal: (total, range) => `${range[0]}-${range[1]} / 共 ${total} 条`,
+            size: 'small'
+          } : false}
+          size="small"
+          scroll={{ x: 'max-content' }}
+          rowClassName={(record) => {
+            const classNames = ['holdings-table-row']
+            if (String(selectedFundId) === String(record.fund_id)) {
+              classNames.push('row-selected')
+            }
+            if (editingId === record.fund_id) {
+              classNames.push('row-editing')
+            }
+            return classNames.join(' ')
+          }}
+          onRow={(record) => ({
+            onClick: () => onSelectFund(record.fund_id),
+            onMouseEnter: () => setHoveredRowId(record.fund_id),
+            onMouseLeave: () => setHoveredRowId(null),
+            style: { cursor: 'pointer' }
+          })}
+        />
+      </div>
     </section>
   )
 })
