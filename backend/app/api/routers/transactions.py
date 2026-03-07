@@ -636,7 +636,7 @@ async def import_transaction(request: Request, payload: TransactionImportIn) -> 
     save_result = save_fund_transaction(user_id=user_id, payload=data)
     save_status = str(save_result.get("result") or "").strip().lower()
 
-    if save_status == "conflict":
+    if save_status in {"conflict", "conflicted"}:
         return JSONResponse(
             {
                 "detail": str(save_result.get("reason") or "幂等键冲突"),
