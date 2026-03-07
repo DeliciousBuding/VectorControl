@@ -35,3 +35,4 @@
 - [x] 4.6 在当前集成态重新运行 `python scripts/check_docs_gate.py --strict`，确认严格文档门禁通过
 - [x] 4.7 在当前集成态重新运行 `python scripts/check_release_preflight.py`，确认发布前一键预检通过
 - [x] 4.8 在 `prod` 的当前部署目录 `/opt/vectorcontrol` 只读运行 `docker compose ... config`、`curl http://127.0.0.1/api/healthz` 与 `python3 scripts/check_gate_d.py --base-url http://127.0.0.1`，确认 HTTP + SQLite 基线验收通过
+- [x] 4.9 在 `prod` / `prod` 实际执行 `sudo bash scripts/update_prod.sh`，修复 Nginx 生产镜像复制路径、旧 `site.rendered.conf` 挂载与 brotli 启动阻塞，并复跑 `docker compose -f deploy/docker-compose.prod.yml ps`、`curl http://127.0.0.1/api/healthz` 与 `python3 scripts/check_gate_d.py --base-url http://127.0.0.1`，补录正式部署证据
