@@ -1169,6 +1169,38 @@ export function SettingsDrawer({
     Boolean(draft.notifications.email.enabled)
   ].filter(Boolean).length
   const activeSipPlansCount = sipPlans.filter((plan) => Boolean(plan?.enabled)).length
+  const feishuTemplateLabel = FEISHU_TEMPLATE_OPTIONS.find(
+    (item) => item.value === (draft.notifications.feishu.template || 'title_content_metadata')
+  )?.label || '标题+正文+元数据'
+  const benchmarkStatusCard = !hydratedSections.benchmark
+    ? {
+        value: '按需加载',
+        description: '点击加载最近记录或直接开始测速。'
+      }
+    : benchmarkLoading || benchmarkLatestLoading
+      ? {
+          value: '同步中',
+          description: '正在拉取最近一次链路结果。'
+        }
+      : benchmarkError
+        ? {
+            value: '需重试',
+            description: '最近一次测速记录加载失败。'
+          }
+        : benchmarkSummary
+          ? {
+              value: `${benchmarkSummary.success_count}/${benchmarkSummary.site_count}`,
+              description: '已完成链路汇总，可继续查看单站点明细。'
+            }
+          : hasBenchmarkRows
+            ? {
+                value: `${benchmarkResult.results.length} 条`,
+                description: '已返回测速明细，可直接比对各站点耗时。'
+              }
+            : {
+                value: '暂无记录',
+                description: '当前还没有可展示的测速历史。'
+              };
   const settingsOverviewCards = [
     {
       key: 'refresh',
@@ -1198,6 +1230,88 @@ export function SettingsDrawer({
         : '诊断按需加载，支持一键复制状态'
     }
   ]
+  const benchmarkOverviewCards = [
+    {
+      key: 'profile',
+      label: '测速配置',
+      value: PROFILE_OPTIONS.find((item) => item.value === benchmarkProfile)?.label || benchmarkProfile,
+      hint: '当前链路会按该站点组发起测速。'
+    },
+    {
+      key: 'timeout',
+      label: '超时预算',
+      value: `${timeoutSeconds}s`,
+      hint: '控制单次测速的等待窗口，避免阻塞设置中心。'
+    },
+    {
+      key: 'status',
+      label: '最近记录',
+      value: benchmarkStatusCard.value,
+      hint: benchmarkStatusCard.description
+    }
+  ]
+  const benchmarkSummaryCards = benchmarkSummary ? [
+    {
+      key: 'site-count',
+      label: '站点数',
+      value: String(benchmarkSummary.site_count),
+      hint: '本次汇总纳入的站点数量。'
+    },
+    {
+      key: 'success-rate',
+      label: '成功站点',
+      value: `${benchmarkSummary.success_count}/${benchmarkSummary.site_count}`,
+      hint: `失败 ${benchmarkSummary.failed_count} 个站点`
+    },
+    {
+      key: 'latency',
+      label: '平均总耗时',
+      value: `${benchmarkSummary.avg_total_ms} ms`,
+      hint: `整轮总用时 ${benchmarkSummary.elapsed_ms} ms`
+    }
+  ] : []
+  const feishuOverviewCards = [
+    {
+      key: 'enabled',
+      label: '通道状态',
+      value: Boolean(draft.notifications.feishu.enabled) ? '已启用' : '未启用',
+      hint: Boolean(draft.notifications.feishu.enabled) ? '当前允许发送飞书通知。' : '保存后仍不会发送飞书通知。'
+    },
+    {
+      key: 'credential',
+      label: '凭据状态',
+      value: hasFeishuWebhook ? '已配置' : '未配置',
+      hint: hasFeishuWebhook ? '当前 Webhook 已掩码展示。' : '填写 Webhook 后即可进入联调。'
+    },
+    {
+      key: 'template',
+      label: '消息模板',
+      value: feishuTemplateLabel,
+      hint: '控制消息正文与元数据的组织方式。'
+    }
+  ]
+  const telegramOverviewCards = [
+    {
+      key: 'enabled',
+      label: '通道状态',
+      value: Boolean(draft.notifications.telegram.enabled) ? '已启用' : '未启用',
+      hint: Boolean(draft.notifications.telegram.enabled) ? '当前允许发送 Telegram 通知。' : '保存后仍不会发送 Telegram 通知。'
+    },
+    {
+      key: 'credential',
+      label: '凭据状态',
+      value: hasTelegramCredential ? '已配置' : (hasTelegramBotToken ? '等待发现' : '未配置'),
+      hint: hasTelegramCredential
+        ? `chat_id ${currentTelegramChatId || '--'} 已可用`
+        : (hasTelegramBotToken ? '已保存 bot_token，等待自动发现或补齐 chat_id。' : '需要先写入 bot_token。')
+    },
+    {
+      key: 'delivery',
+      label: '发送模式',
+      value: telegramMode,
+      hint: telegramDiscoveryWebhook ? '自动发现地址已生成，可继续回写 chat_id。' : '支持自动发现 webhook 与手工填写 chat_id。'
+    }
+  ]
 
   const renderSectionHeader = (Icon, title, description) => (
     <div className="settings-section-header">
@@ -1208,6 +1322,18 @@ export function SettingsDrawer({
         <span className="section-title">{title}</span>
         <p>{description}</p>
       </div>
+    </div>
+  )
+
+  const renderPanelOverview = (items, className = 'settings-panel-overview') => (
+    <div className={className}>
+      {items.map((item) => (
+        <article key={item.key} className="settings-panel-overview__card">
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+          <p>{item.hint}</p>
+        </article>
+      ))}
     </div>
   )
 
@@ -1523,33 +1649,42 @@ export function SettingsDrawer({
 
         {renderSectionHeader(ExperimentOutlined, '网络与诊断', '用于排查链路、同步系统状态，并给出可复制的排障上下文。')}
 
-        <div className="settings-group">
-          <h4>网络测速</h4>
-          <label>
-            <span>测速站点组</span>
-            <select value={benchmarkProfile} onChange={(e) => setBenchmarkProfile(e.target.value)}>
-              {PROFILE_OPTIONS.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>超时（秒）</span>
-            <input
-              type="number"
-              min={1}
-              max={12}
-              value={timeoutSeconds}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                network_benchmark: {
-                  ...prev.network_benchmark,
-                  timeout_seconds: Number(e.target.value) || 6
-                }
-              }))}
-            />
-          </label>
-          <div className="settings-benchmark-actions">
+        <div className="settings-group settings-group--network">
+          <div className="settings-panel-header">
+            <div className="settings-panel-header__copy">
+              <span className="settings-panel-header__eyebrow">Network Snapshot</span>
+              <h4>网络测速</h4>
+              <p>先看当前测速配置和最近记录状态，再决定是读取历史还是立即执行新一轮测速。</p>
+            </div>
+          </div>
+          {renderPanelOverview(benchmarkOverviewCards)}
+          <div className="settings-form-grid settings-form-grid--dual">
+            <label>
+              <span>测速站点组</span>
+              <select value={benchmarkProfile} onChange={(e) => setBenchmarkProfile(e.target.value)}>
+                {PROFILE_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>超时（秒）</span>
+              <input
+                type="number"
+                min={1}
+                max={12}
+                value={timeoutSeconds}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  network_benchmark: {
+                    ...prev.network_benchmark,
+                    timeout_seconds: Number(e.target.value) || 6
+                  }
+                }))}
+              />
+            </label>
+          </div>
+          <div className="settings-secret-actions settings-secret-actions--toolbar">
             <button
               type="button"
               className="ghost"
@@ -1571,27 +1706,23 @@ export function SettingsDrawer({
           {hydratedSections.benchmark && !benchmarkError && !benchmarkSummary && !hasBenchmarkRows && (
             <p className="settings-note">暂无测速记录。下一步：点击“开始测速”获取链路健康状态。</p>
           )}
-          {benchmarkSummary && (
-            <div className="settings-benchmark-summary">
-              <span>站点：{benchmarkSummary.site_count}</span>
-              <span>成功：{benchmarkSummary.success_count}</span>
-              <span>失败：{benchmarkSummary.failed_count}</span>
-              <span>平均总耗时：{benchmarkSummary.avg_total_ms} ms</span>
-              <span>总用时：{benchmarkSummary.elapsed_ms} ms</span>
-            </div>
-          )}
+          {benchmarkSummary ? renderPanelOverview(benchmarkSummaryCards, 'settings-panel-overview settings-panel-overview--compact') : null}
           {hasBenchmarkRows && (
             <div className="settings-benchmark-list">
               {benchmarkResult.results.map((item, index) => (
                 <article key={`${item.site}-${index}`} className="settings-benchmark-item">
+                  <span className="settings-benchmark-item__eyebrow">Latency Breakdown</span>
                   <div className="settings-benchmark-title">
                     <strong>{item.site}</strong>
                     <span className={item.ok ? 'ok' : 'bad'}>{item.ok ? '正常' : '失败'}</span>
                   </div>
-                  <p>
-                    DNS {item.dns_ms} ms / TCP {item.tcp_ms} ms / TLS {item.tls_ms} ms /
-                    TTFB {item.ttfb_ms} ms / TOTAL {item.total_ms} ms
-                  </p>
+                  <div className="settings-benchmark-metrics">
+                    <span>DNS {item.dns_ms} ms</span>
+                    <span>TCP {item.tcp_ms} ms</span>
+                    <span>TLS {item.tls_ms} ms</span>
+                    <span>TTFB {item.ttfb_ms} ms</span>
+                    <span>TOTAL {item.total_ms} ms</span>
+                  </div>
                   {!item.ok ? (
                     <p className="settings-error">
                       {item.error || '测速失败，未返回错误详情。下一步：稍后重试并检查后端服务状态。'}
@@ -1605,254 +1736,284 @@ export function SettingsDrawer({
 
         {renderSectionHeader(BellOutlined, '消息推送（预留）', '统一查看凭据状态、测试记录与自动发现入口。')}
 
-        <div className="settings-group">
-          <h4>飞书机器人（预留）</h4>
-          <label>
-            <span>启用</span>
-            <input
-              type="checkbox"
-              checked={Boolean(draft.notifications.feishu.enabled)}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  feishu: { ...prev.notifications.feishu, enabled: e.target.checked }
-                }
-              }))}
-            />
-          </label>
-          <div className="settings-secret-block">
-            <span className="settings-secret-label">Webhook 地址</span>
-            {!showFeishuWebhookInput ? (
-              <div className="settings-secret-preview">
-                <code className="settings-secret-value" data-testid="feishu-webhook-masked">
-                  {maskedFeishuWebhook}
-                </code>
-                <button
-                  type="button"
-                  className="ghost"
-                  data-testid="feishu-webhook-edit"
-                  onClick={() => setEditingFeishuWebhook(true)}
-                >
-                  更新凭据
-                </button>
-              </div>
-            ) : (
-              <div className="settings-secret-editor">
-                <input
-                  data-testid="feishu-webhook-input"
-                  value={pendingFeishuWebhook}
-                  onChange={(e) => setPendingFeishuWebhook(e.target.value)}
-                  placeholder={hasFeishuWebhook ? '如需更换请输入新的 Webhook，留空则保持不变' : '填入飞书机器人 Webhook'}
-                  autoComplete="off"
-                />
-                {hasFeishuWebhook && (
-                  <div className="settings-secret-actions">
-                    <button
-                      type="button"
-                      className="ghost"
-                      data-testid="feishu-webhook-cancel-edit"
-                      onClick={() => {
-                        setPendingFeishuWebhook('')
-                        setEditingFeishuWebhook(false)
-                      }}
-                    >
-                      取消更新
-                    </button>
-                    <p className="settings-note">留空并保存将保持当前凭据不变。</p>
-                  </div>
-                )}
-              </div>
-            )}
+        <div className="settings-group settings-group--messaging">
+          <div className="settings-panel-header">
+            <div className="settings-panel-header__copy">
+              <span className="settings-panel-header__eyebrow">Feishu Delivery</span>
+              <h4>飞书机器人（预留）</h4>
+              <p>先确认通道状态、凭据状态与模板，再决定是否更新 Webhook 或调整发送参数。</p>
+            </div>
           </div>
-          <label>
-            <span>飞书超时（秒）</span>
-            <input
-              type="number"
-              min={0.5}
-              max={30}
-              step={0.5}
-              value={draft.notifications.feishu.timeout_seconds ?? 3}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  feishu: { ...prev.notifications.feishu, timeout_seconds: Number(e.target.value) || 3 }
-                }
-              }))}
-            />
-          </label>
-          <label>
-            <span>飞书重试次数</span>
-            <input
-              type="number"
-              min={0}
-              max={5}
-              step={1}
-              value={draft.notifications.feishu.retry_times ?? 2}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  feishu: { ...prev.notifications.feishu, retry_times: Math.max(0, Number(e.target.value) || 0) }
-                }
-              }))}
-            />
-          </label>
-          <label>
-            <span>飞书消息模板</span>
-            <select
-              value={draft.notifications.feishu.template || 'title_content_metadata'}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  feishu: { ...prev.notifications.feishu, template: e.target.value || 'title_content_metadata' }
-                }
-              }))}
-            >
-              {FEISHU_TEMPLATE_OPTIONS.map((item) => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
-            </select>
-          </label>
+          {renderPanelOverview(feishuOverviewCards)}
+          <div className="settings-form-grid settings-form-grid--triple">
+            <label>
+              <span>启用</span>
+              <input
+                type="checkbox"
+                checked={Boolean(draft.notifications.feishu.enabled)}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  notifications: {
+                    ...prev.notifications,
+                    feishu: { ...prev.notifications.feishu, enabled: e.target.checked }
+                  }
+                }))}
+              />
+            </label>
+            <label>
+              <span>飞书超时（秒）</span>
+              <input
+                type="number"
+                min={0.5}
+                max={30}
+                step={0.5}
+                value={draft.notifications.feishu.timeout_seconds ?? 3}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  notifications: {
+                    ...prev.notifications,
+                    feishu: { ...prev.notifications.feishu, timeout_seconds: Number(e.target.value) || 3 }
+                  }
+                }))}
+              />
+            </label>
+            <label>
+              <span>飞书重试次数</span>
+              <input
+                type="number"
+                min={0}
+                max={5}
+                step={1}
+                value={draft.notifications.feishu.retry_times ?? 2}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  notifications: {
+                    ...prev.notifications,
+                    feishu: { ...prev.notifications.feishu, retry_times: Math.max(0, Number(e.target.value) || 0) }
+                  }
+                }))}
+              />
+            </label>
+            <label className="settings-form-grid__full">
+              <span>飞书消息模板</span>
+              <select
+                value={draft.notifications.feishu.template || 'title_content_metadata'}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  notifications: {
+                    ...prev.notifications,
+                    feishu: { ...prev.notifications.feishu, template: e.target.value || 'title_content_metadata' }
+                  }
+                }))}
+              >
+                {FEISHU_TEMPLATE_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="settings-secret-shell">
+            <div className="settings-secret-shell__copy">
+              <span className="settings-secret-shell__eyebrow">Credential</span>
+              <strong>Webhook 地址</strong>
+              <p>当前使用掩码展示的飞书 Webhook；只有在明确点击更新时才进入编辑态。</p>
+            </div>
+            <div className="settings-secret-block">
+              {!showFeishuWebhookInput ? (
+                <div className="settings-secret-preview">
+                  <code className="settings-secret-value" data-testid="feishu-webhook-masked">
+                    {maskedFeishuWebhook}
+                  </code>
+                  <button
+                    type="button"
+                    className="ghost"
+                    data-testid="feishu-webhook-edit"
+                    onClick={() => setEditingFeishuWebhook(true)}
+                  >
+                    更新凭据
+                  </button>
+                </div>
+              ) : (
+                <div className="settings-secret-editor">
+                  <input
+                    data-testid="feishu-webhook-input"
+                    value={pendingFeishuWebhook}
+                    onChange={(e) => setPendingFeishuWebhook(e.target.value)}
+                    placeholder={hasFeishuWebhook ? '如需更换请输入新的 Webhook，留空则保持不变' : '填入飞书机器人 Webhook'}
+                    autoComplete="off"
+                  />
+                  {hasFeishuWebhook && (
+                    <div className="settings-secret-actions">
+                      <button
+                        type="button"
+                        className="ghost"
+                        data-testid="feishu-webhook-cancel-edit"
+                        onClick={() => {
+                          setPendingFeishuWebhook('')
+                          setEditingFeishuWebhook(false)
+                        }}
+                      >
+                        取消更新
+                      </button>
+                      <p className="settings-note">留空并保存将保持当前凭据不变。</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div className="settings-group">
-          <h4>Telegram 机器人（预留）</h4>
-          <label>
-            <span>启用</span>
-            <input
-              type="checkbox"
-              checked={Boolean(draft.notifications.telegram.enabled)}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  telegram: { ...prev.notifications.telegram, enabled: e.target.checked }
-                }
-              }))}
-            />
-          </label>
-          <label>
-            <span>消息格式</span>
-            <span className="settings-note">{telegramMode}</span>
-          </label>
-          <label>
-            <span>启用 HTML（安全转义）</span>
-            <input
-              type="checkbox"
-              checked={String(draft.notifications.telegram.parse_mode || '').trim().toUpperCase() === 'HTML'}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  telegram: { ...prev.notifications.telegram, parse_mode: e.target.checked ? 'HTML' : '' }
-                }
-              }))}
-            />
-          </label>
-          <label>
-            <span>禁用网页预览</span>
-            <input
-              type="checkbox"
-              checked={Boolean(draft.notifications.telegram.disable_web_page_preview)}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  telegram: { ...prev.notifications.telegram, disable_web_page_preview: e.target.checked }
-                }
-              }))}
-            />
-          </label>
-          <label>
-            <span>Telegram 超时（秒）</span>
-            <input
-              type="number"
-              min={0.5}
-              max={30}
-              step={0.5}
-              value={draft.notifications.telegram.timeout_seconds ?? 3}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  telegram: { ...prev.notifications.telegram, timeout_seconds: Number(e.target.value) || 3 }
-                }
-              }))}
-            />
-          </label>
-          <label>
-            <span>Telegram 重试次数</span>
-            <input
-              type="number"
-              min={0}
-              max={5}
-              step={1}
-              value={draft.notifications.telegram.retry_times ?? 2}
-              onChange={(e) => updateDraft((prev) => ({
-                ...prev,
-                notifications: {
-                  ...prev.notifications,
-                  telegram: { ...prev.notifications.telegram, retry_times: Math.max(0, Number(e.target.value) || 0) }
-                }
-              }))}
-            />
-          </label>
+        <div className="settings-group settings-group--messaging">
+          <div className="settings-panel-header">
+            <div className="settings-panel-header__copy">
+              <span className="settings-panel-header__eyebrow">Telegram Delivery</span>
+              <h4>Telegram 机器人（预留）</h4>
+              <p>把发送模式、凭据状态与自动发现入口整理到同一块面板里，降低调试时的上下跳转。</p>
+            </div>
+          </div>
+          {renderPanelOverview(telegramOverviewCards)}
+          <div className="settings-form-grid settings-form-grid--triple">
+            <label>
+              <span>启用</span>
+              <input
+                type="checkbox"
+                checked={Boolean(draft.notifications.telegram.enabled)}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  notifications: {
+                    ...prev.notifications,
+                    telegram: { ...prev.notifications.telegram, enabled: e.target.checked }
+                  }
+                }))}
+              />
+            </label>
+            <label>
+              <span>消息格式</span>
+              <span className="settings-note settings-note--field">{telegramMode}</span>
+            </label>
+            <label>
+              <span>启用 HTML（安全转义）</span>
+              <input
+                type="checkbox"
+                checked={String(draft.notifications.telegram.parse_mode || '').trim().toUpperCase() === 'HTML'}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  notifications: {
+                    ...prev.notifications,
+                    telegram: { ...prev.notifications.telegram, parse_mode: e.target.checked ? 'HTML' : '' }
+                  }
+                }))}
+              />
+            </label>
+            <label>
+              <span>禁用网页预览</span>
+              <input
+                type="checkbox"
+                checked={Boolean(draft.notifications.telegram.disable_web_page_preview)}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  notifications: {
+                    ...prev.notifications,
+                    telegram: { ...prev.notifications.telegram, disable_web_page_preview: e.target.checked }
+                  }
+                }))}
+              />
+            </label>
+            <label>
+              <span>Telegram 超时（秒）</span>
+              <input
+                type="number"
+                min={0.5}
+                max={30}
+                step={0.5}
+                value={draft.notifications.telegram.timeout_seconds ?? 3}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  notifications: {
+                    ...prev.notifications,
+                    telegram: { ...prev.notifications.telegram, timeout_seconds: Number(e.target.value) || 3 }
+                  }
+                }))}
+              />
+            </label>
+            <label>
+              <span>Telegram 重试次数</span>
+              <input
+                type="number"
+                min={0}
+                max={5}
+                step={1}
+                value={draft.notifications.telegram.retry_times ?? 2}
+                onChange={(e) => updateDraft((prev) => ({
+                  ...prev,
+                  notifications: {
+                    ...prev.notifications,
+                    telegram: { ...prev.notifications.telegram, retry_times: Math.max(0, Number(e.target.value) || 0) }
+                  }
+                }))}
+              />
+            </label>
+          </div>
 
-          <div className="settings-secret-block">
-            <span className="settings-secret-label">凭据</span>
-            {!showTelegramCredentialInput ? (
-              <div className="settings-secret-preview">
-                <code className="settings-secret-value">
-                  {hasTelegramCredential
-                    ? `已配置（chat_id=${currentTelegramChatId || '--'}）`
-                    : (hasTelegramBotToken ? '已配置 bot_token（等待自动发现或手工填写 chat_id）' : '未配置')}
-                </code>
-                <button
-                  type="button"
-                  className="ghost"
-                  onClick={() => setEditingTelegramCredential(true)}
-                >
-                  更新凭据
-                </button>
-              </div>
-            ) : (
-              <div className="settings-secret-editor">
-                <input
-                  type="password"
-                  value={pendingTelegramBotToken}
-                  onChange={(e) => setPendingTelegramBotToken(e.target.value)}
-                  placeholder={hasTelegramCredential ? '如需更换请输入新的 bot_token，留空则保持不变' : '填入 bot_token'}
-                  autoComplete="off"
-                />
-                <input
-                  value={pendingTelegramChatId}
-                  onChange={(e) => setPendingTelegramChatId(e.target.value)}
-                  placeholder="可留空，后续通过自动发现或手工填入 chat_id（群通常为负数）"
-                  autoComplete="off"
-                />
-                <p className="settings-note">`chat_id` 可留空；先保存 `bot_token` 后可通过自动发现回写。</p>
-                {hasTelegramCredential && (
-                  <div className="settings-secret-actions">
-                    <button
-                      type="button"
-                      className="ghost"
-                      onClick={() => {
-                        setPendingTelegramBotToken('')
-                        setPendingTelegramChatId(currentTelegramChatId)
-                        setEditingTelegramCredential(false)
-                      }}
-                    >
-                      取消更新
-                    </button>
-                    <p className="settings-note">留空并保存将保持当前凭据不变。</p>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="settings-secret-actions" style={{ marginTop: '8px' }}>
+          <div className="settings-secret-shell">
+            <div className="settings-secret-shell__copy">
+              <span className="settings-secret-shell__eyebrow">Credential</span>
+              <strong>机器人凭据</strong>
+              <p>支持先保存 `bot_token`，再通过自动发现回写 `chat_id`；已有值始终以安全掩码或摘要形式展示。</p>
+            </div>
+            <div className="settings-secret-block">
+              {!showTelegramCredentialInput ? (
+                <div className="settings-secret-preview">
+                  <code className="settings-secret-value">
+                    {hasTelegramCredential
+                      ? `已配置（chat_id=${currentTelegramChatId || '--'}）`
+                      : (hasTelegramBotToken ? '已配置 bot_token（等待自动发现或手工填写 chat_id）' : '未配置')}
+                  </code>
+                  <button
+                    type="button"
+                    className="ghost"
+                    onClick={() => setEditingTelegramCredential(true)}
+                  >
+                    更新凭据
+                  </button>
+                </div>
+              ) : (
+                <div className="settings-secret-editor">
+                  <input
+                    type="password"
+                    value={pendingTelegramBotToken}
+                    onChange={(e) => setPendingTelegramBotToken(e.target.value)}
+                    placeholder={hasTelegramCredential ? '如需更换请输入新的 bot_token，留空则保持不变' : '填入 bot_token'}
+                    autoComplete="off"
+                  />
+                  <input
+                    value={pendingTelegramChatId}
+                    onChange={(e) => setPendingTelegramChatId(e.target.value)}
+                    placeholder="可留空，后续通过自动发现或手工填入 chat_id（群通常为负数）"
+                    autoComplete="off"
+                  />
+                  <p className="settings-note">`chat_id` 可留空；先保存 `bot_token` 后可通过自动发现回写。</p>
+                  {hasTelegramCredential && (
+                    <div className="settings-secret-actions">
+                      <button
+                        type="button"
+                        className="ghost"
+                        onClick={() => {
+                          setPendingTelegramBotToken('')
+                          setPendingTelegramChatId(currentTelegramChatId)
+                          setEditingTelegramCredential(false)
+                        }}
+                      >
+                        取消更新
+                      </button>
+                      <p className="settings-note">留空并保存将保持当前凭据不变。</p>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+            <div className="settings-secret-actions settings-secret-actions--toolbar">
               <button
                 type="button"
                 className="ghost"
@@ -1868,29 +2029,29 @@ export function SettingsDrawer({
             </div>
             {telegramDiscoveryError ? <p className="settings-error">{telegramDiscoveryError}</p> : null}
             {telegramDiscoveryWebhook ? (
-              <div className="settings-secret-preview" data-testid="telegram-discovery-preview">
-                <code className="settings-secret-value">{telegramDiscoveryWebhook}</code>
-                <button
-                  type="button"
-                  className="ghost"
-                  data-testid="telegram-discovery-copy-btn"
-                  onClick={async () => {
-                    const ok = await copyTextToClipboard(telegramDiscoveryWebhook)
-                    if (ok) {
-                      setDiagnosticHint('已复制 Telegram 自动发现 webhook URL。')
-                    } else {
-                      setTelegramDiscoveryError('复制失败：浏览器不支持剪贴板')
-                    }
-                  }}
-                >
-                  复制
-                </button>
+              <div className="settings-secret-callout">
+                <div className="settings-secret-preview" data-testid="telegram-discovery-preview">
+                  <code className="settings-secret-value">{telegramDiscoveryWebhook}</code>
+                  <button
+                    type="button"
+                    className="ghost"
+                    data-testid="telegram-discovery-copy-btn"
+                    onClick={async () => {
+                      const ok = await copyTextToClipboard(telegramDiscoveryWebhook)
+                      if (ok) {
+                        setDiagnosticHint('已复制 Telegram 自动发现 webhook URL。')
+                      } else {
+                        setTelegramDiscoveryError('复制失败：浏览器不支持剪贴板')
+                      }
+                    }}
+                  >
+                    复制
+                  </button>
+                </div>
+                <p className="settings-note">
+                  下一步：把该 URL 配到 Telegram webhook，然后给 bot 发一条消息，系统会自动回写 `chat_id`。
+                </p>
               </div>
-            ) : null}
-            {telegramDiscoveryWebhook ? (
-              <p className="settings-note">
-                下一步：把该 URL 配到 Telegram webhook，然后给 bot 发一条消息，系统会自动回写 `chat_id`。
-              </p>
             ) : null}
           </div>
 

@@ -74,6 +74,21 @@ describe('SettingsDrawer', () => {
     expect(screen.getByText(/按需加载。下一步：点击“加载诊断”或直接发送测试消息/)).toBeInTheDocument()
   })
 
+  it('网络与消息凭据区展示新的摘要标题层', () => {
+    render(
+      <SettingsDrawer
+        open
+        settings={{}}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    expect(screen.getByText('Network Snapshot')).toBeInTheDocument()
+    expect(screen.getByText('Feishu Delivery')).toBeInTheDocument()
+    expect(screen.getByText('Telegram Delivery')).toBeInTheDocument()
+  })
+
   it('点击分区动作前不会预取非关键数据，且各区块仍可按需加载', async () => {
     fetchNetworkBenchmarkLatest.mockResolvedValueOnce({
       result: {
@@ -256,9 +271,9 @@ describe('SettingsDrawer', () => {
 
     fireEvent.click(screen.getByTestId('benchmark-load-latest-btn'))
 
-    expect(await screen.findByText('站点：2')).toBeInTheDocument()
+    expect(await screen.findByText('站点数')).toBeInTheDocument()
     expect(screen.getByText('eastmoney')).toBeInTheDocument()
-    expect(screen.getByText('成功：1')).toBeInTheDocument()
+    expect(screen.getAllByText('1/2').length).toBeGreaterThan(0)
   })
 
   it('测速加载异常时显示兜底提示而非崩溃', async () => {
@@ -275,8 +290,8 @@ describe('SettingsDrawer', () => {
 
     fireEvent.click(screen.getByTestId('benchmark-load-latest-btn'))
 
-    expect(await screen.findByText(/测速记录加载失败/)).toBeInTheDocument()
-    expect(screen.getByText(/必要时检查后端服务状态/)).toBeInTheDocument()
+    expect(await screen.findByText('需重试')).toBeInTheDocument()
+    expect(screen.getByText(/最近一次测速记录加载失败/)).toBeInTheDocument()
   })
 
   it('测速返回脏数据时可兜底渲染并给出可解释提示', async () => {

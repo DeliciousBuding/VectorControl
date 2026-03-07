@@ -3220,6 +3220,14 @@ button:disabled {
     rgba(255, 255, 255, 0.88);
 }
 
+.settings-group--network,
+.settings-group--messaging {
+  gap: 12px;
+  background:
+    radial-gradient(circle at top right, rgba(49, 94, 251, 0.07), transparent 24%),
+    rgba(255, 255, 255, 0.88);
+}
+
 .settings-panel-header {
   display: flex;
   align-items: flex-start;
@@ -3247,10 +3255,69 @@ button:disabled {
   line-height: 1.6;
 }
 
+.settings-panel-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-panel-overview--compact .settings-panel-overview__card {
+  min-height: 92px;
+}
+
+.settings-panel-overview__card {
+  display: grid;
+  gap: 8px;
+  min-height: 108px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.settings-panel-overview__card span {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-panel-overview__card strong {
+  color: var(--vc-text-primary);
+  font-size: 22px;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.settings-panel-overview__card p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
 .settings-group label {
   display: grid;
   gap: 4px;
   font-size: 14px;
+}
+
+.settings-form-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.settings-form-grid--dual {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.settings-form-grid--triple {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.settings-form-grid__full {
+  grid-column: 1 / -1;
 }
 
 .settings-group input {
@@ -3275,6 +3342,41 @@ button:disabled {
 
 .settings-secret-label {
   font-size: 14px;
+}
+
+.settings-secret-shell {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(248, 250, 252, 0.92);
+}
+
+.settings-secret-shell__copy {
+  display: grid;
+  gap: 8px;
+}
+
+.settings-secret-shell__eyebrow {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.settings-secret-shell__copy strong {
+  color: var(--vc-text-primary);
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+
+.settings-secret-shell__copy p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .settings-secret-preview {
@@ -3314,6 +3416,15 @@ button:disabled {
 
 .settings-secret-actions .settings-note {
   margin: 0;
+}
+
+.settings-secret-callout {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px dashed rgba(49, 94, 251, 0.18);
+  background: rgba(255, 255, 255, 0.86);
 }
 
 .settings-status-grid {
@@ -3414,38 +3525,37 @@ button:disabled {
   grid-column: 1 / -1;
 }
 
-.settings-benchmark-actions {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.settings-benchmark-summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px 12px;
-  font-size: 13px;
-  color: var(--text-subtle);
-}
-
 .settings-benchmark-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   max-height: 260px;
   overflow: auto;
 }
 
 .settings-benchmark-item {
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px 10px;
-  background: #fbfdff;
+  display: grid;
+  gap: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 18px;
+  padding: 14px 16px;
+  background:
+    radial-gradient(circle at top right, rgba(49, 94, 251, 0.08), transparent 24%),
+    rgba(255, 255, 255, 0.82);
+}
+
+.settings-benchmark-item__eyebrow {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .settings-benchmark-title {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  gap: 10px;
 }
 
 .settings-benchmark-title .ok {
@@ -3454,6 +3564,23 @@ button:disabled {
 
 .settings-benchmark-title .bad {
   color: #b91c1c;
+}
+
+.settings-benchmark-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.settings-benchmark-metrics span,
+.settings-note--field {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(255, 255, 255, 0.78);
 }
 
 .settings-error {
@@ -3903,7 +4030,10 @@ button.settings-inline-btn {
 
   .settings-panel-header,
   .settings-status-grid,
-  .settings-diagnostic-overview {
+  .settings-diagnostic-overview,
+  .settings-panel-overview,
+  .settings-form-grid--dual,
+  .settings-form-grid--triple {
     grid-template-columns: 1fr;
   }
 
