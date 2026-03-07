@@ -4,10 +4,14 @@ import unittest
 
 from fastapi.testclient import TestClient
 
+from app.core.request_metrics import clear_recent_request_metrics, get_recent_request_metrics
 from app.main import REQUEST_DURATION_HEADER, REQUEST_ID_HEADER, app
 
 
 class RequestIdMiddlewareSmokeTest(unittest.TestCase):
+    def setUp(self) -> None:
+        clear_recent_request_metrics()
+
     def test_public_api_sets_request_id_header(self) -> None:
         with TestClient(app) as client:
             resp = client.get("/api/health")
@@ -58,6 +62,20 @@ class RequestIdMiddlewareSmokeTest(unittest.TestCase):
         self.assertIn("status_code=200", joined)
         self.assertIn(f"request_id={request_id}", joined)
         self.assertRegex(joined, r"server_elapsed_ms=\d+")
+
+    def test_recent_request_metrics_captures_latest_request(self) -> None:
+        with TestClient(app) as client:
+            request_id = "trace-metrics-001"
+            resp = client.get("/api/health", headers={REQUEST_ID_HEADER: request_id})
+            self.assertEqual(resp.status_code, 200, resp.text)
+
+        recent = get_recent_request_metrics(limit=2)
+        self.assertGreaterEqual(len(recent), 1)
+        latest = recent[0]
+        self.assertEqual(str(latest.get("method")), "GET")
+        self.assertEqual(str(latest.get("path")), "/api/health")
+        self.assertEqual(str(latest.get("request_id")), request_id)
+        self.assertEqual(int(latest.get("status_code") or 0), 200)
 
 
 if __name__ == "__main__":

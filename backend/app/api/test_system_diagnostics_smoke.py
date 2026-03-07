@@ -7,6 +7,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from app.api.routers import system as system_router
+from app.core.request_metrics import clear_recent_request_metrics, record_request_metric
 from app.main import API_TOKEN, REQUEST_ID_HEADER, app
 
 FAKE_RELEASE_METADATA = {
@@ -80,9 +81,11 @@ FAKE_SNAPSHOT = {
 class SystemDiagnosticsSmokeTest(unittest.TestCase):
     def setUp(self) -> None:
         system_router._clear_release_metadata_cache()
+        clear_recent_request_metrics()
 
     def tearDown(self) -> None:
         system_router._clear_release_metadata_cache()
+        clear_recent_request_metrics()
 
     def test_status_and_diagnostics_expose_stable_observability_fields(self) -> None:
         request_id = "diag-smoke-001"
@@ -95,6 +98,13 @@ class SystemDiagnosticsSmokeTest(unittest.TestCase):
             "app.api.routers.system._build_release_metadata_uncached",
             return_value=copy.deepcopy(FAKE_RELEASE_METADATA),
         ):
+            record_request_metric(
+                method="GET",
+                path="/api/estimate",
+                status_code=200,
+                request_id="recent-request-001",
+                server_elapsed_ms=42,
+            )
             with TestClient(app) as client:
                 status_resp = client.get("/api/system/status", headers=headers)
                 diagnostics_resp = client.get("/api/system/diagnostics", headers=headers)
@@ -135,6 +145,8 @@ class SystemDiagnosticsSmokeTest(unittest.TestCase):
         self.assertEqual(structured.get("commit"), FAKE_RELEASE_METADATA["current"]["commit"])
         self.assertIsNone(structured.get("snapshot"))
         self.assertIn("sqlite", structured)
+        self.assertIsInstance(structured.get("recent_requests"), list)
+        self.assertGreaterEqual(len(structured.get("recent_requests") or []), 1)
         self.assertIn("db_file", structured.get("sqlite", {}))
         self.assertIn("derived", structured.get("sqlite", {}))
         self.assertIn("observations", structured.get("sqlite", {}).get("derived", {}))
@@ -146,6 +158,8 @@ class SystemDiagnosticsSmokeTest(unittest.TestCase):
         self.assertIn("Journal Mode:", str(diagnostics_payload.get("diagnostic_text") or ""))
         self.assertIn("Lock Risk:", str(diagnostics_payload.get("diagnostic_text") or ""))
         self.assertIn("Observations:", str(diagnostics_payload.get("diagnostic_text") or ""))
+        self.assertIn("=== Recent Requests ===", str(diagnostics_payload.get("diagnostic_text") or ""))
+        self.assertIn("/api/estimate", str(diagnostics_payload.get("diagnostic_text") or ""))
 
     def test_release_metadata_cache_reuses_result_across_requests(self) -> None:
         headers = {"Authorization": f"Bearer {API_TOKEN}"}
