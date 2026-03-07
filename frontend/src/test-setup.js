@@ -8,6 +8,15 @@ global.ResizeObserver = class ResizeObserver {
   disconnect() {}
 }
 
+// Patch getComputedStyle for libraries that pass pseudo elements in jsdom.
+const originalGetComputedStyle = window.getComputedStyle.bind(window)
+window.getComputedStyle = (element, pseudoElt) => {
+  if (pseudoElt) {
+    return originalGetComputedStyle(element)
+  }
+  return originalGetComputedStyle(element)
+}
+
 // Mock matchMedia
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

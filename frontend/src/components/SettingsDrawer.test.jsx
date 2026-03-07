@@ -53,9 +53,94 @@ describe('SettingsDrawer', () => {
     )
 
     expect(screen.getByText('设置中心')).toBeInTheDocument()
+    expect(fetchNetworkBenchmarkLatest).not.toHaveBeenCalled()
+    expect(fetchSIPPlans).not.toHaveBeenCalled()
+    expect(fetchNotificationsStatus).not.toHaveBeenCalled()
+    expect(fetchSystemStatus).not.toHaveBeenCalled()
+    expect(fetchHealthz).not.toHaveBeenCalled()
+    expect(screen.getByText(/最近测速记录按需加载/)).toBeInTheDocument()
+    expect(screen.getByText(/按需加载中。下一步：点击“加载计划”查看现有计划/)).toBeInTheDocument()
+    expect(screen.getByText(/按需加载。下一步：点击“一键复制状态”或“加载系统状态”/)).toBeInTheDocument()
+    expect(screen.getByText(/按需加载。下一步：点击“加载诊断”或直接发送测试消息/)).toBeInTheDocument()
+  })
+
+  it('点击分区动作前不会预取非关键数据，且各区块仍可按需加载', async () => {
+    fetchNetworkBenchmarkLatest.mockResolvedValueOnce({
+      result: {
+        summary: {
+          site_count: 1,
+          success_count: 1,
+          failed_count: 0,
+          avg_total_ms: 45,
+          elapsed_ms: 45
+        },
+        results: [
+          {
+            site: 'eastmoney',
+            ok: true,
+            dns_ms: 5,
+            tcp_ms: 8,
+            tls_ms: 12,
+            ttfb_ms: 20,
+            total_ms: 45
+          }
+        ]
+      }
+    })
+    fetchSIPPlans.mockResolvedValueOnce({ plans: [], count: 0, enabled_only: false })
+    fetchNotificationsStatus.mockResolvedValueOnce({
+      status: {
+        feishu: { enabled: false, credential_configured: true, last_test_summary: null },
+        telegram: { enabled: false, credential_configured: true, last_test_summary: null }
+      }
+    })
+    fetchSystemStatus.mockResolvedValueOnce({
+      service: 'vectorcontrol',
+      version: 'v1.2.3',
+      commit: 'abc123',
+      server_time: '2026-02-09T03:00:00Z'
+    })
+    fetchHealthz.mockResolvedValueOnce({ status: 'ok' })
+
+    render(
+      <SettingsDrawer
+        open
+        settings={{}}
+        onClose={vi.fn()}
+        onSave={vi.fn().mockResolvedValue(true)}
+      />
+    )
+
+    expect(fetchNetworkBenchmarkLatest).not.toHaveBeenCalled()
+    expect(fetchSIPPlans).not.toHaveBeenCalled()
+    expect(fetchNotificationsStatus).not.toHaveBeenCalled()
+    expect(fetchSystemStatus).not.toHaveBeenCalled()
+    expect(fetchHealthz).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTestId('benchmark-load-latest-btn'))
     await waitFor(() => {
       expect(fetchNetworkBenchmarkLatest).toHaveBeenCalledTimes(1)
     })
+    expect(screen.getByText('eastmoney')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('sip-plan-load-btn'))
+    await waitFor(() => {
+      expect(fetchSIPPlans).toHaveBeenCalledTimes(1)
+    })
+    expect(screen.getByText(/暂无定投计划/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('diagnostic-load-btn'))
+    await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
+    })
+    expect(screen.getAllByText(/未测试\/无记录/).length).toBeGreaterThanOrEqual(2)
+
+    fireEvent.click(screen.getByTestId('system-status-load-btn'))
+    await waitFor(() => {
+      expect(fetchSystemStatus).toHaveBeenCalledTimes(1)
+      expect(fetchHealthz).toHaveBeenCalledTimes(1)
+    })
+    expect(screen.getByTestId('system-status-commit').textContent || '').toMatch(/abc123/)
   })
 
   it('SIP 面板支持创建计划并回刷列表', async () => {
@@ -89,11 +174,14 @@ describe('SettingsDrawer', () => {
       />
     )
 
+    expect(fetchSIPPlans).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTestId('sip-plan-create-toggle-btn'))
+
     await waitFor(() => {
       expect(fetchSIPPlans).toHaveBeenCalledTimes(1)
     })
 
-    fireEvent.click(screen.getByTestId('sip-plan-create-toggle-btn'))
     fireEvent.change(screen.getByTestId('sip-plan-fund-id-input'), { target: { value: '000001' } })
     fireEvent.change(screen.getByTestId('sip-plan-fund-name-input'), { target: { value: '华夏成长' } })
     fireEvent.change(screen.getByTestId('sip-plan-amount-input'), { target: { value: '500' } })
@@ -156,6 +244,8 @@ describe('SettingsDrawer', () => {
       />
     )
 
+    fireEvent.click(screen.getByTestId('benchmark-load-latest-btn'))
+
     expect(await screen.findByText('站点：2')).toBeInTheDocument()
     expect(screen.getByText('eastmoney')).toBeInTheDocument()
     expect(screen.getByText('成功：1')).toBeInTheDocument()
@@ -172,6 +262,8 @@ describe('SettingsDrawer', () => {
         onSave={vi.fn().mockResolvedValue(true)}
       />
     )
+
+    fireEvent.click(screen.getByTestId('benchmark-load-latest-btn'))
 
     expect(await screen.findByText(/测速记录加载失败/)).toBeInTheDocument()
     expect(screen.getByText(/必要时检查后端服务状态/)).toBeInTheDocument()
@@ -199,6 +291,8 @@ describe('SettingsDrawer', () => {
         onSave={vi.fn().mockResolvedValue(true)}
       />
     )
+
+    fireEvent.click(screen.getByTestId('benchmark-load-latest-btn'))
 
     expect(await screen.findByText(/测速结果包含异常站点记录/)).toBeInTheDocument()
     expect(screen.getByText('site_1')).toBeInTheDocument()
@@ -242,6 +336,11 @@ describe('SettingsDrawer', () => {
       />
     )
 
+    expect(fetchSystemStatus).not.toHaveBeenCalled()
+    expect(fetchHealthz).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTestId('system-status-load-btn'))
+
     await waitFor(() => {
       expect(fetchSystemStatus).toHaveBeenCalledTimes(1)
       expect(fetchHealthz).toHaveBeenCalledTimes(1)
@@ -276,20 +375,20 @@ describe('SettingsDrawer', () => {
       />
     )
 
-    await waitFor(() => {
-      expect(fetchSystemStatus).toHaveBeenCalledTimes(1)
-      expect(fetchHealthz).toHaveBeenCalledTimes(1)
-    })
+    expect(fetchSystemStatus).not.toHaveBeenCalled()
+    expect(fetchHealthz).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByTestId('system-status-copy-btn'))
 
     await waitFor(() => {
+      expect(fetchSystemStatus).toHaveBeenCalledTimes(1)
+      expect(fetchHealthz).toHaveBeenCalledTimes(1)
       expect(writeText).toHaveBeenCalledTimes(1)
     })
 
     const copied = String(writeText.mock.calls[0][0] || '')
-    expect(copied).toMatch(/\"system_status\"/)
-    expect(copied).toMatch(/\"healthz\"/)
+    expect(copied).toMatch(/"system_status"/)
+    expect(copied).toMatch(/"healthz"/)
     expect(await screen.findByText(/已复制状态/)).toBeInTheDocument()
   })
 
@@ -435,6 +534,10 @@ describe('SettingsDrawer', () => {
       />
     )
 
+    expect(fetchNotificationsStatus).not.toHaveBeenCalled()
+
+    fireEvent.click(screen.getByTestId('diagnostic-load-btn'))
+
     await waitFor(() => {
       expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
     })
@@ -450,16 +553,27 @@ describe('SettingsDrawer', () => {
       configurable: true
     })
 
-    fetchNotificationsStatus.mockResolvedValueOnce({
-      status: {
-        feishu: {
-          enabled: true,
-          credential_configured: true,
-          last_test_summary: { ok: true, sent: true, trace_id: 't123', time: '2026-02-08T12:34:56.000Z' }
-        },
-        telegram: { enabled: false, credential_configured: true, last_test_summary: null }
-      }
-    })
+    fetchNotificationsStatus
+      .mockResolvedValueOnce({
+        status: {
+          feishu: {
+            enabled: true,
+            credential_configured: true,
+            last_test_summary: { ok: true, sent: true, trace_id: 't123', time: '2026-02-08T12:34:56.000Z' }
+          },
+          telegram: { enabled: false, credential_configured: true, last_test_summary: null }
+        }
+      })
+      .mockResolvedValueOnce({
+        status: {
+          feishu: {
+            enabled: true,
+            credential_configured: true,
+            last_test_summary: { ok: true, sent: true, trace_id: 't123', time: '2026-02-08T12:34:56.000Z' }
+          },
+          telegram: { enabled: false, credential_configured: true, last_test_summary: null }
+        }
+      })
 
     render(
       <SettingsDrawer
@@ -474,6 +588,8 @@ describe('SettingsDrawer', () => {
         onSave={vi.fn().mockResolvedValue(true)}
       />
     )
+
+    fireEvent.click(screen.getByTestId('diagnostic-load-btn'))
 
     await waitFor(() => {
       expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
@@ -526,6 +642,8 @@ describe('SettingsDrawer', () => {
       />
     )
 
+    fireEvent.click(screen.getByTestId('diagnostic-load-btn'))
+
     await waitFor(() => {
       expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
     })
@@ -563,12 +681,19 @@ describe('SettingsDrawer', () => {
       server_time: '2026-02-09T03:00:00Z'
     })
 
-    fetchNotificationsStatus.mockResolvedValueOnce({
-      status: {
-        feishu: { enabled: true, credential_configured: true, last_test_summary: null },
-        telegram: { enabled: false, credential_configured: false, last_test_summary: null }
-      }
-    })
+    fetchNotificationsStatus
+      .mockResolvedValueOnce({
+        status: {
+          feishu: { enabled: true, credential_configured: true, last_test_summary: null },
+          telegram: { enabled: false, credential_configured: false, last_test_summary: null }
+        }
+      })
+      .mockResolvedValueOnce({
+        status: {
+          feishu: { enabled: true, credential_configured: true, last_test_summary: null },
+          telegram: { enabled: false, credential_configured: false, last_test_summary: null }
+        }
+      })
 
     render(
       <SettingsDrawer
@@ -584,20 +709,19 @@ describe('SettingsDrawer', () => {
       />
     )
 
-    await waitFor(() => {
-      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
-    })
+    expect(fetchNotificationsStatus).not.toHaveBeenCalled()
 
     fireEvent.click(screen.getByTestId('diagnostic-copy-bundle-btn'))
 
     await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
       expect(writeText).toHaveBeenCalledTimes(1)
     })
 
     const copied = String(writeText.mock.calls[0][0] || '')
-    expect(copied).toMatch(/\"notifications_status\"/)
-    expect(copied).toMatch(/\"system_status\"/)
-    expect(copied).toMatch(/\"commit\": \"abc123\"/)
+    expect(copied).toMatch(/"notifications_status"/)
+    expect(copied).toMatch(/"system_status"/)
+    expect(copied).toMatch(/"commit": "abc123"/)
     expect(await screen.findByText(/已复制诊断信息/)).toBeInTheDocument()
   })
 
@@ -630,13 +754,10 @@ describe('SettingsDrawer', () => {
       />
     )
 
-    await waitFor(() => {
-      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
-    })
-
     fireEvent.click(screen.getByTestId('diagnostic-feishu-test-message-btn'))
 
     await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
       expect(onSendFeishuTestMessage).toHaveBeenCalledTimes(1)
     })
 
@@ -667,6 +788,8 @@ describe('SettingsDrawer', () => {
         onSendFeishuTestMessage={vi.fn().mockResolvedValue(true)}
       />
     )
+
+    fireEvent.click(screen.getByTestId('diagnostic-feishu-test-message-btn'))
 
     await waitFor(() => {
       expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
@@ -805,13 +928,10 @@ describe('SettingsDrawer', () => {
       />
     )
 
-    await waitFor(() => {
-      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
-    })
-
     fireEvent.click(screen.getByTestId('diagnostic-telegram-test-message-btn'))
 
     await waitFor(() => {
+      expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)
       expect(onSendTelegramTestMessage).toHaveBeenCalledTimes(1)
     })
 
@@ -847,6 +967,8 @@ describe('SettingsDrawer', () => {
         onSendTelegramTestMessage={onSendTelegramTestMessage}
       />
     )
+
+    fireEvent.click(screen.getByTestId('diagnostic-telegram-test-message-btn'))
 
     await waitFor(() => {
       expect(fetchNotificationsStatus).toHaveBeenCalledTimes(1)

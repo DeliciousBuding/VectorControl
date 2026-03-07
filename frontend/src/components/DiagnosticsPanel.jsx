@@ -1,29 +1,26 @@
 import { useCallback, useState } from 'react'
+import { apiFetch } from '../api.js'
 
 /**
  * Dev-only diagnostics panel for debugging
  * Only rendered in development mode
  */
-export function DiagnosticsPanel({ user }) {
+export function DiagnosticsPanel() {
   const [diag, setDiag] = useState(null)
   const [loading, setLoading] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const fetchDiagnostics = useCallback(async () => {
-    if (!user?.token) return
     setLoading(true)
     try {
-      const res = await fetch('/api/system/diagnostics', {
-        headers: { Authorization: `Bearer ${user.token}` },
-      })
-      const data = await res.json()
+      const data = await apiFetch('/api/system/diagnostics')
       setDiag(data)
     } catch (e) {
       console.error('Failed to fetch diagnostics:', e)
     } finally {
       setLoading(false)
     }
-  }, [user?.token])
+  }, [])
 
   const copyToClipboard = useCallback(async () => {
     if (!diag?.diagnostic_text) return

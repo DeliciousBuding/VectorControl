@@ -27,10 +27,8 @@ export default defineConfig(({ mode }) => ({
       output: {
         manualChunks: {
           // 将大型依赖分离到独立 chunk
-          'echarts-vendor': ['echarts', 'echarts-for-react'],
           'antd-vendor': ['antd', '@ant-design/icons'],
-          'react-vendor': ['react', 'react-dom'],
-          'utils-vendor': ['dayjs']
+          'react-vendor': ['react', 'react-dom']
         },
         // 资源文件命名
         assetFileNames: (assetInfo) => {
@@ -73,8 +71,7 @@ export default defineConfig(({ mode }) => ({
   },
   // 依赖预构建优化
   optimizeDeps: {
-    include: ['antd', 'echarts', 'dayjs', '@ant-design/icons'],
-    exclude: []
+    include: ['antd', 'dayjs', '@ant-design/icons']
   },
   // 确保 Capacitor 插件不被打包
   external: ['@capgo/capacitor-updater', '@ionic/core'],

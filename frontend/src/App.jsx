@@ -1,74 +1,64 @@
 import { useCallback, useEffect, useMemo, useRef, useState, lazy, Suspense } from 'react'
-import dayjs from 'dayjs'
 import { useAuth } from './hooks/useAuth.js'
 import { usePortfolio } from './hooks/usePortfolio.js'
+import { useAppNavigation } from './hooks/useAppNavigation.js'
 import {
   fetchActions,
   fetchDailyReport,
-  fetchFundDetail,
-  fetchFundNavHistory,
-  fetchFundNavLatest,
+  fetchFundDetailPageData,
   fetchHoldingAudit,
   fetchTransactionAudit,
   fetchFundSuggest,
   fetchTransactions,
-  fetchSystemStatus,
   patchTransaction,
   saveAction,
   searchFunds,
-  syncPendingTransactions,
-  AUTH_EVENT_EXPIRY
+  syncPendingTransactions
 } from './api.js'
-import { Layout, Spin, Alert, Button, Input, InputNumber, DatePicker, Checkbox, Select, message, Table, Tag, Tooltip, Space } from 'antd'
-import { 
+import { Layout, Spin, Button, Input, InputNumber, Select, message } from 'antd'
+import {
   ReloadOutlined, SettingOutlined, UserOutlined,
-  PlusOutlined, EditOutlined, DeleteOutlined, 
-  CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined 
+  PlusOutlined, EditOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons'
-import { buildFundSeries, splitMarketGroups } from './utils/chart.js'
-import { cycleSortState } from './utils/holdings.js'
-import { classBySign, formatDate, formatDateTime, formatMoney, formatPercent } from './utils/format.js'
+import { splitMarketGroups } from './utils/chart.js'
+import { classBySign, formatDate, formatPercent } from './utils/format.js'
 import { toGuidedError } from './utils/errorFeedback.js'
-import { resolveGlobalSearchTarget } from './utils/searchRouting.js'
 import { ErrorBoundary } from './components/ErrorBoundary.jsx'
-import { ErrorDisplay } from './components/ErrorDisplay.jsx'
 import { LoginPanel } from './components/LoginPanel.jsx'
 import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
-import { HoldingsTable } from './components/HoldingsTable.jsx'
-import { FundDetailPanel } from './components/FundDetailPanel.jsx'
-import { RiskCenter } from './components/RiskCenter.jsx'
-import { RiskStatusBar } from './components/RiskStatusBar.jsx'
 import { PortfolioReturnsPanel } from './components/PortfolioReturnsPanel.jsx'
 import { SideNav } from './components/SideNav.jsx'
 import { BottomTabs } from './components/BottomTabs.jsx'
-import { StateShowcase } from './components/StateShowcase.jsx'
 import { DataStatusBanner } from './components/DataStatusBanner.jsx'
+import { recordMetric } from './utils/metrics.js'
+import { computeNextRunDate, daysUntil, getDcaScheduleLabel, normalizeDcaSchedule } from './utils/dca.js'
 
 // 懒加载大型组件 - 使用命名导出
-const ReturnsChart = lazy(() => import('./components/ReturnsChart.jsx').then(m => ({ default: m.ReturnsChart })))
-const BenchmarkComparison = lazy(() => import('./components/BenchmarkComparison.jsx').then(m => ({ default: m.BenchmarkComparison })))
 const BenchmarkComparisonPanel = lazy(() => import('./components/BenchmarkComparisonPanel.jsx').then(m => ({ default: m.BenchmarkComparisonPanel })))
 const SIPPlanManager = lazy(() => import('./components/SIPPlanManager.jsx').then(m => ({ default: m.SIPPlanManager })))
 const SettingsDrawer = lazy(() => import('./components/SettingsDrawer.jsx').then(m => ({ default: m.SettingsDrawer })))
+const HoldingsTable = lazy(() => import('./components/HoldingsTable.jsx').then(m => ({ default: m.HoldingsTable })))
+const FundDetailPanel = lazy(() => import('./components/FundDetailPanel.jsx').then(m => ({ default: m.FundDetailPanel })))
+const RiskCenter = lazy(() => import('./components/RiskCenter.jsx').then(m => ({ default: m.RiskCenter })))
+const RiskStatusBar = lazy(() => import('./components/RiskStatusBar.jsx').then(m => ({ default: m.RiskStatusBar })))
+const DiagnosticsPanel = lazy(() => import('./components/DiagnosticsPanel.jsx').then(m => ({ default: m.DiagnosticsPanel })))
+const FundDetailPage = lazy(() => import('./pages/FundDetailPage.jsx').then(m => ({ default: m.FundDetailPage })))
 
 // 懒加载加载状态组件
-const ChartSkeleton = () => (
-  <div style={{ 
-    height: '280px', 
-    display: 'flex', 
-    alignItems: 'center', 
+const ChartSkeleton = ({ tip = '加载图表中...' }) => (
+  <div style={{
+    height: '280px',
+    display: 'flex',
+    alignItems: 'center',
     justifyContent: 'center',
     background: 'var(--vc-bg-secondary)',
     borderRadius: 'var(--vc-radius-3xl)'
   }}>
-    <Spin tip="加载图表中..." />
+    <Spin tip={tip} />
   </div>
 )
-import { DiagnosticsPanel } from './components/DiagnosticsPanel.jsx'
-import { recordMetric } from './utils/metrics.js'
-import { computeNextRunDate, daysUntil, getDcaScheduleLabel, normalizeDcaSchedule } from './utils/dca.js'
-import { FundDetailPage } from './pages/FundDetailPage.jsx'
 
 const TRADE_TYPES = [
   { key: 'buy', label: '买入' },
@@ -195,31 +185,6 @@ function parseTagList(text) {
     .filter(Boolean)
 }
 
-function parseFundIdFromPath(pathname) {
-  const match = String(pathname || '').match(/^\/funds\/([^/]+)$/)
-  if (!match) return ''
-  try {
-    return decodeURIComponent(match[1] || '').trim()
-  } catch {
-    return String(match[1] || '').trim()
-  }
-}
-
-function parseFundDetailPath(pathname) {
-  // 新的基金详情页路由 /fund/:fund_id
-  const match = String(pathname || '').match(/^\/fund\/([^/]+)$/)
-  if (!match) return ''
-  try {
-    return decodeURIComponent(match[1] || '').trim()
-  } catch {
-    return String(match[1] || '').trim()
-  }
-}
-
-function isSystemStatusPath(pathname) {
-  return /^\/system\/status\/?$/.test(String(pathname || ''))
-}
-
 function mergeDataStatus(items, fallbackNote = '暂无状态说明') {
   const list = Array.isArray(items) ? items.filter((item) => item && typeof item === 'object') : []
   if (list.length === 0) {
@@ -261,9 +226,6 @@ function App() {
   const [holdingAuditItems, setHoldingAuditItems] = useState([])
   const [holdingAuditLoading, setHoldingAuditLoading] = useState(false)
   const [holdingAuditError, setHoldingAuditError] = useState('')
-  const [activeTab, setActiveTab] = useState('home')
-  const [currentView, setCurrentView] = useState('home') // 'home' | 'fund-detail'
-  const [detailFundId, setDetailFundId] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [searchLoading, setSearchLoading] = useState(false)
@@ -376,8 +338,8 @@ function App() {
   const [assetReadyMs, setAssetReadyMs] = useState(0)
   const [assetTimedOut, setAssetTimedOut] = useState(false)
   const [skeletonLock, setSkeletonLock] = useState(false)
+  const [homeChartsReady, setHomeChartsReady] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [profileView, setProfileView] = useState('overview')
   const [systemStatusLoading, setSystemStatusLoading] = useState(false)
   const [systemStatusError, setSystemStatusError] = useState('')
   const [systemStatusData, setSystemStatusData] = useState(null)
@@ -553,10 +515,24 @@ function App() {
       }
     })
   }, [reminderRules, rows])
-  const transactionLifecycle = useMemo(
-    () => buildTransactionLifecycle(transactionSummary),
-    [transactionSummary]
-  )
+  const {
+    activeTab,
+    currentView,
+    detailFundId,
+    profileView,
+    setActiveTab,
+    navigate,
+    handleTabChange,
+    navigateToFundDetail,
+    navigateFromFundDetail,
+    openSystemStatusView,
+    openProfileOverview
+  } = useAppNavigation({
+    onFundCenterRoute: (fundId) => {
+      setFundCenterSelectedId(fundId)
+      setFundCenterQuery((prev) => prev || fundId)
+    }
+  })
 
   const handleToggleAutoRefresh = () => {
     setAutoRefreshEnabled(!settings.display.auto_refresh_enabled)
@@ -588,54 +564,6 @@ function App() {
   const handleSortByKey = useCallback((key) => {
     setSortState((prev) => cycleSortState(prev, key))
   }, [])
-
-  const handleTabChange = (tabKey) => {
-    setActiveTab(tabKey)
-    setCurrentView('home')
-    // 从基金详情页返回时清理URL
-    if (window.location.pathname.startsWith('/fund/')) {
-      window.history.pushState({}, '', '/')
-    }
-    if (tabKey !== 'watch' && window.location.pathname.startsWith('/funds/')) {
-      window.history.pushState({}, '', '/')
-    }
-    if (tabKey !== 'profile' && isSystemStatusPath(window.location.pathname)) {
-      setProfileView('overview')
-      window.history.pushState({}, '', '/')
-    }
-  }
-  
-  // 导航到基金详情页
-  const navigateToFundDetail = (fundId) => {
-    const nextPath = `/fund/${encodeURIComponent(fundId)}`
-    if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, '', nextPath)
-    }
-    setCurrentView('fund-detail')
-    setDetailFundId(fundId)
-  }
-  
-  // 从基金详情页返回
-  const navigateFromFundDetail = () => {
-    window.history.pushState({}, '', '/')
-    setCurrentView('home')
-    setDetailFundId('')
-  }
-
-  const openSystemStatusView = () => {
-    setActiveTab('profile')
-    setProfileView('system-status')
-    if (!isSystemStatusPath(window.location.pathname)) {
-      window.history.pushState({}, '', '/system/status')
-    }
-  }
-
-  const openProfileOverview = () => {
-    setProfileView('overview')
-    if (isSystemStatusPath(window.location.pathname)) {
-      window.history.pushState({}, '', '/')
-    }
-  }
 
   const loadSystemStatus = async () => {
     setSystemStatusLoading(true)
@@ -678,44 +606,6 @@ function App() {
 
   useEffect(() => {
     recordMetric('应用打开')
-  }, [])
-
-  useEffect(() => {
-    const applyPathState = () => {
-      // 优先检查新的基金详情页路由 /fund/:fund_id
-      const fundDetailId = parseFundDetailPath(window.location.pathname)
-      if (fundDetailId) {
-        setCurrentView('fund-detail')
-        setDetailFundId(fundDetailId)
-        return
-      }
-      
-      // 检查旧的基金中心路由 /funds/:fund_id
-      const fundIdFromPath = parseFundIdFromPath(window.location.pathname)
-      if (fundIdFromPath) {
-        setActiveTab('watch')
-        setFundCenterSelectedId(fundIdFromPath)
-        setFundCenterQuery((prev) => prev || fundIdFromPath)
-        setCurrentView('home')
-        return
-      }
-      
-      if (isSystemStatusPath(window.location.pathname)) {
-        setActiveTab('profile')
-        setProfileView('system-status')
-        setCurrentView('home')
-        return
-      }
-      
-      setProfileView('overview')
-      setCurrentView('home')
-    }
-
-    applyPathState()
-    window.addEventListener('popstate', applyPathState)
-    return () => {
-      window.removeEventListener('popstate', applyPathState)
-    }
   }, [])
 
   useEffect(() => {
@@ -851,19 +741,14 @@ function App() {
       try {
         setFundCenterDetailLoading(true)
         setFundCenterDetailError('')
-        const [detailPayload, latestPayload, historyPayload, txPayload] = await Promise.all([
-          fetchFundDetail(fundId),
-          fetchFundNavLatest(fundId),
-          fetchFundNavHistory(fundId, { limit: 60 }),
-          fetchTransactions({ fundId, status: 'all', limit: 80 })
-        ])
+        const detail = await fetchFundDetailPageData(fundId, { historyLimit: 60, transactionLimit: 80 })
         if (!active) return
-        setFundCenterDetail(detailPayload?.fund || null)
-        setFundCenterNavLatest(latestPayload?.latest || null)
-        setFundCenterNavHistory(Array.isArray(historyPayload?.items) ? historyPayload.items : [])
+        setFundCenterDetail(detail?.fund || null)
+        setFundCenterNavLatest(detail?.latest || null)
+        setFundCenterNavHistory(Array.isArray(detail?.history) ? detail.history : [])
         setFundCenterTxSummary(
-          txPayload?.summary && typeof txPayload.summary === 'object'
-            ? txPayload.summary
+          detail?.transactionSummary && typeof detail.transactionSummary === 'object'
+            ? detail.transactionSummary
             : {
                 total_count: 0,
                 pending_count: 0,
@@ -874,10 +759,9 @@ function App() {
         setFundCenterSyncError('')
         setFundCenterSyncResult(null)
         setFundCenterDataStatus(
-          mergeDataStatus(
-            [detailPayload?.data_status, latestPayload?.data_status, historyPayload?.data_status, txPayload?.data_status],
-            '基金详情已加载'
-          )
+          detail?.dataStatus && typeof detail.dataStatus === 'object'
+            ? detail.dataStatus
+            : { status: 'estimating', asof: '', note: '基金详情已加载' }
         )
       } catch (error) {
         if (!active) return
@@ -997,9 +881,7 @@ function App() {
       setActiveTab('holdings')
     } else {
       const nextPath = `/funds/${encodeURIComponent(pickedCode)}`
-      if (window.location.pathname !== nextPath) {
-        window.history.pushState({}, '', nextPath)
-      }
+      navigate(nextPath)
       setFundCenterQuery(String(item?.name || pickedCode).trim() || pickedCode)
       setFundCenterSelectedId(pickedCode)
       setActiveTab('watch')
@@ -1017,9 +899,7 @@ function App() {
       target: 'fund_detail'
     })
     const nextPath = `/funds/${encodeURIComponent(pickedCode)}`
-    if (window.location.pathname !== nextPath) {
-      window.history.pushState({}, '', nextPath)
-    }
+    navigate(nextPath)
     setActiveTab('watch')
     setFundCenterSelectedId(pickedCode)
   }
@@ -1510,6 +1390,29 @@ function App() {
     recordMetric('底部Tab切换', { tab: activeTab })
   }, [activeTab, user])
 
+  useEffect(() => {
+    if (!user) {
+      setHomeChartsReady(false)
+      return
+    }
+    if (activeTab !== 'home' || currentView === 'fund-detail') {
+      setHomeChartsReady(false)
+      return
+    }
+
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      if (!cancelled) {
+        setHomeChartsReady(true)
+      }
+    }, 600)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [activeTab, currentView, user])
+
   const messageItems = useMemo(() => {
     const items = []
     const failedFunds = rows.filter((item) => item.status !== 'ok').length
@@ -1890,12 +1793,6 @@ function App() {
             {currentView !== 'fund-detail' && activeTab === 'home' && (
         <>
           <SummaryCards rows={rows} loading={loading} />
-          <Suspense fallback={<ChartSkeleton />}>
-            <ReturnsChart user={user} />
-          </Suspense>
-          <Suspense fallback={<ChartSkeleton />}>
-            <BenchmarkComparison user={user} />
-          </Suspense>
           <DataStatusBanner title="首页数据口径" dataStatus={estimateDataStatus} />
           {reportDataQuality && reportDataQuality.total_funds > 0 && (
             <div className="data-quality-bar">
@@ -1917,10 +1814,14 @@ function App() {
           )}
 
           <PortfolioReturnsPanel user={user} lastRefresh={lastRefresh} />
-          <Suspense fallback={<ChartSkeleton />}>
-            <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
-          </Suspense>
-          <DiagnosticsPanel user={user} />
+          {homeChartsReady ? (
+            <Suspense fallback={<ChartSkeleton tip="正在延后加载扩展基准面板..." />}>
+              <BenchmarkComparisonPanel user={user} lastRefresh={lastRefresh} />
+            </Suspense>
+          ) : (
+            <div className="chart-empty">图表与基准对比已延后加载，先展示轻量收益概览以提升首屏响应。</div>
+          )}
+          <DiagnosticsPanel />
           
           <section className="panel home-main">
             <div className="section-head">
