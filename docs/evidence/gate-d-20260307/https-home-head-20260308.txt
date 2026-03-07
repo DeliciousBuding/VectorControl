@@ -1,0 +1,13 @@
+HTTP/1.1 200 OK
+Server: nginx
+Date: Sat, 07 Mar 2026 16:47:52 GMT
+Content-Type: text/html
+Content-Length: 2729
+Last-Modified: Sat, 07 Mar 2026 16:38:01 GMT
+Connection: keep-alive
+ETag: "69ac5469-aa9"
+Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate
+Pragma: no-cache
+Expires: 0
+Accept-Ranges: bytes
+

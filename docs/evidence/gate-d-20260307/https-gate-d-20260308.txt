@@ -1,0 +1,5 @@
+[OK] Gate-D 最小验收通过。
+- Base URL: https://vectorcontrol.tech
+- 首页：PASS
+- /api/healthz：PASS
+- /api/auth/me 未登录保护：PASS
