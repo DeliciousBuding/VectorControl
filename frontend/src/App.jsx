@@ -15,7 +15,7 @@ import {
   searchFunds,
   syncPendingTransactions
 } from './api.js'
-import { Layout, Spin, Button, Input, InputNumber, Select } from 'antd'
+import { Layout, Spin, Input } from 'antd'
 import { splitMarketGroups } from './utils/chart.js'
 import { classBySign, formatDate, formatPercent } from './utils/format.js'
 import { toGuidedError } from './utils/errorFeedback.js'
@@ -40,6 +40,8 @@ const RiskStatusBar = lazy(() => import('./components/RiskStatusBar.jsx').then(m
 const DiagnosticsPanel = lazy(() => import('./components/DiagnosticsPanel.jsx').then(m => ({ default: m.DiagnosticsPanel })))
 const FundDetailPage = lazy(() => import('./pages/FundDetailPage.jsx').then(m => ({ default: m.FundDetailPage })))
 const TradeCenter = lazy(() => import('./components/TradeCenter.jsx').then(m => ({ default: m.TradeCenter })))
+const HoldingsCreatePanel = lazy(() => import('./components/HoldingsCreatePanel.jsx').then(m => ({ default: m.HoldingsCreatePanel })))
+const ReminderRulesPanel = lazy(() => import('./components/ReminderRulesPanel.jsx').then(m => ({ default: m.ReminderRulesPanel })))
 
 // 懒加载加载状态组件
 const ChartSkeleton = ({ tip = '加载图表中...' }) => (
@@ -2117,110 +2119,23 @@ function App() {
             <DataStatusBanner title="持仓页口径" dataStatus={estimateDataStatus} />
             <RiskStatusBar risk={riskOverview} onOpenRiskCenter={handleJumpToRiskCenter} />
 
-            <section className="panel holdings-create-panel">
-              <div className="section-head">
-                <h3>新增持仓（自动补全）</h3>
-                <span>支持基金代码联想并自动回填名称与市场标签</span>
-              </div>
-              <form className="trade-form holdings-create-form" onSubmit={handleSubmitHoldingCreate}>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ marginBottom: 4 }}>基金代码</div>
-                  <Input
-                    value={holdingCreateForm.fund_id}
-                    onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, fund_id: event.target.value }))}
-                    placeholder="例如 016453"
-                    maxLength={16}
-                  />
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ marginBottom: 4 }}>基金名称</div>
-                  <Input
-                    value={holdingCreateForm.name}
-                    onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, name: event.target.value }))}
-                    placeholder="例如 纳斯达克100ETF联接"
-                    maxLength={60}
-                  />
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ marginBottom: 4 }}>市场分组</div>
-                  <Select
-                    style={{ width: '100%' }}
-                    value={holdingCreateForm.market_group}
-                    onChange={(value) => {
-                      const nextGroup = String(value || 'cn_hk')
-                      setHoldingCreateForm((prev) => ({
-                        ...prev,
-                        market_group: nextGroup,
-                        bucket: defaultBucketByMarketGroup(nextGroup)
-                      }))
-                    }}
-                    options={[
-                      { value: 'cn_hk', label: 'A股/港股（cn_hk）' },
-                      { value: 'us_overseas', label: '美股/海外（us_overseas）' }
-                    ]}
-                  />
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ marginBottom: 4 }}>持仓分组</div>
-                  <Input
-                    value={holdingCreateForm.bucket}
-                    onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, bucket: event.target.value }))}
-                    placeholder="例如 core / overseas / growth"
-                    maxLength={32}
-                  />
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ marginBottom: 4 }}>标签（可选）</div>
-                  <Input
-                    value={holdingCreateForm.tags_text}
-                    onChange={(event) => setHoldingCreateForm((prev) => ({ ...prev, tags_text: event.target.value }))}
-                    placeholder="例如 QDII,指数,科技"
-                    maxLength={80}
-                  />
-                </div>
-                <Button type="primary" htmlType="submit" loading={holdingCreateSubmitting} block>
-                  {holdingCreateSubmitting ? '提交中...' : '新增/覆盖持仓'}
-                </Button>
-              </form>
-
-              {holdingCreateSuggestLoading && <div className="chart-empty">基金联想加载中...</div>}
-              {!holdingCreateSuggestLoading && holdingCreateSuggestions.length > 0 && (
-                <div className="watch-list holdings-create-suggest-list">
-                  {holdingCreateSuggestions.slice(0, 6).map((item) => (
-                    <article key={`holding-create-suggest-${item.fund_id}`} className="watch-item">
-                      <div>
-                        <h3>{item.name || '--'}</h3>
-                        <p>{item.fund_id} · {marketGroupLabel(item.market_group)}</p>
-                      </div>
-                      <button type="button" className="ghost" onClick={() => handlePickHoldingCreateSuggestion(item)}>
-                        选用
-                      </button>
-                    </article>
-                  ))}
-                </div>
-              )}
-              {holdingCreateError && <div className="chart-empty">{holdingCreateError}</div>}
-              {holdingCreateResult && (
-                <div className="trade-result">
-                  <strong>持仓{holdingCreateResult.action}成功</strong>
-                  <p>基金：{holdingCreateResult.name || '--'}（{holdingCreateResult.fund_id || '--'}）</p>
-                  <p>市场：{marketGroupLabel(holdingCreateResult.market_group)} ｜ 分组：{holdingCreateResult.bucket || '--'}</p>
-                </div>
-              )}
-              {holdingAutoFillError && <div className="chart-empty">{holdingAutoFillError}</div>}
-              {holdingAutoFillResult && (
-                <div className="trade-result">
-                  <strong>持仓自动补全完成</strong>
-                  <p>基金：{holdingAutoFillResult.name || '--'}（{holdingAutoFillResult.fund_id || '--'}）</p>
-                  <p>市场：{marketGroupLabel(holdingAutoFillResult.market_group)} ｜ 分组：{holdingAutoFillResult.bucket || '--'}</p>
-                  <p>
-                    {Array.isArray(holdingAutoFillResult.fields) && holdingAutoFillResult.fields.length > 0
-                      ? `已回填字段：${holdingAutoFillResult.fields.join(' / ')}`
-                      : '当前字段已是最新，无需回填'}
-                  </p>
-                </div>
-              )}
-            </section>
+            <Suspense fallback={<ChartSkeleton tip="正在加载持仓新增面板..." />}>
+              <HoldingsCreatePanel
+                holdingCreateForm={holdingCreateForm}
+                setHoldingCreateForm={setHoldingCreateForm}
+                defaultBucketByMarketGroup={defaultBucketByMarketGroup}
+                handleSubmitHoldingCreate={handleSubmitHoldingCreate}
+                holdingCreateSubmitting={holdingCreateSubmitting}
+                holdingCreateSuggestLoading={holdingCreateSuggestLoading}
+                holdingCreateSuggestions={holdingCreateSuggestions}
+                handlePickHoldingCreateSuggestion={handlePickHoldingCreateSuggestion}
+                holdingCreateError={holdingCreateError}
+                holdingCreateResult={holdingCreateResult}
+                holdingAutoFillError={holdingAutoFillError}
+                holdingAutoFillResult={holdingAutoFillResult}
+                marketGroupLabel={marketGroupLabel}
+              />
+            </Suspense>
 
             <HoldingsTable
               title="国内股 / 港股"
@@ -2476,92 +2391,26 @@ function App() {
           </div>
           <StateShowcase />
 
-          <div className="section-head trade-head">
-            <h3>提醒规则中心</h3>
-            <span>{`阈值规则 ${reminderRules.length} 条，已触发 ${reminderRuleStates.filter((item) => item.hit).length} 条`}</span>
-          </div>
-          <form className="trade-form reminder-form" onSubmit={handleCreateRule}>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ marginBottom: 4 }}>规则名称</div>
-              <Input
-                value={ruleName}
-                onChange={(event) => setRuleName(event.target.value)}
-                placeholder="例如：纳指回撤提醒"
-                maxLength={40}
-              />
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ marginBottom: 4 }}>基金代码（可选）</div>
-              <Input
-                value={ruleFundCode}
-                onChange={(event) => setRuleFundCode(event.target.value)}
-                placeholder="留空表示全持仓"
-                maxLength={16}
-              />
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ marginBottom: 4 }}>触发条件</div>
-              <Select
-                style={{ width: '100%' }}
-                value={ruleOperator}
-                onChange={(value) => setRuleOperator(value)}
-                options={[
-                  { value: '<=', label: '小于等于阈值' },
-                  { value: '>=', label: '大于等于阈值' }
-                ]}
-              />
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ marginBottom: 4 }}>阈值（%）</div>
-              <InputNumber
-                style={{ width: '100%' }}
-                step={0.01}
-                value={ruleThreshold}
-                onChange={(value) => setRuleThreshold(value)}
-                placeholder="例如 -1.5"
-              />
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ marginBottom: 4 }}>静默期（小时）</div>
-              <InputNumber
-                style={{ width: '100%' }}
-                min={0}
-                step={1}
-                value={ruleSilentHours}
-                onChange={(value) => setRuleSilentHours(value)}
-              />
-            </div>
-            <Button type="primary" htmlType="submit" loading={ruleSubmitting} block>
-              {ruleSubmitting ? '保存中...' : '新增提醒'}
-            </Button>
-          </form>
-          {ruleError && <div className="chart-empty">{ruleError}</div>}
-          {reminderRuleStates.length === 0 && <div className="chart-empty">暂无提醒规则，请先新增阈值规则。</div>}
-          {reminderRuleStates.length > 0 && (
-            <div className="plan-list">
-              {reminderRuleStates.map((rule) => (
-                <article key={rule.id} className="plan-item">
-                  <div>
-                    <h4>{rule.name}</h4>
-                    <p>
-                      作用范围：{rule.fund_id || '全持仓'}（{rule.scopeCount}） ｜ 规则：估值 {rule.operator} {Number(rule.threshold).toFixed(2)}%
-                    </p>
-                    <p>
-                      触发说明：{rule.reason_template} ｜ 当前值：{rule.currentValue == null ? '--' : `${Number(rule.currentValue).toFixed(2)}%`} ｜ 静默期：{rule.silent_hours} 小时
-                    </p>
-                  </div>
-                  <div className="plan-actions">
-                    <span className={rule.hit ? 'record-pending' : 'record-done'}>
-                      {rule.hit ? '已触发' : '未触发'}
-                    </span>
-                    <button type="button" className="ghost" onClick={() => handleToggleRule(rule.id)}>
-                      {rule.enabled ? '暂停' : '启用'}
-                    </button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
+          <Suspense fallback={<ChartSkeleton tip="正在加载提醒规则中心..." />}>
+            <ReminderRulesPanel
+              reminderRules={reminderRules}
+              reminderRuleStates={reminderRuleStates}
+              handleCreateRule={handleCreateRule}
+              ruleName={ruleName}
+              setRuleName={setRuleName}
+              ruleFundCode={ruleFundCode}
+              setRuleFundCode={setRuleFundCode}
+              ruleOperator={ruleOperator}
+              setRuleOperator={setRuleOperator}
+              ruleThreshold={ruleThreshold}
+              setRuleThreshold={setRuleThreshold}
+              ruleSilentHours={ruleSilentHours}
+              setRuleSilentHours={setRuleSilentHours}
+              ruleSubmitting={ruleSubmitting}
+              ruleError={ruleError}
+              handleToggleRule={handleToggleRule}
+            />
+          </Suspense>
         </section>
       )}
 
