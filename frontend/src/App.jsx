@@ -15,7 +15,6 @@ import {
   searchFunds,
   syncPendingTransactions
 } from './api.js'
-import { Layout, Spin, Input } from 'antd'
 import { splitMarketGroups } from './utils/chart.js'
 import { classBySign, formatDate, formatPercent } from './utils/format.js'
 import { toGuidedError } from './utils/errorFeedback.js'
@@ -53,7 +52,7 @@ const ChartSkeleton = ({ tip = '加载图表中...' }) => (
     background: 'var(--vc-bg-secondary)',
     borderRadius: 'var(--vc-radius-3xl)'
   }}>
-    <Spin tip={tip} />
+    <div className="chart-empty">{tip}</div>
   </div>
 )
 
@@ -319,7 +318,6 @@ function App() {
   const riskCenterRef = useRef(null)
 
   const { user, authLoading, authReady, login, logout } = useAuth()
-  const { Content } = Layout
   const {
     rows,
     riskOverview,
@@ -1784,14 +1782,14 @@ function App() {
   if (!authReady) {
     return (
       <div className="page-shell" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <Spin size="large" tip="正在初始化会话..." />
+        <div className="chart-empty">正在初始化会话...</div>
       </div>
     )
   }
 
   if (!user) {
     return (
-      <Suspense fallback={<div className="page-shell" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><Spin size="large" tip="正在加载登录面板..." /></div>}>
+      <Suspense fallback={<div className="page-shell" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}><div className="chart-empty">正在加载登录面板...</div></div>}>
         <LoginPanel loading={authLoading} onSubmit={onAuthSubmit} />
       </Suspense>
     )
@@ -1799,9 +1797,9 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <Layout style={{ minHeight: '100vh', flexDirection: 'row' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'row' }}>
         <SideNav active={activeTab} onChange={handleTabChange} />
-        <Layout style={{ display: 'flex', flexDirection: 'column', background: 'transparent' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', background: 'transparent', flex: 1 }}>
           <TopToolbar
             user={user}
             status={status}
@@ -1830,7 +1828,7 @@ function App() {
             marketDataHint={marketDataHint}
           />
 
-          <Content className="page-shell" style={{ width: '100%' }}>
+          <main className="page-shell" style={{ width: '100%' }}>
             {/* 基金详情独立页面 - 最高优先级 */}
             {currentView === 'fund-detail' && (
               <FundDetailPage 
@@ -1970,17 +1968,30 @@ function App() {
           </div>
           <DataStatusBanner title="基金页口径" dataStatus={fundCenterDataStatus} />
 
-          <div style={{ marginBottom: 16 }}>
-            <Input.Search
-              placeholder="搜索基金（代码/名称/拼音/别名）"
-              allowClear
-              enterButton="搜索"
-              size="large"
-              value={fundCenterQuery}
-              onChange={(event) => setFundCenterQuery(event.target.value)}
-              onSearch={() => {}}
-            />
-          </div>
+            <div style={{ marginBottom: 16 }}>
+              <div className="vc-search-input-container">
+                <input
+                  type="text"
+                  className="vc-search-input"
+                  placeholder="搜索基金（代码/名称/拼音/别名）"
+                  value={fundCenterQuery}
+                  onChange={(event) => setFundCenterQuery(event.target.value)}
+                />
+                {fundCenterQuery && (
+                  <button
+                    type="button"
+                    className="vc-search-clear"
+                    onClick={() => setFundCenterQuery('')}
+                    aria-label="清除搜索"
+                  >
+                    ×
+                  </button>
+                )}
+                <button type="button" className="vc-search-button" onClick={() => {}}>
+                  搜索
+                </button>
+              </div>
+            </div>
           {fundCenterLoading && <div className="chart-empty">基金搜索中...</div>}
           {fundCenterError && <div className="chart-empty">{fundCenterError}</div>}
           {!fundCenterLoading && !fundCenterError && fundCenterQuery.trim() && fundCenterItems.length === 0 && (
@@ -2416,7 +2427,7 @@ function App() {
         </section>
       )}
 
-          </Content>
+          </main>
 
           <BottomTabs active={activeTab} onChange={handleTabChange} />
 
@@ -2432,8 +2443,8 @@ function App() {
               onSendTelegramTestMessage={async () => sendTelegramTestMessage()}
             />
           </Suspense>
-        </Layout>
-      </Layout>
+        </div>
+      </div>
     </ErrorBoundary>
   )
 }
