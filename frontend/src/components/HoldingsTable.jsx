@@ -66,6 +66,12 @@ export const HoldingsTable = memo(function HoldingsTable({
   const [pageSize, setPageSize] = useState(pagination.pageSize || 20)
   const [draft, setDraft] = useState({})
   const [hoveredRowId, setHoveredRowId] = useState(null)
+  const [hideZeroShareRows, setHideZeroShareRows] = useState(() => {
+    try {
+      return localStorage.getItem('holdings_table_hide_zero_rows') !== 'false'
+    } catch {}
+    return true
+  })
   const [visibleColumns, setVisibleColumns] = useState(() => {
     // 从localStorage读取用户偏好
     try {
@@ -99,8 +105,24 @@ export const HoldingsTable = memo(function HoldingsTable({
       setVisibleColumns(DEFAULT_VISIBLE_COLUMNS)
     }
   }
+
+  const toggleHideZeroShareRows = () => {
+    const next = !hideZeroShareRows
+    setHideZeroShareRows(next)
+    try {
+      localStorage.setItem('holdings_table_hide_zero_rows', String(next))
+    } catch {}
+  }
   
-  const totalMarket = useMemo(() => rows.reduce((sum, item) => sum + Number(item.market_value_cny || 0), 0), [rows])
+  const displayRows = useMemo(() => {
+    if (!hideZeroShareRows) return rows
+    return rows.filter((item) => Number(item.shares || 0) !== 0)
+  }, [hideZeroShareRows, rows])
+
+  const totalMarket = useMemo(
+    () => displayRows.reduce((sum, item) => sum + Number(item.market_value_cny || 0), 0),
+    [displayRows]
+  )
   const dateSuffix = dateLabel && dateLabel !== '--' ? `(${dateLabel})` : ''
 
   const beginEdit = (row) => {
@@ -534,10 +556,10 @@ export const HoldingsTable = memo(function HoldingsTable({
 
   // 计算分页数据
   const paginatedRows = useMemo(() => {
-    if (!pagination) return rows
+    if (!pagination) return displayRows
     const start = (currentPage - 1) * pageSize
-    return rows.slice(start, start + pageSize)
-  }, [rows, currentPage, pageSize, pagination])
+    return displayRows.slice(start, start + pageSize)
+  }, [displayRows, currentPage, pageSize, pagination])
 
   // 分页变化处理
   const handlePageChange = (page, size) => {
@@ -553,6 +575,13 @@ export const HoldingsTable = memo(function HoldingsTable({
           <span>此表格显示基金持仓列表，包含基金名称、走势、持有金额、持有份额、占比、收益等信息。点击行可选中基金，点击编辑按钮可修改持仓数据。</span>
         </div>
         <Space>
+          <Button
+            size="small"
+            type={hideZeroShareRows ? 'primary' : 'default'}
+            onClick={toggleHideZeroShareRows}
+          >
+            {hideZeroShareRows ? '隐藏空仓' : '显示空仓'}
+          </Button>
           {/* 简洁/详细模式切换 */}
           <Button
             size="small"
@@ -585,7 +614,7 @@ export const HoldingsTable = memo(function HoldingsTable({
         pagination={pagination ? {
           current: currentPage,
           pageSize: pageSize,
-          total: rows.length,
+          total: displayRows.length,
           onChange: handlePageChange,
           showSizeChanger: pagination.showSizeChanger,
           showQuickJumper: pagination.showQuickJumper,
