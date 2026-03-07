@@ -16,10 +16,9 @@ import {
   syncPendingTransactions
 } from './api.js'
 import { splitMarketGroups } from './utils/chart.js'
-import { classBySign, formatDate, formatPercent } from './utils/format.js'
+import { classBySign, formatDate, formatDateTime, formatPercent } from './utils/format.js'
 import { toGuidedError } from './utils/errorFeedback.js'
 import { ErrorBoundary } from './components/ErrorBoundary.jsx'
-import { TopToolbar } from './components/TopToolbar.jsx'
 import { SummaryCards } from './components/SummaryCards.jsx'
 import { PortfolioReturnsPanel } from './components/PortfolioReturnsPanel.jsx'
 import { SideNav } from './components/SideNav.jsx'
@@ -30,6 +29,7 @@ import { normalizeDcaSchedule } from './utils/dca.js'
 
 // 懒加载大型组件 - 使用命名导出
 const LoginPanel = lazy(() => import('./components/LoginPanel.jsx').then(m => ({ default: m.LoginPanel })))
+const TopToolbar = lazy(() => import('./components/TopToolbar.jsx').then(m => ({ default: m.TopToolbar })))
 const BenchmarkComparisonPanel = lazy(() => import('./components/BenchmarkComparisonPanel.jsx').then(m => ({ default: m.BenchmarkComparisonPanel })))
 const SettingsDrawer = lazy(() => import('./components/SettingsDrawer.jsx').then(m => ({ default: m.SettingsDrawer })))
 const HoldingsTable = lazy(() => import('./components/HoldingsTable.jsx').then(m => ({ default: m.HoldingsTable })))
@@ -41,6 +41,7 @@ const FundDetailPage = lazy(() => import('./pages/FundDetailPage.jsx').then(m =>
 const TradeCenter = lazy(() => import('./components/TradeCenter.jsx').then(m => ({ default: m.TradeCenter })))
 const HoldingsCreatePanel = lazy(() => import('./components/HoldingsCreatePanel.jsx').then(m => ({ default: m.HoldingsCreatePanel })))
 const ReminderRulesPanel = lazy(() => import('./components/ReminderRulesPanel.jsx').then(m => ({ default: m.ReminderRulesPanel })))
+const StateShowcase = lazy(() => import('./components/StateShowcase.jsx').then(m => ({ default: m.StateShowcase })))
 
 // 懒加载加载状态组件
 const ChartSkeleton = ({ tip = '加载图表中...' }) => (
@@ -310,6 +311,7 @@ function App() {
   const [assetTimedOut, setAssetTimedOut] = useState(false)
   const [skeletonLock, setSkeletonLock] = useState(false)
   const [homeChartsReady, setHomeChartsReady] = useState(false)
+  const [toolbarReady, setToolbarReady] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [systemStatusLoading, setSystemStatusLoading] = useState(false)
   const [systemStatusError, setSystemStatusError] = useState('')
@@ -458,6 +460,7 @@ function App() {
   const dcaFailedPlans = useMemo(() => {
     return dcaPlans.filter((plan) => dcaStatusMap[String(plan.id)] === 'failed')
   }, [dcaPlans, dcaStatusMap])
+  const transactionLifecycle = useMemo(() => buildTransactionLifecycle(transactionSummary), [transactionSummary])
 
   const reminderRules = useMemo(() => {
     const items = settings?.notifications?.rules
@@ -1362,12 +1365,20 @@ function App() {
 
   useEffect(() => {
     if (!user) {
+      setToolbarReady(false)
       setHomeChartsReady(false)
       return
     }
+
+    const toolbarTimer = window.setTimeout(() => {
+      setToolbarReady(true)
+    }, 0)
+
     if (activeTab !== 'home' || currentView === 'fund-detail') {
       setHomeChartsReady(false)
-      return
+      return () => {
+        window.clearTimeout(toolbarTimer)
+      }
     }
 
     let cancelled = false
@@ -1380,6 +1391,7 @@ function App() {
     return () => {
       cancelled = true
       window.clearTimeout(timer)
+      window.clearTimeout(toolbarTimer)
     }
   }, [activeTab, currentView, user])
 
@@ -1800,33 +1812,39 @@ function App() {
       <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'row' }}>
         <SideNav active={activeTab} onChange={handleTabChange} />
         <div style={{ display: 'flex', flexDirection: 'column', background: 'transparent', flex: 1 }}>
-          <TopToolbar
-            user={user}
-            status={status}
-            refreshing={loading}
-            lastRefresh={lastRefresh}
-            asof={asof}
-            updatedAt={updatedAt}
-            confirmState={confirmState}
-            coverage={coverage}
-            refreshElapsedMs={refreshElapsedMs}
-            estimateCacheHit={estimateCacheHit}
-            incrementalMode={incrementalMode}
-            incrementalReusedQuotes={incrementalReusedQuotes}
-            incrementalFetchedQuotes={incrementalFetchedQuotes}
-            dataStatus={estimateDataStatus}
-            searchQuery={searchQuery}
-            suggestions={suggestions}
-            searchLoading={searchLoading}
-            onSearchChange={setSearchQuery}
-            onPickSuggestion={handlePickSuggestion}
-            autoRefreshEnabled={Boolean(settings.display.auto_refresh_enabled)}
-            onRefresh={() => refresh()}
-            onToggleAutoRefresh={handleToggleAutoRefresh}
-            onOpenSettings={() => setSettingsOpen(true)}
-            onLogout={logout}
-            marketDataHint={marketDataHint}
-          />
+          {toolbarReady ? (
+            <Suspense fallback={<div className="top-header"><div className="chart-empty">正在加载工具栏...</div></div>}>
+              <TopToolbar
+                user={user}
+                status={status}
+                refreshing={loading}
+                lastRefresh={lastRefresh}
+                asof={asof}
+                updatedAt={updatedAt}
+                confirmState={confirmState}
+                coverage={coverage}
+                refreshElapsedMs={refreshElapsedMs}
+                estimateCacheHit={estimateCacheHit}
+                incrementalMode={incrementalMode}
+                incrementalReusedQuotes={incrementalReusedQuotes}
+                incrementalFetchedQuotes={incrementalFetchedQuotes}
+                dataStatus={estimateDataStatus}
+                searchQuery={searchQuery}
+                suggestions={suggestions}
+                searchLoading={searchLoading}
+                onSearchChange={setSearchQuery}
+                onPickSuggestion={handlePickSuggestion}
+                autoRefreshEnabled={Boolean(settings.display.auto_refresh_enabled)}
+                onRefresh={() => refresh()}
+                onToggleAutoRefresh={handleToggleAutoRefresh}
+                onOpenSettings={() => setSettingsOpen(true)}
+                onLogout={logout}
+                marketDataHint={marketDataHint}
+              />
+            </Suspense>
+          ) : (
+            <div className="top-header"><div className="chart-empty">正在加载工具栏...</div></div>
+          )}
 
           <main className="page-shell" style={{ width: '100%' }}>
             {/* 基金详情独立页面 - 最高优先级 */}
@@ -2402,7 +2420,9 @@ function App() {
             <h3>组件状态样例页</h3>
             <span>默认 / 悬浮 / 禁用 / 加载 / 错误</span>
           </div>
-          <StateShowcase />
+          <Suspense fallback={<ChartSkeleton tip="正在加载状态样例页..." />}>
+            <StateShowcase />
+          </Suspense>
 
           <Suspense fallback={<ChartSkeleton tip="正在加载提醒规则中心..." />}>
             <ReminderRulesPanel
