@@ -30,20 +30,6 @@ export default defineConfig(({ mode }) => ({
             return 'react-vendor'
           }
 
-          const tradeHeavyModules = [
-            'node_modules/antd/es/date-picker',
-            'node_modules/antd/es/table',
-            'node_modules/antd/es/tooltip',
-            'node_modules/rc-picker',
-            'node_modules/rc-table',
-            'node_modules/rc-pagination',
-            'node_modules/rc-input-number'
-          ]
-
-          if (tradeHeavyModules.some((segment) => id.includes(segment))) {
-            return 'trade-antd'
-          }
-
           if (
             id.includes('node_modules/antd') ||
             id.includes('node_modules/@ant-design')
