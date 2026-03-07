@@ -13,6 +13,7 @@ import Tag from 'antd/es/tag'
 import Tooltip from 'antd/es/tooltip'
 import { EditOutlined, SwapOutlined, CheckCircleOutlined, ClockCircleOutlined, AlertOutlined } from '@ant-design/icons'
 import { DataStatusBanner } from './DataStatusBanner.jsx'
+import { SurfaceState } from './SurfaceState.jsx'
 import { computeNextRunDate, daysUntil, getDcaScheduleLabel } from '../utils/dca.js'
 
 const SIPPlanManager = lazy(() => import('./SIPPlanManager.jsx').then(m => ({ default: m.SIPPlanManager })))
@@ -139,6 +140,44 @@ export function TradeCenter({
       hint: '需要人工补扣或排查'
     }
   ]
+  const lifecycleSteps = [
+    {
+      key: 1,
+      title: '已记录交易',
+      detail: `待确认 ${Number(transactionSummary.pending_count || 0)} 笔`,
+      summary: '记录已进入待确认队列'
+    },
+    {
+      key: 2,
+      title: '确认净值与份额',
+      detail: `已确认 ${Number(transactionSummary.confirmed_count || 0)} 笔`,
+      summary: '以券商与基金公司结算结果为准'
+    },
+    {
+      key: 3,
+      title: '计入收益口径',
+      detail: `总计 ${Number(transactionSummary.total_count || 0)} 笔`,
+      summary: '确认记录进入收益与持仓口径'
+    }
+  ]
+  const currentLifecycle =
+    lifecycleSteps.find((item) => item.key === Number(transactionLifecycle.step || 0)) ||
+    lifecycleSteps[0]
+  const transactionFilterOptions = [
+    { key: 'all', label: '全部流水' },
+    { key: 'pending', label: '仅看 pending' },
+    { key: 'confirmed', label: '仅看 confirmed' }
+  ]
+  const activeFilterLabel =
+    transactionFilterOptions.find((item) => item.key === transactionFilterStatus)?.label || '全部流水'
+  const pendingSyncCards = syncPendingResult
+    ? [
+        { key: 'total_pending', label: '待处理', value: Number(syncPendingResult.total_pending || 0) },
+        { key: 'synced', label: '已补全', value: Number(syncPendingResult.synced || 0) },
+        { key: 'skipped', label: '跳过', value: Number(syncPendingResult.skipped || 0) },
+        { key: 'errors', label: '异常', value: Number(syncPendingResult.errors || 0) }
+      ]
+    : []
 
   return (
         <section className="panel holdings-main trade-center-shell">
@@ -279,99 +318,141 @@ export function TradeCenter({
             </Suspense>
           </div>
 
-          <section className="trade-lifecycle">
-            <div className="section-head trade-head">
-              <h3>交易生命周期</h3>
-              <span>买入（pending）{'->'} 确认（confirmed）{'->'} 计入收益</span>
+          <section className="trade-lifecycle trade-panel">
+            <div className="section-head section-head--rich trade-head trade-head--workspace">
+              <div className="section-head__copy">
+                <span className="trade-head__eyebrow">Lifecycle</span>
+                <h3>交易生命周期</h3>
+                <p className="section-description">买入（pending）{'->'} 确认（confirmed）{'->'} 计入收益，保持执行链路对齐。</p>
+              </div>
+              <div className="trade-head__aside">
+                <span>当前阶段</span>
+                <strong>{currentLifecycle.title}</strong>
+                <p>{transactionLifecycle.note}</p>
+              </div>
             </div>
             <div className="lifecycle-steps">
-              <article className={`lifecycle-step ${lifecycleStepClass(transactionLifecycle.step, 1)}`}>
-                <span className="lifecycle-index">1</span>
-                <h4>已记录交易</h4>
-                <p>待确认 {Number(transactionSummary.pending_count || 0)} 笔</p>
-              </article>
-              <article className={`lifecycle-step ${lifecycleStepClass(transactionLifecycle.step, 2)}`}>
-                <span className="lifecycle-index">2</span>
-                <h4>确认净值与份额</h4>
-                <p>已确认 {Number(transactionSummary.confirmed_count || 0)} 笔</p>
-              </article>
-              <article className={`lifecycle-step ${lifecycleStepClass(transactionLifecycle.step, 3)}`}>
-                <span className="lifecycle-index">3</span>
-                <h4>计入收益口径</h4>
-                <p>总计 {Number(transactionSummary.total_count || 0)} 笔</p>
-              </article>
+              {lifecycleSteps.map((item) => {
+                const stateClass = lifecycleStepClass(transactionLifecycle.step, item.key)
+                return (
+                  <article key={item.key} className={`lifecycle-step ${stateClass}`}>
+                    <div className="lifecycle-step__top">
+                      <span className="lifecycle-index">{item.key}</span>
+                      <span className="lifecycle-step__state">
+                        {stateClass === 'done' ? '已完成' : stateClass === 'active' ? '进行中' : '待进入'}
+                      </span>
+                    </div>
+                    <h4>{item.title}</h4>
+                    <strong>{item.detail}</strong>
+                    <p>{item.summary}</p>
+                  </article>
+                )
+              })}
             </div>
-            <p className="trade-tip">{transactionLifecycle.note}</p>
           </section>
 
-          <div className="section-head trade-head">
-            <h3>交易流水（pending / confirmed）</h3>
-            <span>
-              {transactionLoading
-                ? '加载中...'
-                : `总计 ${Number(transactionSummary.total_count || 0)} ｜ 待确认 ${Number(transactionSummary.pending_count || 0)} ｜ 已确认 ${Number(transactionSummary.confirmed_count || 0)}`}
-            </span>
-          </div>
-          <DataStatusBanner title="交易流水口径" dataStatus={transactionDataStatus} />
-          <div className="trade-grid">
-            <button
-              type="button"
-              className={transactionFilterStatus === 'all' ? 'primary' : 'ghost'}
-              onClick={() => setTransactionFilterStatus('all')}
-            >
-              全部流水
-            </button>
-            <button
-              type="button"
-              className={transactionFilterStatus === 'pending' ? 'primary' : 'ghost'}
-              onClick={() => setTransactionFilterStatus('pending')}
-            >
-              仅看 pending
-            </button>
-            <button
-              type="button"
-              className={transactionFilterStatus === 'confirmed' ? 'primary' : 'ghost'}
-              onClick={() => setTransactionFilterStatus('confirmed')}
-            >
-              仅看 confirmed
-            </button>
-            <button
-              type="button"
-              className="primary"
-              onClick={handleSyncPending}
-              disabled={syncPendingLoading || transactionLoading}
-            >
-              {syncPendingLoading ? '对账中...' : '对账 pending'}
-            </button>
-          </div>
-          <div className="trade-grid trade-grid-single">
-            <button
-              type="button"
-              className="ghost"
-              onClick={() => void loadTransactionList(transactionFilterStatus)}
-              disabled={transactionLoading}
-            >
-              刷新交易流水
-            </button>
-          </div>
-          {syncPendingError && <div className="chart-empty">{syncPendingError}</div>}
-          {syncPendingResult && (
-            <div className="trade-result">
-              <strong>pending 对账已执行</strong>
-              <p>待处理：{Number(syncPendingResult.total_pending || 0)}</p>
-              <p>已补全：{Number(syncPendingResult.synced || 0)}</p>
-              <p>跳过：{Number(syncPendingResult.skipped || 0)}</p>
-              <p>异常：{Number(syncPendingResult.errors || 0)}</p>
+          <section className="trade-stream-panel trade-panel">
+            <div className="section-head section-head--rich trade-head trade-head--workspace">
+              <div className="section-head__copy">
+                <span className="trade-head__eyebrow">Ledger</span>
+                <h3>交易流水</h3>
+                <p className="section-description">把 pending、confirmed、对账与审计动作收拢到同一执行上下文。</p>
+              </div>
+              <div className="trade-stream-summary" aria-label="交易流水摘要">
+                <article className="trade-stream-summary__card">
+                  <span>当前视图</span>
+                  <strong>{activeFilterLabel}</strong>
+                </article>
+                <article className="trade-stream-summary__card">
+                  <span>待确认</span>
+                  <strong>{Number(transactionSummary.pending_count || 0)}</strong>
+                </article>
+                <article className="trade-stream-summary__card">
+                  <span>已确认</span>
+                  <strong>{Number(transactionSummary.confirmed_count || 0)}</strong>
+                </article>
+              </div>
             </div>
-          )}
-          {transactionError && <div className="chart-empty">{transactionError}</div>}
-          {!transactionError && !transactionLoading && transactionLogs.length === 0 && (
-            <div className="chart-empty">当前筛选条件下暂无交易流水</div>
-          )}
-          {transactionLogs.length > 0 && (
-            <Table
-              dataSource={transactionLogs.map((item) => ({ ...item, key: `${item.id}-${item.idempotency_key}` }))}
-              columns={[
+            <DataStatusBanner title="交易流水口径" dataStatus={transactionDataStatus} />
+            <div className="trade-stream-toolbar">
+              <div className="trade-segmented-control" role="tablist" aria-label="交易流水筛选">
+                {transactionFilterOptions.map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={transactionFilterStatus === item.key}
+                    className={`trade-segmented-control__tab ${
+                      transactionFilterStatus === item.key ? 'trade-segmented-control__tab--active' : ''
+                    }`}
+                    onClick={() => setTransactionFilterStatus(item.key)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="trade-inline-actions">
+                <button
+                  type="button"
+                  className="trade-inline-action trade-inline-action--secondary"
+                  onClick={() => void loadTransactionList(transactionFilterStatus)}
+                  disabled={transactionLoading}
+                >
+                  刷新交易流水
+                </button>
+                <button
+                  type="button"
+                  className="trade-inline-action trade-inline-action--primary"
+                  onClick={handleSyncPending}
+                  disabled={syncPendingLoading || transactionLoading}
+                >
+                  {syncPendingLoading ? '对账中...' : '对账 pending'}
+                </button>
+              </div>
+            </div>
+            {syncPendingError && (
+              <SurfaceState
+                tone="error"
+                compact
+                title="pending 对账执行失败"
+                description={syncPendingError}
+                hint="请检查上游确认数据后重试。"
+              />
+            )}
+            {syncPendingResult && (
+              <div className="trade-reconcile-strip" aria-label="pending 对账结果">
+                {pendingSyncCards.map((item) => (
+                  <article key={item.key} className="trade-reconcile-strip__card">
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </article>
+                ))}
+              </div>
+            )}
+            {transactionError && (
+              <SurfaceState
+                tone="error"
+                compact
+                title="交易流水暂时不可用"
+                description={transactionError}
+                hint="不影响新增交易录入。"
+              />
+            )}
+            {!transactionError && !transactionLoading && transactionLogs.length === 0 && (
+              <SurfaceState
+                tone="empty"
+                compact
+                title="当前筛选条件下暂无交易流水"
+                description="可以切换筛选条件，或先新增一笔交易后再回到这里查看。"
+                hint={`当前视图：${activeFilterLabel}`}
+              />
+            )}
+            {transactionLogs.length > 0 && (
+              <div className="trade-table-shell">
+                <Table
+                  className="trade-table"
+                  dataSource={transactionLogs.map((item) => ({ ...item, key: `${item.id}-${item.idempotency_key}` }))}
+                  columns={[
                 {
                   title: '基金',
                   dataIndex: 'fund_name',
@@ -464,19 +545,27 @@ export function TradeCenter({
                     </Space>
                   )
                 }
-              ]}
-              pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }}
-              size="small"
-              scroll={{ x: 1000 }}
-              bordered
-              loading={transactionLoading}
-            />
-          )}
+                  ]}
+                  pagination={{ pageSize: 10, showSizeChanger: true, pageSizeOptions: ['10', '20', '50'] }}
+                  size="small"
+                  scroll={{ x: 1000 }}
+                  loading={transactionLoading}
+                />
+              </div>
+            )}
+          </section>
           {editingTransactionId > 0 && (
-            <section className="trade-lifecycle">
-              <div className="section-head trade-head">
-                <h3>交易手工修正</h3>
-                <span>交易 ID：{editingTransactionId}</span>
+            <section className="trade-lifecycle trade-panel">
+              <div className="section-head section-head--rich trade-head trade-head--workspace">
+                <div className="section-head__copy">
+                  <span className="trade-head__eyebrow">Manual Adjustment</span>
+                  <h3>交易手工修正</h3>
+                  <p className="section-description">仅在确认上游结算信息后进行手工修正，保留审计备注。</p>
+                </div>
+                <div className="trade-head__aside">
+                  <span>交易 ID</span>
+                  <strong>{editingTransactionId}</strong>
+                </div>
               </div>
               <form className="trade-form" onSubmit={handlePatchTransaction}>
                 <div style={{ marginBottom: 12 }}>
@@ -580,15 +669,41 @@ export function TradeCenter({
             </section>
           )}
           {transactionAuditTargetId > 0 && (
-            <section className="trade-lifecycle">
-              <div className="section-head trade-head">
-                <h3>交易审计链路</h3>
-                <span>交易 ID：{transactionAuditTargetId}</span>
+            <section className="trade-lifecycle trade-panel">
+              <div className="section-head section-head--rich trade-head trade-head--workspace">
+                <div className="section-head__copy">
+                  <span className="trade-head__eyebrow">Audit Trail</span>
+                  <h3>交易审计链路</h3>
+                  <p className="section-description">回看修正、对账与状态变更的上下文，避免人工处理失真。</p>
+                </div>
+                <div className="trade-head__aside">
+                  <span>交易 ID</span>
+                  <strong>{transactionAuditTargetId}</strong>
+                </div>
               </div>
-              {transactionAuditLoading && <div className="chart-empty">审计记录加载中...</div>}
-              {!transactionAuditLoading && transactionAuditError && <div className="chart-empty">{transactionAuditError}</div>}
+              {transactionAuditLoading && (
+                <SurfaceState
+                  tone="loading"
+                  compact
+                  title="审计记录加载中"
+                  description="正在整理当前交易的操作链路。"
+                />
+              )}
+              {!transactionAuditLoading && transactionAuditError && (
+                <SurfaceState
+                  tone="error"
+                  compact
+                  title="审计记录加载失败"
+                  description={transactionAuditError}
+                />
+              )}
               {!transactionAuditLoading && !transactionAuditError && transactionAuditItems.length === 0 && (
-                <div className="chart-empty">当前交易暂无审计记录。</div>
+                <SurfaceState
+                  tone="empty"
+                  compact
+                  title="当前交易暂无审计记录"
+                  description="后续发生修正、对账或状态变化时，会在这里保留轨迹。"
+                />
               )}
               {!transactionAuditLoading && !transactionAuditError && transactionAuditItems.length > 0 && (
                 <div className="record-list">
