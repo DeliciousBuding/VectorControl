@@ -7,3 +7,4 @@ deploy/certbot/
 deploy/data/
 deploy/backups/
 backend/.venv/
+.perf/
