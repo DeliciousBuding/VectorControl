@@ -33,3 +33,4 @@
 - [x] 4.5 使用正常中文提交、英文前缀提交、发布提交三组样例验证 `python scripts/check_release_message.py <msg_file>` 行为符合预期
 - [x] 4.6 在当前集成态重新运行 `python scripts/check_docs_gate.py --strict`，确认严格文档门禁通过
 - [x] 4.7 在当前集成态重新运行 `python scripts/check_release_preflight.py`，确认发布前一键预检通过
+- [x] 4.8 在 `prod` 的当前部署目录 `/opt/vectorcontrol` 只读运行 `docker compose ... config`、`curl http://127.0.0.1/api/healthz` 与 `python3 scripts/check_gate_d.py --base-url http://127.0.0.1`，确认 HTTP + SQLite 基线验收通过
