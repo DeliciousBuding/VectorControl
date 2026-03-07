@@ -25,10 +25,33 @@ export default defineConfig(({ mode }) => ({
     // 代码分割策略
     rollupOptions: {
       output: {
-        manualChunks: {
-          // 将大型依赖分离到独立 chunk
-          'antd-vendor': ['antd', '@ant-design/icons'],
-          'react-vendor': ['react', 'react-dom']
+        manualChunks: (id) => {
+          if (id.includes('node_modules/react') || id.includes('node_modules/react-dom')) {
+            return 'react-vendor'
+          }
+
+          const tradeHeavyModules = [
+            'node_modules/antd/es/date-picker',
+            'node_modules/antd/es/table',
+            'node_modules/antd/es/tooltip',
+            'node_modules/rc-picker',
+            'node_modules/rc-table',
+            'node_modules/rc-pagination',
+            'node_modules/rc-input-number'
+          ]
+
+          if (tradeHeavyModules.some((segment) => id.includes(segment))) {
+            return 'trade-antd'
+          }
+
+          if (
+            id.includes('node_modules/antd') ||
+            id.includes('node_modules/@ant-design')
+          ) {
+            return 'antd-vendor'
+          }
+
+          return undefined
         },
         // 资源文件命名
         assetFileNames: (assetInfo) => {
