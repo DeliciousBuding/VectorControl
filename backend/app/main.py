@@ -28,6 +28,7 @@ from app.api.routers import (
     transactions,
 )
 from app.bootstrap import initialize_app_state
+from app.core.request_metrics import record_request_metric
 from app.core.settings import ensure_api_token
 from app.storage.db import get_user_by_session_token
 
@@ -150,6 +151,13 @@ async def request_id_middleware(request: Request, call_next):
             status_code,
             request_id,
             elapsed_ms,
+        )
+        record_request_metric(
+            method=request.method.upper(),
+            path=request.url.path,
+            status_code=status_code,
+            request_id=request_id,
+            server_elapsed_ms=elapsed_ms,
         )
         _REQUEST_ID_CONTEXT.reset(context_token)
     response.headers[REQUEST_ID_HEADER] = request_id

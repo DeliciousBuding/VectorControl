@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import APIRouter, Request
 
 from app.api.deps import get_holdings_user_id, get_snapshot_user_id, get_user_id, get_username, is_admin
+from app.core.request_metrics import get_recent_request_metrics
 from app.storage.db import get_sqlite_observability_snapshot, get_system_status_snapshot
 
 router = APIRouter(prefix="/api/system", tags=["系统"])
@@ -243,6 +244,7 @@ def _build_system_observation(
         "release": release,
         "user": _build_user_metadata(request, holdings_user_id, snapshot_user_id),
         "snapshot": snapshot,
+        "recent_requests": get_recent_request_metrics(limit=5),
     }
 
 
@@ -271,6 +273,8 @@ def _build_diagnostic_text(payload: dict[str, Any]) -> str:
     sqlite_derived = sqlite_derived if isinstance(sqlite_derived, dict) else {}
     observations = sqlite_derived.get("observations") if isinstance(sqlite_derived.get("observations"), list) else []
     observations = [str(item) for item in observations if str(item).strip()]
+    recent_requests = payload.get("recent_requests") if isinstance(payload.get("recent_requests"), list) else []
+    recent_requests = [item for item in recent_requests if isinstance(item, dict)]
 
     diag_lines = [
         "=== VectorControl Diagnostics ===",
@@ -317,6 +321,15 @@ def _build_diagnostic_text(payload: dict[str, Any]) -> str:
         f"WAL State: {sqlite_derived.get('wal_state', '') or 'unknown'}",
         f"Lock Risk: {sqlite_derived.get('lock_risk', '') or 'unknown'}",
         f"Observations: {', '.join(observations) if observations else 'none'}",
+        "",
+        "=== Recent Requests ===",
+        *(
+            [
+                f"{str(item.get('time') or '')} | {str(item.get('method') or '').upper()} {str(item.get('path') or '')} | status={item.get('status_code')} | elapsed={item.get('server_elapsed_ms')}ms | request_id={item.get('request_id')}"
+                for item in recent_requests
+            ]
+            or ["none"]
+        ),
         "",
         "=== END ===",
     ]
