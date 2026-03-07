@@ -19,6 +19,7 @@
 - [x] 3.1 更新 `scripts/check_docs_gate.py`，让追踪文档范围与仓库声明的主发布巡检范围一致
 - [x] 3.2 更新 `frontend/package.json`，新增正式分析脚本入口
 - [x] 3.3 更新相关文档，说明如何使用前端分析入口与现有 `recordMetric()` / diagnostics 能力
+- [x] 3.4 更新 `scripts/check_release_message.py`，将提交信息校验从英文前缀收敛为仓库要求的中文前缀与发布提交四段说明规则
 
 ## 4. 验证
 
@@ -26,3 +27,4 @@
 - [x] 4.2 运行 `python scripts/check_release_preflight.py`
 - [x] 4.3 运行 `npm --prefix frontend run analyze -- --help` 或等效命令，确认分析入口可执行
 - [x] 4.4 更新 `ROADMAP.md` / `docs/最新进度.md` 中与本轮相关的状态记录
+- [x] 4.5 使用正常中文提交、英文前缀提交、发布提交三组样例验证 `python scripts/check_release_message.py <msg_file>` 行为符合预期
