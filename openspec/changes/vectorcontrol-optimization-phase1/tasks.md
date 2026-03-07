@@ -28,3 +28,5 @@
 - [x] 4.3 运行 `npm --prefix frontend run analyze -- --help` 或等效命令，确认分析入口可执行
 - [x] 4.4 更新 `ROADMAP.md` / `docs/最新进度.md` 中与本轮相关的状态记录
 - [x] 4.5 使用正常中文提交、英文前缀提交、发布提交三组样例验证 `python scripts/check_release_message.py <msg_file>` 行为符合预期
+- [x] 4.6 在当前集成态重新运行 `python scripts/check_docs_gate.py --strict`，确认严格文档门禁通过
+- [x] 4.7 在当前集成态重新运行 `python scripts/check_release_preflight.py`，确认发布前一键预检通过
