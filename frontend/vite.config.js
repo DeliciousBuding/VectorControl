@@ -30,13 +30,6 @@ export default defineConfig(({ mode }) => ({
             return 'react-vendor'
           }
 
-          if (
-            id.includes('node_modules/antd') ||
-            id.includes('node_modules/@ant-design')
-          ) {
-            return 'antd-vendor'
-          }
-
           return undefined
         },
         // 资源文件命名
