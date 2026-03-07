@@ -81,7 +81,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 ### 待集成 (Queue)
 - [√] [协同] 发布链路收敛：完成 `python scripts/check_docs_gate.py --strict` 与 `python scripts/check_release_preflight.py` 本地通过，并在 `prod` 以当前部署目录 `/opt/vectorcontrol` 完成 HTTP + SQLite 基线验收（已验证 `docker compose ... config`、`/api/healthz`、`python3 scripts/check_gate_d.py --base-url http://127.0.0.1` 全部通过）。
 - [√] [协同] `prod` 正式更新部署复验：已修复 `deploy/nginx/Dockerfile` 复制路径、`deploy/docker-compose.prod.yml` 对旧 `site.rendered.conf` 的挂载，以及 `deploy/nginx/nginx.conf` 的 brotli 启动阻塞；在 `/opt/vectorcontrol` 实跑 `sudo bash scripts/update_prod.sh` 后再次通过 `docker compose -f deploy/docker-compose.prod.yml ps`、`curl http://127.0.0.1/api/healthz` 与 `python3 scripts/check_gate_d.py --base-url http://127.0.0.1`，证据已补录到 `docs/Gate-D验收证据-20260307.md` 与 `docs/evidence/gate-d-20260307/deploy-*`。
-- [√] [协同] `vectorcontrol.tech` HTTPS 恢复：已恢复 `site.rendered.conf` 渲染链与 `VC_ENABLE_TLS` 模板切换，`prod` 当前通过 `https://vectorcontrol.tech` 对外提供服务；实机证据见 `docs/evidence/gate-d-20260307/https-http-redirect-20260308.txt`、`docs/evidence/gate-d-20260307/https-home-head-20260308.txt`、`docs/evidence/gate-d-20260307/https-gate-d-20260308.txt`。
+- [√] [协同] `vectorcontrol.tech` HTTPS 恢复：已恢复 `site.rendered.conf` 渲染链与 `VC_ENABLE_TLS` 模板切换，`prod` 当前通过 `https://vectorcontrol.tech` 对外提供服务；部署脚本现会在 `docker compose up -d --build` 后等待 backend 就绪，避免 Gate-D 紧跟更新时短暂命中 `502`；实机证据见 `docs/evidence/gate-d-20260307/https-http-redirect-20260308.txt`、`docs/evidence/gate-d-20260307/https-home-head-20260308.txt`、`docs/evidence/gate-d-20260307/https-gate-d-20260308.txt`。
 - [√] [前端] 第二轮 bundle 优化：按 `openspec/changes/frontend-bundle-optimization-phase2/` 已完成页面级 chunk 基线记录、页面级懒加载与 bundle 收缩（首页主路径瘦身、交易中心循环分块告警消除、`App.jsx` 外壳 / `SideNav.jsx` / `PortfolioReturnsPanel.jsx` / `TopToolbar.jsx` 去 AntD、`LoginPanel` / `TopToolbar` / `HoldingsCreatePanel` / `ReminderRulesPanel` 懒加载、取消 `antd` 的统一 vendor 强切、补齐 `recordMetric()` 交互基线；当前 analyze 已不再出现 `500 kB` 以上 chunk 警告）。
 - [√] [后端] 第二轮观测优化：按 `openspec/changes/backend-observability-phase2/` 完成热点接口耗时、SQLite 热点查询与部署侧诊断增强的 phase2 收口（已落地 `estimate_snapshot` 索引化、charts 聚合收敛、`system/status` / `system/diagnostics` 结构化观测、`X-Server-Elapsed-Ms` 最小时长信号、请求完成结构化日志、最近请求摘要、SQLite 只读观测摘要，以及 `lock_risk / wal_state / db_dir.writable / observations` 最小排障提示；对应 tasks 已全部勾选）。
 - [√] [协同] 无人值守执行闭环：已按“单闭环完成后再开下一闭环”的顺序完成前端 phase2、后端观测 phase2、发布链路收敛与线上证据留档的当前轮次收口；当前剩余未关项已收敛为外部条件或后续增强项。
@@ -159,7 +159,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已落地 `scripts/perf_smoke.py` 与 `.perf/perf_smoke/latest.json`，当前首页/基金详情页/系统状态页本地基线已生成）。
 
 ### 已完成 (Done)
-- [√] [运维] prod HTTPS 恢复：已补齐证书、UFW 443 放行与 TLS 配置渲染链，`https://vectorcontrol.tech/` 与 `https://vectorcontrol.tech/api/healthz` 已恢复可访问，证据见 `docs/evidence/gate-d-20260307/https-head-20260308.txt`、`docs/evidence/gate-d-20260307/https-healthz-20260308.json`、`docs/evidence/gate-d-20260307/https-cert-20260308.txt`。
+- [√] [运维] prod HTTPS 恢复：已补齐证书、UFW 443 放行与 TLS 配置渲染链，`https://vectorcontrol.tech/` 与 `https://vectorcontrol.tech/api/healthz` 已恢复可访问；部署脚本已追加 backend 健康等待，避免更新后即刻验收时返回 `502`，证据见 `docs/evidence/gate-d-20260307/https-head-20260308.txt`、`docs/evidence/gate-d-20260307/https-healthz-20260308.json`、`docs/evidence/gate-d-20260307/https-cert-20260308.txt`。
 - [√] [后端] 登录安全增强：细粒度限流、失败观测、告警阈值。（已完成@bot e70e401）。
 - [√] [后端] 数据导入幂等键 v1：`POST /api/transactions/import` 支持幂等键防重复落库，补 smoke + 契约。（已完成@bot）。
 - [√] [后端] 账号安全 v1（密码策略与会话过期可见）：补最小 smoke + 契约。（已完成@bot）。

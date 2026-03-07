@@ -8,6 +8,7 @@
 - [x] 2.1 确认生产 Compose 挂载 `site.rendered.conf`
 - [x] 2.2 修复 `update_prod.sh` / `deploy_prod.sh` 对 `python3` 的兼容
 - [x] 2.3 固化 `render_nginx_site.py` 渲染链
+- [x] 2.4 为部署脚本补齐 backend 就绪等待
 
 ## 3. 生产修复
 
