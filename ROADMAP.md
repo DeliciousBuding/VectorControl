@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-08 02:24:45
+更新时间：2026-03-08 02:35:24
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -159,6 +159,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已落地 `scripts/perf_smoke.py` 与 `.perf/perf_smoke/latest.json`，当前首页/基金详情页/系统状态页本地基线已生成）。
 
 ### 已完成 (Done)
+- [√] [前端] 设置中心视觉升级 phase4：参考 Ant Design Drawer / Data Entry、GitHub Primer 设置表单层级与 Saleor Dashboard 配置页结构，完成 `SettingsDrawer` 头部摘要层、分区标题说明与 Drawer 头部 / 正文 / 页脚视觉统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`。
 - [√] [前端] 导航体系视觉升级 phase3：参考 Ant Design Workbench / Navigation / Layout、GitHub Primer 导航层级与 Saleor Dashboard 的后台导航密度控制，完成 `SideNav` / `BottomTabs` 共享导航配置、当前工作区概览、分组导航与移动端入口统一，并补齐 `SideNav` / `BottomTabs` 最小回归；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`。
 - [√] [前端] 工具栏与基准对比视觉升级 phase2：参考 Ant Design `PageHeader` / Workbench、GitHub Primer 布局层级与 Saleor Dashboard 的后台信息密度处理，完成 `TopToolbar` 双层头部、首页上下文条、基准对比概览卡与基准卡片层级收敛；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`。
 - [√] [前端] 首页工作台视觉升级 phase1：参考 Ant Design Workbench / Data Display 与 GitHub Primer 层级原则，完成首页概览区、指标卡、数据口径横幅、收益监控面板与 Ant Design 主题的视觉收敛；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run build`、`npm --prefix frontend run analyze`。

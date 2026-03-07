@@ -1163,16 +1163,72 @@ export function SettingsDrawer({
     typeof window !== 'undefined' && window.innerWidth <= 768
       ? 'default'
       : 'large'
+  const enabledNotificationChannels = [
+    Boolean(draft.notifications.feishu.enabled),
+    Boolean(draft.notifications.telegram.enabled),
+    Boolean(draft.notifications.email.enabled)
+  ].filter(Boolean).length
+  const activeSipPlansCount = sipPlans.filter((plan) => Boolean(plan?.enabled)).length
+  const settingsOverviewCards = [
+    {
+      key: 'refresh',
+      icon: SettingOutlined,
+      eyebrow: '自动刷新',
+      value: Boolean(draft.display.auto_refresh_enabled) ? `${draft.display.auto_refresh_seconds ?? 60}s` : '已关闭',
+      description: Boolean(draft.display.auto_refresh_enabled)
+        ? (draft.display.auto_refresh_visible_only ? '仅页面可见时刷新' : '后台继续刷新')
+        : '当前改为手动刷新模式'
+    },
+    {
+      key: 'sip',
+      icon: ExperimentOutlined,
+      eyebrow: '定投计划',
+      value: hydratedSections.sip ? `${sipPlans.length} 个计划` : '按需加载',
+      description: hydratedSections.sip
+        ? (sipPlans.length > 0 ? `已启用 ${activeSipPlansCount} 个执行计划` : '当前暂无定投计划')
+        : '点击加载计划查看执行规则'
+    },
+    {
+      key: 'notifications',
+      icon: BellOutlined,
+      eyebrow: '通知通道',
+      value: `${enabledNotificationChannels} 个启用`,
+      description: hydratedSections.diagnostics
+        ? '通知诊断已同步，可直接发送测试消息'
+        : '诊断按需加载，支持一键复制状态'
+    }
+  ]
+
+  const renderSectionHeader = (Icon, title, description) => (
+    <div className="settings-section-header">
+      <span className="section-icon">
+        <Icon aria-hidden="true" />
+      </span>
+      <div className="settings-section-copy">
+        <span className="section-title">{title}</span>
+        <p>{description}</p>
+      </div>
+    </div>
+  )
 
   return (
     <Drawer
-      title="设置中心"
+      className="settings-drawer"
+      title={(
+        <div className="settings-drawer__heading">
+          <span className="settings-drawer__eyebrow">控制台设置</span>
+          <div>
+            <h2>设置中心</h2>
+            <p>统一管理自动刷新、定投计划、网络诊断与消息推送。</p>
+          </div>
+        </div>
+      )}
       placement="right"
       onClose={handleClose}
       open={internalOpen}
       size={drawerSize}
       footer={
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div className="settings-footer-actions">
           <Button onClick={handleClose}>关闭</Button>
           <Button type="primary" onClick={save} loading={saving} data-testid="settings-save-btn">
             {saving ? '保存中...' : '保存设置'}
@@ -1180,11 +1236,23 @@ export function SettingsDrawer({
         </div>
       }
     >
+        <section className="settings-overview" aria-label="设置概览">
+          {settingsOverviewCards.map((card) => {
+            const Icon = card.icon
+            return (
+              <article key={card.key} className="settings-overview-card">
+                <span className="settings-overview-card__icon">
+                  <Icon aria-hidden="true" />
+                </span>
+                <span className="settings-overview-card__eyebrow">{card.eyebrow}</span>
+                <strong>{card.value}</strong>
+                <p>{card.description}</p>
+              </article>
+            )
+          })}
+        </section>
 
-        <div className="settings-section-header">
-          <span className="section-icon">⚙️</span>
-          <span className="section-title">常用设置</span>
-        </div>
+        {renderSectionHeader(SettingOutlined, '常用设置', '先处理刷新策略和定投执行节奏，再进入诊断或通知配置。')}
 
         <div className="settings-group">
           <h4>自动刷新</h4>
@@ -1453,10 +1521,7 @@ export function SettingsDrawer({
           ) : null}
         </div>
 
-        <div className="settings-section-header">
-          <span className="section-icon">🔍</span>
-          <span className="section-title">网络与诊断</span>
-        </div>
+        {renderSectionHeader(ExperimentOutlined, '网络与诊断', '用于排查链路、同步系统状态，并给出可复制的排障上下文。')}
 
         <div className="settings-group">
           <h4>网络测速</h4>
@@ -1538,10 +1603,7 @@ export function SettingsDrawer({
           )}
         </div>
 
-        <div className="settings-section-header">
-          <span className="section-icon">📨</span>
-          <span className="section-title">消息推送（预留）</span>
-        </div>
+        {renderSectionHeader(BellOutlined, '消息推送（预留）', '统一查看凭据状态、测试记录与自动发现入口。')}
 
         <div className="settings-group">
           <h4>飞书机器人（预留）</h4>
@@ -2165,7 +2227,7 @@ export function SettingsDrawer({
                     disabled={saving || testAllLoading}
                     onClick={handleTestAll}
                   >
-                    {testAllLoading ? '测试中...' : 'Test All'}
+                    {testAllLoading ? '测试中...' : '测试全部通道'}
                   </button>
                 </div>
 
