@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { fetchBenchmarkComparison, fetchBenchmarks } from '../api.js'
 import { classBySign, formatPercent } from '../utils/format.js'
 import { DataStatusBanner } from './DataStatusBanner.jsx'
+import { SurfaceState } from './SurfaceState.jsx'
 
 function asPlainObject(value) {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
@@ -159,9 +160,30 @@ export function BenchmarkComparisonPanel({ user, lastRefresh }) {
 
       <DataStatusBanner title="基准对比口径" dataStatus={dataStatus} />
 
-      {loading && <div className="chart-empty">正在加载基准对比...</div>}
-      {!loading && error && <div className="chart-empty">{error}</div>}
-      {!loading && !error && rows.length === 0 && <div className="chart-empty">暂无可用基准</div>}
+      {loading && (
+        <SurfaceState
+          tone="loading"
+          title="正在加载基准对比"
+          description="正在同步 benchmark 列表与组合收益口径。"
+          hint="稍后即可看到相对表现判断。"
+        />
+      )}
+      {!loading && error && (
+        <SurfaceState
+          tone="error"
+          title="基准对比暂时不可用"
+          description={error}
+          hint="建议稍后刷新，若持续失败请检查后端数据源状态。"
+        />
+      )}
+      {!loading && !error && rows.length === 0 && (
+        <SurfaceState
+          tone="empty"
+          title="暂无可用基准"
+          description="当前尚未返回可比较的 benchmark 列表。"
+          hint="可先确认基准配置或等待下一次同步。"
+        />
+      )}
 
       {!loading && !error && rows.length > 0 && (
         <div className="benchmark-list" data-testid="benchmark-comparison-list">

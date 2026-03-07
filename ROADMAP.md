@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-08 02:54:59
+更新时间：2026-03-08 03:10:45
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -159,6 +159,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已落地 `scripts/perf_smoke.py` 与 `.perf/perf_smoke/latest.json`，当前首页/基金详情页/系统状态页本地基线已生成）。
 
 ### 已完成 (Done)
+- [√] [前端] 全局状态语言升级 phase6：参考 Apple HIG、Google Material 与 OpenAI 官网克制状态表达，新增 `SurfaceState` 并优先落地到 `BenchmarkComparisonPanel`、`FundDetailPage` 与 `RiskCenter`；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`。
 - [√] [前端] 基金详情页视觉升级 phase5：参考 Ant Design Workbench、GitHub Primer split layout 与 Saleor Dashboard 的详情页节奏，完成 `FundDetailPage` 头部上下文、概览卡、左右双栏详情卡与正负态语义统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`。
 - [√] [前端] 设置中心视觉升级 phase4：参考 Ant Design Drawer / Data Entry、GitHub Primer 设置表单层级与 Saleor Dashboard 配置页结构，完成 `SettingsDrawer` 头部摘要层、分区标题说明与 Drawer 头部 / 正文 / 页脚视觉统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`。
 - [√] [前端] 导航体系视觉升级 phase3：参考 Ant Design Workbench / Navigation / Layout、GitHub Primer 导航层级与 Saleor Dashboard 的后台导航密度控制，完成 `SideNav` / `BottomTabs` 共享导航配置、当前工作区概览、分组导航与移动端入口统一，并补齐 `SideNav` / `BottomTabs` 最小回归；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`。
