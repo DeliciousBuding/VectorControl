@@ -45,6 +45,20 @@ class RequestIdMiddlewareSmokeTest(unittest.TestCase):
             self.assertTrue(second_id)
             self.assertNotEqual(first_id, second_id)
 
+    def test_request_completion_logs_structured_signal(self) -> None:
+        with TestClient(app) as client:
+            with self.assertLogs("vectorcontrol", level="INFO") as captured:
+                request_id = "trace-log-001"
+                resp = client.get("/api/health", headers={REQUEST_ID_HEADER: request_id})
+            self.assertEqual(resp.status_code, 200, resp.text)
+        joined = "\n".join(captured.output)
+        self.assertIn("request_completed", joined)
+        self.assertIn("method=GET", joined)
+        self.assertIn("path=/api/health", joined)
+        self.assertIn("status_code=200", joined)
+        self.assertIn(f"request_id={request_id}", joined)
+        self.assertRegex(joined, r"server_elapsed_ms=\d+")
+
 
 if __name__ == "__main__":
     unittest.main()

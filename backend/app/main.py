@@ -135,12 +135,22 @@ async def request_id_middleware(request: Request, call_next):
     started_at = time.perf_counter()
     request.state.request_started_at = started_at
     context_token = _REQUEST_ID_CONTEXT.set(request_id)
+    response = None
     try:
         response = await call_next(request)
     finally:
+        elapsed_ms = max(0, int((time.perf_counter() - started_at) * 1000))
+        request.state.server_elapsed_ms = elapsed_ms
+        status_code = getattr(response, "status_code", 500)
+        LOGGER.info(
+            "request_completed method=%s path=%s status_code=%s request_id=%s server_elapsed_ms=%s",
+            request.method.upper(),
+            request.url.path,
+            status_code,
+            request_id,
+            elapsed_ms,
+        )
         _REQUEST_ID_CONTEXT.reset(context_token)
-    elapsed_ms = max(0, int((time.perf_counter() - started_at) * 1000))
-    request.state.server_elapsed_ms = elapsed_ms
     response.headers[REQUEST_ID_HEADER] = request_id
     response.headers[REQUEST_DURATION_HEADER] = str(elapsed_ms)
     return response
