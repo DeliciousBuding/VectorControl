@@ -14,3 +14,4 @@
 - [x] 3.1 验证热点接口与诊断输出可用于排障
 - [x] 3.2 将本轮后端观测优化结果同步到 `docs/最新进度.md` 与 `ROADMAP.md`
 - [x] 3.3 扩展 SQLite 诊断字段（`db_dir`、`synchronous`、`wal_autocheckpoint_pages`、`derived.lock_risk/observations`）并通过 smoke 覆盖稳定输出
+- [x] 3.4 在 `request_id` 中间件补齐请求完成结构化日志（`method/path/status_code/request_id/server_elapsed_ms`），并通过 `test_request_id_middleware_smoke.py` 覆盖
