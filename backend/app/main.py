@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 import contextvars
 import logging
 import time
@@ -169,10 +170,13 @@ def _register_middleware(app: FastAPI) -> None:
     app.middleware("http")(request_id_middleware)
 
 
-def _register_startup(app: FastAPI) -> None:
-    @app.on_event("startup")
-    def on_startup() -> None:
+def _build_lifespan():
+    @asynccontextmanager
+    async def lifespan(app: FastAPI):
         initialize_app_state(app)
+        yield
+
+    return lifespan
 
 
 
@@ -185,9 +189,8 @@ def _register_routes(app: FastAPI) -> None:
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title=SERVICE_NAME, version="0.1.0")
+    app = FastAPI(title=SERVICE_NAME, version="0.1.0", lifespan=_build_lifespan())
     _register_middleware(app)
-    _register_startup(app)
     _register_routes(app)
     return app
 

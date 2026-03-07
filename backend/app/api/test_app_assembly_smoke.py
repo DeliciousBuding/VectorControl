@@ -31,16 +31,11 @@ class AppAssemblySmokeTest(unittest.TestCase):
         fresh_app = create_app()
         fake_config = {"funds": [], "portfolio": {"holdings": []}, "policy": {}}
 
-        with patch("app.bootstrap.load_all", return_value=fake_config) as mock_load_all, patch(
-            "app.bootstrap.init_db"
-        ) as mock_init_db, patch("app.bootstrap.sync_fund_catalog_from_config", return_value=0) as mock_sync:
-            for handler in fresh_app.router.on_startup:
-                handler()
+        with patch("app.main.initialize_app_state") as mock_initialize:
+            with TestClient(fresh_app):
+                pass
 
-        mock_load_all.assert_called_once_with()
-        mock_init_db.assert_called_once_with()
-        mock_sync.assert_called_once_with(fake_config)
-        self.assertIs(fresh_app.state.config, fake_config)
+        mock_initialize.assert_called_once_with(fresh_app)
 
     def test_estimate_snapshot_indexes_initialized_in_init_db(self) -> None:
         with TestClient(app):
