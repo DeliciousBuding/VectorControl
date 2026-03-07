@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-08 04:02:04
+更新时间：2026-03-08 04:08:57
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -159,6 +159,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已落地 `scripts/perf_smoke.py` 与 `.perf/perf_smoke/latest.json`，当前首页/基金详情页/系统状态页本地基线已生成）。
 
 ### 已完成 (Done)
+- [√] [前端] 设置中心诊断区视觉升级 phase12：参考 Apple HIG、Google Material、GitHub Primer 与 OpenAI 官网的设置 / 诊断区组织方式，完成 `SettingsDrawer` 的系统状态与通知诊断摘要层、工具条和结果面统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
 - [√] [前端] 风险中枢视觉升级 phase11：参考 Apple HIG、Google Material、GitHub Primer 与 OpenAI 官网的摘要式工作台组织方式，完成 `RiskCenter` 头部摘要与风险卡片层级统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
 - [√] [前端] 持仓表视觉升级 phase10：参考 Apple HIG、Google Material、GitHub Primer Page Layout / Table 与 OpenAI 官网的产品语言，完成 `HoldingsTable` 摘要层、工具栏和表格外壳统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
 - [√] [前端] 定投自动化视觉升级 phase9：参考 Apple HIG、Google Material、GitHub Primer Form Control / Page Layout 与 OpenAI 官网的产品区块组织方式，完成 `SIPPlanManager` 头部摘要、计划卡、表单和状态面统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
