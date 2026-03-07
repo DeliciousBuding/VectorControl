@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-07 14:55:28
+更新时间：2026-03-07 15:07:03
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -84,7 +84,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [后端] 第二轮观测优化：按 `openspec/changes/backend-observability-phase2/` 整理热点接口耗时、SQLite 热点查询与部署侧诊断增强（已落地 `estimate_snapshot` 索引化、charts 聚合收敛、`system/status` / `system/diagnostics` 结构化观测、`X-Server-Elapsed-Ms` 最小时长信号、请求完成结构化日志、SQLite 只读观测摘要，以及 `lock_risk / wal_state / db_dir.writable / observations` 最小排障提示；应用启动也已切到 `lifespan`，当前下一步进入更细粒度耗时记录与锁/排障提示文案继续收紧）。
 - [ ] [协同] 无人值守执行闭环：将第二轮前端优化、后端观测、线上证据留档按“单闭环完成后再开下一闭环”的顺序持续推进，直到 `ROADMAP` 中高优先级优化项全部收口。
 - [ ] [前端] 基于 `docs/Gate-D验收证据模板.md` 补齐设置中心/测速页面实机验收证据（模板与 `docs/Gate-D设置中心测速前端证据.md` 已收敛到当前 HTTP + SQLite 基线；待生产实机截图、真实命令输出与实机结论补录后关单）。
-- [ ] [协同] 按 `docs/P0线上故障排查SOP.md` 完成"测速 Not Found + 设置中心白屏"双故障关闭留档（含根因、修复提交、回归证据）。
+- [√] [协同] 按 `docs/P0线上故障排查SOP.md` 完成"测速 Not Found + 设置中心白屏"双故障关闭留档（含根因、修复提交、回归证据；当前证据入口为 `docs/Gate-D测速NotFound后端证据.md`、`docs/Gate-D设置中心测速前端证据.md`、`docs/Postmortem-测速NotFound与设置中心白屏-后端.md`）。
 - [ ] [协同] 双故障关闭留档（可审核版本）：后端 postmortem 与测速 Not Found 后端证据已收敛到当前 HTTP 基线；下一步由前端补齐实机截图清单，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）。
 
 ### 新需求（2026-02-15 庄方宜提出）
