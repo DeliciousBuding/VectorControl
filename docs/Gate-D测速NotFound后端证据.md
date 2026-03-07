@@ -1,6 +1,6 @@
 # Gate-D测速NotFound后端证据（P0）
-> 最后更新: 2026-02-11 09:05:00 (UTC+8)
-> 状态: [Closed]
+更新时间：2026-03-07 14:22:01
+状态: [Open]
 
 ## 1. 问题与范围
 - 问题：VPS 环境反馈"测速接口 Not Found"。
@@ -18,7 +18,7 @@
 - 说明：原有 `GET/POST /api/settings/network-benchmark/*` 与 `_` 兼容路径保持不变。
 
 ### 2.2 Nginx 层（proxy）
-- 检查文件：`deploy/nginx/site.conf`
+- 检查文件：`deploy/nginx/site.http.conf`
 - 修复：新增历史路径重写规则（第 44-47 行）
 - 配置内容：
   ```nginx
@@ -42,12 +42,12 @@
 - `POST /api/network_benchmark/run -> 200`
 
 ## 4. Gate-D补充执行项（VPS）
-生产环境验证命令：
+生产环境验证命令（当前 HTTP 基线）：
 
 ```bash
 docker compose -f deploy/docker-compose.prod.yml ps
-curl -i https://<domain>/api/settings/network-benchmark/latest
-curl -i -X POST https://<domain>/api/settings/network-benchmark/run \
+curl -i http://<domain>/api/settings/network-benchmark/latest
+curl -i -X POST http://<domain>/api/settings/network-benchmark/run \
   -H 'Content-Type: application/json' \
   -H 'Authorization: Bearer <token>' \
   -d '{"profile":"cn_fund","timeout_seconds":2.0,"persist":false}'
@@ -55,5 +55,5 @@ curl -i -X POST https://<domain>/api/settings/network-benchmark/run \
 
 ## 5. 关联提交
 - 后端修复代码：`backend/app/api/routers/settings.py`（第 769-945 行）
-- 网关配置修复：`deploy/nginx/site.conf`（第 44-47 行）
-- 验收状态：[Closed]
+- 网关配置修复：`deploy/nginx/site.http.conf`
+- 验收状态：本地证据已完成，待生产 HTTP 基线补录后关闭
