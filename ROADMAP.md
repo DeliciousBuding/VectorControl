@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-07 15:07:03
+更新时间：2026-03-07 15:15:24
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -88,8 +88,8 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [ ] [协同] 双故障关闭留档（可审核版本）：后端 postmortem 与测速 Not Found 后端证据已收敛到当前 HTTP 基线；下一步由前端补齐实机截图清单，总控最终 Gate-D 勾选并归档（已于 2026-02-09 17:20:05 预告排队）。
 
 ### 新需求（2026-02-15 庄方宜提出）
-- [ ] [前端] **基金专属独立页面**：点击基金跳转独立路由 `/fund/:fund_id`，而非滚动到底部查看
-- [ ] [前端] **优化基金详情页信息密度**：左右布局（左波形图+右具体数据），波形图缩小提高信息密度
+- [√] [前端] **基金专属独立页面**：点击基金跳转独立路由 `/fund/:fund_id`，而非滚动到底部查看（已由 `useAppNavigation.test.jsx` 验证路由跳转）
+- [√] [前端] **优化基金详情页信息密度**：左右布局（左波形图+右具体数据），波形图缩小提高信息密度（已由 `FundDetailPage.jsx` 落地，并由 `FundDetailPage.test.jsx` 验证关键区块）
 - [ ] [前端] **持仓表头自定义字段**：支持显示/隐藏列，删除持仓份额为0的列
 - [√] [后端] **导入交易记录JSON功能**：标准JSON格式+自动爬取补全缺失数据（已补齐 `/api/transactions/import_json` / `/api/transactions/import` 契约口径，并修正单条导入幂等冲突返回 `409`；`test_transactions_import_smoke.py` 已通过）
 
