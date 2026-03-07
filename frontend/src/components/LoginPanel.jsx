@@ -15,6 +15,30 @@ export function LoginPanel({ loading, onSubmit }) {
     if (loading) return '提交中...'
     return mode === 'login' ? '立即登录' : '立即注册'
   }, [loading, mode])
+  const heroTitle = mode === 'login' ? '进入 VectorControl' : '创建你的工作区'
+  const heroDescription = mode === 'login'
+    ? '登录后自动恢复你的持仓、设置和风险工作台。'
+    : '注册后立即创建独立账户空间，并自动进入控制台。'
+  const overviewCards = [
+    {
+      key: 'workspace',
+      label: '独立工作区',
+      value: '持仓与设置隔离',
+      hint: '每个账号都拥有独立的数据与配置上下文。'
+    },
+    {
+      key: 'sync',
+      label: '恢复体验',
+      value: mode === 'login' ? '自动加载' : '自动开通',
+      hint: mode === 'login' ? '登录后直接恢复你的最近使用状态。' : '注册成功后自动进入应用并完成初始化。'
+    },
+    {
+      key: 'security',
+      label: '会话安全',
+      value: '最小暴露',
+      hint: '认证错误会给出明确下一步，避免无反馈跳转。'
+    }
+  ]
 
   const switchMode = (nextMode) => {
     setMode(nextMode)
@@ -39,39 +63,44 @@ export function LoginPanel({ loading, onSubmit }) {
   }
 
   return (
-    <div style={{ 
-      display: 'flex', 
-      justifyContent: 'center', 
-      alignItems: 'center', 
-      minHeight: '100vh',
-      padding: '20px 18px 56px'
-    }}>
-      <Card style={{ width: '100%', maxWidth: 520 }}>
-        <div style={{ textAlign: 'center', marginBottom: 24 }}>
-          <Title level={2} style={{ margin: 0 }}>用户登录</Title>
-          <Text type="secondary" style={{ fontSize: 18, display: 'block', marginTop: 8 }}>
-            登录后自动加载你的独立持仓与设置。
-          </Text>
+    <div className="login-shell">
+      <Card className="login-panel">
+        <div className="login-panel__hero">
+          <span className="login-panel__eyebrow">Workspace Access</span>
+          <div className="login-panel__headline">
+            <Title level={2}>{heroTitle}</Title>
+            <Text>{heroDescription}</Text>
+          </div>
+          <section className="login-panel__overview" aria-label="认证入口概览">
+            {overviewCards.map((card) => (
+              <article key={card.key} className="login-panel__overview-card">
+                <span>{card.label}</span>
+                <strong>{card.value}</strong>
+                <p>{card.hint}</p>
+              </article>
+            ))}
+          </section>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+        <div className="login-panel__mode-switch" role="tablist" aria-label="登录模式切换">
           <Button
             type={mode === 'login' ? 'primary' : 'default'}
             onClick={() => switchMode('login')}
-            style={{ flex: 1 }}
+            className="login-panel__mode-btn"
           >
             登录
           </Button>
           <Button
             type={mode === 'register' ? 'primary' : 'default'}
             onClick={() => switchMode('register')}
-            style={{ flex: 1 }}
+            className="login-panel__mode-btn"
           >
             注册
           </Button>
         </div>
 
         <Form
+          className="login-panel__form"
           form={form}
           layout="vertical"
           onFinish={onFinish}
@@ -106,20 +135,12 @@ export function LoginPanel({ loading, onSubmit }) {
           </Form.Item>
 
           {errorText && (
-            <div style={{ 
-              color: '#b91c1c', 
-              border: '1px solid #fecaca', 
-              background: '#fef2f2', 
-              borderRadius: 10, 
-              padding: '9px 11px', 
-              fontSize: 14,
-              marginBottom: 12
-            }}>
+            <div className="auth-message auth-message-error">
               {errorText}
             </div>
           )}
 
-          <Form.Item style={{ marginBottom: 0 }}>
+          <Form.Item className="login-panel__submit">
             <Button 
               type="primary" 
               htmlType="submit" 
