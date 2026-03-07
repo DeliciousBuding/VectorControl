@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Spin, Card, Row, Col, Tag, Table, Statistic } from 'antd'
+import { Button, Spin, Card, Row, Col, Tag, Table } from 'antd'
 import { ArrowLeftOutlined, LineChartOutlined, HistoryOutlined, WalletOutlined, RiseOutlined, FallOutlined } from '@ant-design/icons'
 import { MultiLineChart } from '../components/MultiLineChart.jsx'
 import { fetchFundDetailPageData } from '../api.js'
@@ -7,9 +7,9 @@ import { classBySign, formatMoney, formatPercent, formatSignedMoney, formatDateT
 
 function CompactMetric({ label, value, prefix = '', suffix = '', className = '' }) {
   return (
-    <div style={{ textAlign: 'center' }}>
-      <div style={{ color: 'var(--muted)', fontSize: '11px', marginBottom: '2px' }}>{label}</div>
-      <div style={{ fontSize: '14px', fontWeight: 600 }} className={className}>
+    <div className="fund-detail-compact-metric">
+      <div className="fund-detail-compact-metric__label">{label}</div>
+      <div className={`fund-detail-compact-metric__value ${className}`.trim()}>
         {prefix}{value}{suffix}
       </div>
     </div>
@@ -132,81 +132,105 @@ export function FundDetailPage({ fundId, onBack }) {
   const dayChangeClass = classBySign(fundData.day_change_pct || 0)
   const holdingChangeClass = classBySign(fundData.holding_profit_rate || 0)
   const TrendIcon = fundData.day_change_pct >= 0 ? RiseOutlined : FallOutlined
+  const holdingProfitPrefix = (fundData.holding_profit_cny || 0) > 0 ? '+' : (fundData.holding_profit_cny || 0) < 0 ? '-' : ''
+  const marketLabel = fundData.market_group === 'us_overseas' ? '美股/海外' : 'A股/港股'
+  const confirmStateLabel = fundData.confirm_state === 'confirmed'
+    ? '已确认'
+    : fundData.confirm_state === 'partial'
+      ? '部分可用'
+      : '估算中'
+  const confirmStateColor = fundData.confirm_state === 'confirmed'
+    ? 'green'
+    : fundData.confirm_state === 'partial'
+      ? 'orange'
+      : 'default'
+  const overviewCards = [
+    {
+      key: 'marketValue',
+      eyebrow: '当前市值',
+      value: `¥${formatMoney(fundData.market_value_cny || 0)}`,
+      description: fundData.as_of ? `数据时点 ${formatDateTime(fundData.as_of)}` : '等待最新估值同步',
+      tone: 'primary'
+    },
+    {
+      key: 'holdingProfit',
+      eyebrow: '持有收益',
+      value: `${holdingProfitPrefix}¥${formatMoney(Math.abs(fundData.holding_profit_cny || 0))}`,
+      description: `持有收益率 ${formatPercent((fundData.holding_profit_rate || 0) * 100)}`,
+      tone: holdingChangeClass === 'is-up' ? 'positive' : holdingChangeClass === 'is-down' ? 'negative' : 'neutral'
+    },
+    {
+      key: 'dayChange',
+      eyebrow: '当日涨跌',
+      value: formatPercent(fundData.day_change_pct || 0),
+      description: navLatest?.trade_date ? `最近净值日 ${formatDate(navLatest.trade_date)}` : '暂无最新净值日',
+      tone: dayChangeClass === 'is-up' ? 'positive' : dayChangeClass === 'is-down' ? 'negative' : 'neutral',
+      icon: TrendIcon
+    }
+  ]
 
   return (
-    <div className="panel fund-detail-page" style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      {/* 紧凑头部 */}
-      <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-        <Button icon={<ArrowLeftOutlined />} size="small" onClick={handleBack}>返回</Button>
-        <div style={{ flex: 1 }}>
-          <span style={{ fontSize: '16px', fontWeight: 600 }}>{fundData.name}</span>
-          <span style={{ color: 'var(--muted)', fontSize: '12px', marginLeft: '8px' }}>{fundData.fund_id}</span>
+    <div className="panel fund-detail-page">
+      <header className="fund-detail-hero">
+        <div className="fund-detail-hero__topline">
+          <Button icon={<ArrowLeftOutlined />} onClick={handleBack}>返回</Button>
+          <span className="fund-detail-hero__eyebrow">基金详情</span>
         </div>
-        <Tag color={fundData.market_group === 'us_overseas' ? 'blue' : 'green'} size="small">
-          {fundData.market_group === 'us_overseas' ? '美股/海外' : 'A股/港股'}
-        </Tag>
-      </div>
-
-      {/* 核心数据卡片 - 紧凑布局 */}
-      <Card size="small" style={{ marginBottom: '16px' }}>
-        <Row gutter={16} align="middle">
-          <Col xs={12} sm={6}>
-            <Statistic 
-              title="当前市值" 
-              value={fundData.market_value_cny || 0} 
-              precision={2} 
-              prefix="¥"
-              styles={{ content: { fontSize: '18px', color: '#1890ff' } }}
-            />
-          </Col>
-          <Col xs={12} sm={6}>
-            <Statistic 
-              title="持有收益" 
-              value={fundData.holding_profit_cny || 0} 
-              precision={2} 
-              prefix={fundData.holding_profit_cny >= 0 ? '+' : ''}
-              styles={{ content: { fontSize: '18px', color: fundData.holding_profit_cny >= 0 ? '#52c41a' : '#ff4d4f' } }}
-            />
-          </Col>
-          <Col xs={12} sm={6}>
-            <Statistic 
-              title="持有收益率" 
-              value={(fundData.holding_profit_rate || 0) * 100} 
-              precision={2} 
-              suffix="%"
-              styles={{ content: { fontSize: '18px', color: fundData.holding_profit_rate >= 0 ? '#52c41a' : '#ff4d4f' } }}
-            />
-          </Col>
-          <Col xs={12} sm={6}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <TrendIcon style={{ fontSize: '20px', color: fundData.day_change_pct >= 0 ? '#52c41a' : '#ff4d4f' }} />
-              <div>
-                <div style={{ fontSize: '11px', color: 'var(--muted)' }}>当日涨跌</div>
-                <div style={{ fontSize: '16px', fontWeight: 600, color: fundData.day_change_pct >= 0 ? '#52c41a' : '#ff4d4f' }}>
-                  {fundData.day_change_pct >= 0 ? '+' : ''}{formatPercent(fundData.day_change_pct)}
-                </div>
-              </div>
+        <div className="fund-detail-hero__main">
+          <div className="fund-detail-hero__copy">
+            <div className="fund-detail-hero__title-row">
+              <h2>{fundData.name}</h2>
+              <span className="fund-detail-hero__code">{fundData.fund_id}</span>
             </div>
-          </Col>
-        </Row>
-      </Card>
+            <p>从净值走势、持仓收益、数据状态和最近交易记录统一查看单只基金的执行上下文。</p>
+          </div>
+          <div className="fund-detail-hero__meta">
+            <Tag color={fundData.market_group === 'us_overseas' ? 'blue' : 'green'}>{marketLabel}</Tag>
+            <Tag color={confirmStateColor}>{confirmStateLabel}</Tag>
+          </div>
+        </div>
+      </header>
 
-      {/* 左右布局：左侧图表，右侧数据 */}
-      <Row gutter={[16, 16]}>
+      <section className="fund-detail-overview" aria-label="基金详情概览">
+        {overviewCards.map((card) => {
+          const Icon = card.icon
+          return (
+            <article
+              key={card.key}
+              className={`fund-detail-overview-card fund-detail-overview-card--${card.tone}`}
+            >
+              <span className="fund-detail-overview-card__eyebrow">{card.eyebrow}</span>
+              <strong>{card.value}</strong>
+              <p>{card.description}</p>
+              {Icon ? (
+                <span className="fund-detail-overview-card__icon">
+                  <Icon aria-hidden="true" />
+                </span>
+              ) : null}
+            </article>
+          )
+        })}
+      </section>
+
+      <Row gutter={[16, 16]} className="fund-detail-layout">
         {/* 左侧：图表 */}
         <Col xs={24} lg={14}>
-          <Card 
+          <Card
+            className="fund-detail-card"
             size="small"
-            title={<span style={{ fontSize: '13px' }}><LineChartOutlined /> 净值走势</span>}
+            title={(
+              <span className="fund-detail-card__title">
+                <LineChartOutlined aria-hidden="true" /> 净值走势
+              </span>
+            )}
             extra={
-              <div style={{ display: 'flex', gap: '2px' }}>
+              <div className="fund-detail-range">
                 {rangeOptions.map(item => (
                   <Button
                     key={item.key}
                     type={range === item.key ? 'primary' : 'text'}
                     size="small"
                     onClick={() => setRange(item.key)}
-                    style={{ padding: '0 8px', fontSize: '12px' }}
                   >
                     {item.label}
                   </Button>
@@ -214,7 +238,7 @@ export function FundDetailPage({ fundId, onBack }) {
               </div>
             }
           >
-            <div style={{ height: '220px' }}>
+            <div className="fund-detail-chart">
               {chartSeries.length > 0 ? (
                 <MultiLineChart
                   data={chartSeries}
@@ -226,7 +250,7 @@ export function FundDetailPage({ fundId, onBack }) {
                   yLabel="净值"
                 />
               ) : (
-                <div className="chart-empty" style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
+                <div className="chart-empty fund-detail-empty">
                   暂无图表数据
                 </div>
               )}
@@ -234,13 +258,17 @@ export function FundDetailPage({ fundId, onBack }) {
           </Card>
 
           {/* 交易记录 */}
-          <Card 
-            size="small" 
-            title={<span style={{ fontSize: '13px' }}><HistoryOutlined /> 交易记录 ({txSummary.total_count})</span>}
-            style={{ marginTop: '16px' }}
+          <Card
+            className="fund-detail-card fund-detail-card--spaced"
+            size="small"
+            title={(
+              <span className="fund-detail-card__title">
+                <HistoryOutlined aria-hidden="true" /> 交易记录 ({txSummary.total_count})
+              </span>
+            )}
           >
             {txLoading ? (
-              <div style={{ padding: '20px', textAlign: 'center' }}>
+              <div className="fund-detail-loading">
                 <Spin size="small" />
               </div>
             ) : (
@@ -258,8 +286,16 @@ export function FundDetailPage({ fundId, onBack }) {
 
         {/* 右侧：详细数据 */}
         <Col xs={24} lg={10}>
-          <Card size="small" title={<span style={{ fontSize: '13px' }}><WalletOutlined /> 持仓详情</span>}>
-            <Row gutter={[16, 16]}>
+          <Card
+            className="fund-detail-card"
+            size="small"
+            title={(
+              <span className="fund-detail-card__title">
+                <WalletOutlined aria-hidden="true" /> 持仓详情
+              </span>
+            )}
+          >
+            <Row gutter={[16, 16]} className="fund-detail-metric-grid">
               <Col span={12}>
                 <CompactMetric label="持有份额" value={Number(fundData.shares) ? formatMoney(fundData.shares, 2) : '--'} />
               </Col>
@@ -279,7 +315,7 @@ export function FundDetailPage({ fundId, onBack }) {
                 <CompactMetric 
                   label="估算净值" 
                   value={navLatest?.estimate_nav ? formatMoney(navLatest.estimate_nav, 4) : '--'}
-                  className={navLatest?.estimate_nav && navLatest?.unit_nav ? (navLatest.estimate_nav > navLatest.unit_nav ? 'positive' : 'negative') : ''}
+                  className={navLatest?.estimate_nav && navLatest?.unit_nav ? classBySign(navLatest.estimate_nav - navLatest.unit_nav) : ''}
                 />
               </Col>
               <Col span={12}>
@@ -293,13 +329,13 @@ export function FundDetailPage({ fundId, onBack }) {
               </Col>
             </Row>
 
-            <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--border)' }}>
-              <div style={{ fontSize: '11px', color: 'var(--muted)', marginBottom: '8px' }}>数据状态</div>
-              <div style={{ fontSize: '12px' }}>
-                <Tag color={fundData.confirm_state === 'confirmed' ? 'green' : fundData.confirm_state === 'partial' ? 'orange' : 'default'} size="small">
-                  {fundData.confirm_state === 'confirmed' ? '已确认' : fundData.confirm_state === 'partial' ? '部分可用' : '估算中'}
+            <div className="fund-detail-status">
+              <div className="fund-detail-status__label">数据状态</div>
+              <div className="fund-detail-status__content">
+                <Tag color={confirmStateColor} size="small">
+                  {confirmStateLabel}
                 </Tag>
-                <span style={{ color: 'var(--muted)', marginLeft: '8px' }}>
+                <span className="fund-detail-status__time">
                   {fundData.as_of ? formatDateTime(fundData.as_of) : '--'}
                 </span>
               </div>
@@ -308,21 +344,21 @@ export function FundDetailPage({ fundId, onBack }) {
 
           {/* 最新净值 */}
           {navLatest && (
-            <Card size="small" style={{ marginTop: '16px' }}>
-              <Row>
-                <Col span={12} style={{ textAlign: 'center', borderRight: '1px solid var(--border)' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>单位净值</div>
-                  <div style={{ fontSize: '16px', fontWeight: 600, color: '#52c41a' }}>
+            <Card className="fund-detail-card fund-detail-card--spaced" size="small">
+              <Row className="fund-detail-latest">
+                <Col span={12} className="fund-detail-latest__col fund-detail-latest__col--divider">
+                  <div className="fund-detail-latest__label">单位净值</div>
+                  <div className="fund-detail-latest__value fund-detail-latest__value--confirmed">
                     {navLatest.unit_nav ? formatMoney(navLatest.unit_nav, 4) : '--'}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{navLatest.trade_date}</div>
+                  <div className="fund-detail-latest__time">{navLatest.trade_date}</div>
                 </Col>
-                <Col span={12} style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>估算净值</div>
-                  <div style={{ fontSize: '16px', fontWeight: 600, color: '#faad14' }}>
+                <Col span={12} className="fund-detail-latest__col">
+                  <div className="fund-detail-latest__label">估算净值</div>
+                  <div className="fund-detail-latest__value fund-detail-latest__value--estimate">
                     {navLatest.estimate_nav ? formatMoney(navLatest.estimate_nav, 4) : '--'}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--muted)' }}>{navLatest.asof ? formatDateTime(navLatest.asof) : '--'}</div>
+                  <div className="fund-detail-latest__time">{navLatest.asof ? formatDateTime(navLatest.asof) : '--'}</div>
                 </Col>
               </Row>
             </Card>

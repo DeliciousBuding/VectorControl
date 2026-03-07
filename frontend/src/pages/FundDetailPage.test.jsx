@@ -55,11 +55,13 @@ describe('FundDetailPage', () => {
 
     expect(container.querySelector('.fund-detail-page')).toBeTruthy()
     expect(screen.getByText('易方达消费')).toBeInTheDocument()
+    expect(screen.getByText('基金详情')).toBeInTheDocument()
     expect(screen.getByText('净值走势')).toBeInTheDocument()
-    expect(screen.getByText(/交易记录/)).toBeInTheDocument()
+    expect(screen.getByText(/交易记录 \(1\)/)).toBeInTheDocument()
     expect(screen.getByText('持仓详情')).toBeInTheDocument()
     expect(screen.getByText('单位净值')).toBeInTheDocument()
     expect(screen.getByText('当日涨跌')).toBeInTheDocument()
+    expect(screen.getByLabelText('基金详情概览')).toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('button', { name: /返回/ }))
     expect(onBack).toHaveBeenCalledTimes(1)
