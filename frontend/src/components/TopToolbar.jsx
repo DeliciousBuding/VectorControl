@@ -1,5 +1,4 @@
 import { StatusPill } from './StatusPill.jsx'
-import { Layout, Button, Space, Typography, Tag, Tooltip, Popover, Badge, Input } from 'antd'
 import {
   SearchOutlined,
   ReloadOutlined,
@@ -19,16 +18,23 @@ import {
 } from '@ant-design/icons'
 import { useState, useRef, useEffect } from 'react'
 
-const { Search } = Input
-
-const { Header } = Layout
-const { Title, Text } = Typography
-
 function formatClock(value) {
   if (!value || value === '--') return '--'
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return '--'
   return date.toLocaleTimeString('zh-CN', { hour12: false })
+}
+
+function InlineRow({ icon: Icon, label, value, children }) {
+  return (
+    <div className="vc-status-row">
+      <div className="vc-status-inline">
+        {Icon ? <Icon className="vc-status-icon" /> : null}
+        <span>{label}</span>
+      </div>
+      {children || <span className="vc-status-value">{value}</span>}
+    </div>
+  )
 }
 
 export function TopToolbar({
@@ -60,8 +66,10 @@ export function TopToolbar({
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [showAdvancedStatus, setShowAdvancedStatus] = useState(false)
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState(false)
   const searchRef = useRef(null)
   const dropdownRef = useRef(null)
+  const statusRef = useRef(null)
 
   const confirmText = confirmState === 'confirmed'
     ? '已结算'
@@ -84,25 +92,34 @@ export function TopToolbar({
       ? `复用 ${Number(incrementalReusedQuotes || 0)}/${incrementalTotal}`
       : '未复用'
 
-  const statusBadge = status?.type === 'error' ? 'error' : (status?.type === 'warning' ? 'warning' : 'processing')
+  const statusBadgeClass = status?.type === 'error'
+    ? 'vc-badge-dot--error'
+    : status?.type === 'warning'
+      ? 'vc-badge-dot--warning'
+      : 'vc-badge-dot--processing'
 
-  // 控制下拉框显示/隐藏 - 输入即显示建议，不再只依赖焦点
+  const statusTagClass = confirmState === 'confirmed'
+    ? 'status-success'
+    : confirmState === 'partial'
+      ? 'status-warning'
+      : 'status-info'
+
   useEffect(() => {
     const hasSuggestions = suggestions.length > 0 && searchQuery
-    // 有搜索词且有建议时显示，不管是否聚焦
     setShowSuggestions(hasSuggestions)
   }, [suggestions, searchQuery])
 
-  // 点击外部关闭下拉框
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target) &&
-        searchRef.current &&
-        !searchRef.current.contains(event.target)
-      ) {
+      const searchTarget = searchRef.current && searchRef.current.contains(event.target)
+      const dropdownTarget = dropdownRef.current && dropdownRef.current.contains(event.target)
+      const statusTarget = statusRef.current && statusRef.current.contains(event.target)
+
+      if (!searchTarget && !dropdownTarget) {
         setShowSuggestions(false)
+      }
+      if (!statusTarget) {
+        setStatusPopoverOpen(false)
       }
     }
 
@@ -121,143 +138,20 @@ export function TopToolbar({
     setShowSuggestions(false)
   }
 
-  const statusContent = (
-    <div className="vc-status-popover-content">
-      {/* 核心状态 - 默认显示 */}
-      <div className="vc-status-section">
-        <div className="vc-status-label">系统状态</div>
-        <StatusPill status={status} />
-      </div>
-
-      <div className="vc-status-section">
-        <div className="vc-status-label">数据时效</div>
-        <Space direction="vertical" style={{ width: '100%' }} size={8}>
-          <div className="vc-status-row">
-            <Space size={8}>
-              <ClockCircleOutlined className="vc-status-icon" />
-              <span>上次刷新</span>
-            </Space>
-            <span className="vc-status-value">
-              {refreshClock}
-              <span className="vc-status-unit">({refreshElapsedMs}ms)</span>
-            </span>
-          </div>
-          <div className="vc-status-row">
-            <Space size={8}>
-              <CheckCircleOutlined className="vc-status-icon" />
-              <span>数据时点</span>
-            </Space>
-            <span className="vc-status-value">{asofClock}</span>
-          </div>
-          <div className="vc-status-row">
-            <Space size={8}>
-              <InfoCircleOutlined className="vc-status-icon" />
-              <span>结算状态</span>
-            </Space>
-            <Tag
-              color={confirmState === 'confirmed' ? 'success' : confirmState === 'partial' ? 'warning' : 'processing'}
-              bordered={false}
-              className="vc-status-tag"
-            >
-              {confirmText}
-            </Tag>
-          </div>
-        </Space>
-      </div>
-
-      {/* 高级信息 - 可展开 */}
-      <div
-        style={{
-          marginTop: 12,
-          paddingTop: 12,
-          borderTop: '1px solid var(--vc-border-primary)',
-          cursor: 'pointer'
-        }}
-        onClick={() => setShowAdvancedStatus(!showAdvancedStatus)}
-      >
-        <Space>
-          <span style={{ color: 'var(--vc-text-secondary)', fontSize: 12 }}>
-            {showAdvancedStatus ? '收起高级信息' : '展开高级信息'}
-          </span>
-        </Space>
-      </div>
-
-      {showAdvancedStatus && (
-        <>
-          <div className="vc-status-section" style={{ marginTop: 12 }}>
-            <div className="vc-status-label">计算指标</div>
-            <Space direction="vertical" style={{ width: '100%' }} size={8}>
-              <div className="vc-status-row">
-                <Space size={8}>
-                  <CloudServerOutlined className="vc-status-icon" />
-                  <span>数据来源</span>
-                </Space>
-                <span>{estimateCacheHit ? '缓存快照' : '实时拉取'}</span>
-              </div>
-              <div className="vc-status-row">
-                <Space size={8}>
-                  <DatabaseOutlined className="vc-status-icon" />
-                  <span>计算模式</span>
-                </Space>
-                <span>
-                  {incrementalMode === 'snapshot_hit' ? 'Hit' : 'Calc'}
-                  <span className="vc-status-unit">({incrementalText})</span>
-                </span>
-              </div>
-              <div className="vc-status-row">
-                <Space size={8}>
-                  <PieChartOutlined className="vc-status-icon" />
-                  <span>覆盖率</span>
-                </Space>
-                <span className="vc-status-value">{coverage?.ok ?? 0}/{coverage?.total ?? 0}</span>
-              </div>
-            </Space>
-          </div>
-
-          <div className="vc-status-section">
-            <div className="vc-status-label">口径说明</div>
-            <Space direction="vertical" style={{ width: '100%' }} size={8}>
-              <div className="vc-status-row">
-                <Space size={8}>
-                  <span>数据口径</span>
-                </Space>
-                <span>{dataStatusText}</span>
-              </div>
-              {dataStatusNote && (
-                <div className="vc-status-note">
-                  {dataStatusNote}
-                </div>
-              )}
-            </Space>
-          </div>
-        </>
-      )}
-
-      {marketDataHint && (
-        <div className="vc-status-hint">
-          {marketDataHint}
-        </div>
-      )}
-    </div>
-  )
-
   return (
-    <Header className="top-header">
+    <header className="top-header">
       <div className="vc-header-main-row">
-        {/* 品牌区域 */}
         <div className="vc-brand-section">
           <div className="vc-brand-logo">
             <span className="vc-brand-logo__text">VC</span>
           </div>
           <div className="vc-brand-text">
-            <Title level={4} className="vc-brand-text__title">持仓决策台</Title>
-            <Text type="secondary" className="vc-brand-text__subtitle">基金持仓与当日收益一屏掌握</Text>
+            <h1 className="vc-brand-text__title">持仓决策台</h1>
+            <span className="vc-brand-text__subtitle">基金持仓与当日收益一屏掌握</span>
           </div>
         </div>
 
-        {/* 操作区域 */}
         <div className="vc-actions-section">
-          {/* 搜索框容器 */}
           <div
             ref={searchRef}
             className={`vc-search-wrapper ${isSearchFocused ? 'vc-search-wrapper--focused' : ''} ${showSuggestions ? 'vc-search-wrapper--has-suggestions' : ''}`}
@@ -271,17 +165,17 @@ export function TopToolbar({
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
+                onBlur={() => setIsSearchFocused(false)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && searchQuery && suggestions.length > 0) {
                     handleSuggestionClick(suggestions[0])
                   }
                 }}
               />
-              {searchLoading && (
-                <SyncOutlined spin className="vc-search-loading" />
-              )}
+              {searchLoading && <SyncOutlined spin className="vc-search-loading" />}
               {searchQuery && !searchLoading && (
                 <button
+                  type="button"
                   className="vc-search-clear"
                   onClick={handleClearSearch}
                   aria-label="清除搜索"
@@ -290,6 +184,7 @@ export function TopToolbar({
                 </button>
               )}
               <button
+                type="button"
                 className="vc-search-button"
                 onClick={() => {
                   if (searchQuery && suggestions.length > 0) {
@@ -301,7 +196,6 @@ export function TopToolbar({
               </button>
             </div>
 
-            {/* 搜索建议下拉框 */}
             {showSuggestions && (
               <div ref={dropdownRef} className="vc-search-dropdown">
                 <div className="vc-search-dropdown__header">
@@ -328,78 +222,138 @@ export function TopToolbar({
             )}
           </div>
 
-          {/* 按钮组 */}
-          <Space size={12} className="vc-toolbar-actions">
-            {/* 用户信息标签 */}
-            <Tooltip title={`当前用户: ${user?.username || '--'}`}>
-              <Tag
-                icon={<UserOutlined />}
-                color="blue"
-                className="vc-user-tag"
+          <div className="vc-toolbar-actions">
+            <span className="vc-user-tag" title={`当前用户: ${user?.username || '--'}`}>
+              <UserOutlined />
+              <span>{user?.username || '--'}</span>
+            </span>
+
+            <div className="vc-btn-group vc-btn-group--refresh">
+              <button
+                type="button"
+                className="vc-toolbar-btn vc-toolbar-btn--refresh"
+                onClick={onRefresh}
+                title="刷新数据"
+                disabled={refreshing}
               >
-                {user?.username || '--'}
-              </Tag>
-            </Tooltip>
+                {refreshing ? <SyncOutlined spin /> : <ReloadOutlined />}
+              </button>
+              <button
+                type="button"
+                className={`vc-toolbar-btn vc-toolbar-btn--toggle ${autoRefreshEnabled ? 'vc-toolbar-btn--active' : ''}`}
+                onClick={onToggleAutoRefresh}
+                title={autoRefreshEnabled ? '关闭自动刷新' : '开启自动刷新'}
+              >
+                {autoRefreshEnabled ? <SyncOutlined /> : <PauseOutlined />}
+              </button>
+            </div>
 
-            {/* 刷新按钮组 */}
-            <Space.Compact className="vc-btn-group vc-btn-group--refresh">
-              <Tooltip title="刷新数据">
-                <Button
-                  className="vc-toolbar-btn vc-toolbar-btn--refresh"
-                  icon={refreshing ? <SyncOutlined spin /> : <ReloadOutlined />}
-                  onClick={onRefresh}
-                  loading={refreshing}
-                />
-              </Tooltip>
-              <Tooltip title={autoRefreshEnabled ? '关闭自动刷新' : '开启自动刷新'}>
-                <Button
-                  className={`vc-toolbar-btn vc-toolbar-btn--toggle ${autoRefreshEnabled ? 'vc-toolbar-btn--active' : ''}`}
-                  icon={autoRefreshEnabled ? <SyncOutlined /> : <PauseOutlined />}
-                  onClick={onToggleAutoRefresh}
-                  type={autoRefreshEnabled ? 'primary' : 'default'}
-                />
-              </Tooltip>
-            </Space.Compact>
+            <div ref={statusRef} className="vc-status-popover-anchor">
+              <button
+                type="button"
+                className="vc-toolbar-btn vc-toolbar-btn--status"
+                onClick={() => setStatusPopoverOpen((value) => !value)}
+              >
+                <span className={`vc-badge-dot ${statusBadgeClass}`} />
+                <DashboardOutlined />
+                <span>状态</span>
+              </button>
 
-            {/* 状态看板 */}
-            <Popover
-              content={statusContent}
-              title={<span className="vc-popover-title">系统状态看板</span>}
-              trigger="click"
-              placement="bottomRight"
-              overlayClassName="vc-status-popover"
-            >
-              <Badge dot status={statusBadge} offset={[-4, 4]}>
-                <Button
-                  className="vc-toolbar-btn vc-toolbar-btn--status"
-                  icon={<DashboardOutlined />}
-                >
-                  状态
-                </Button>
-              </Badge>
-            </Popover>
+              {statusPopoverOpen && (
+                <div className="vc-status-popover">
+                  <div className="vc-popover-title">系统状态看板</div>
+                  <div className="vc-status-popover-content">
+                    <div className="vc-status-section">
+                      <div className="vc-status-label">系统状态</div>
+                      <StatusPill status={status} />
+                    </div>
 
-            {/* 设置和退出按钮组 */}
-            <Space.Compact className="vc-btn-group vc-btn-group--actions">
-              <Tooltip title="设置中心">
-                <Button
-                  className="vc-toolbar-btn vc-toolbar-btn--settings"
-                  icon={<SettingOutlined />}
-                  onClick={onOpenSettings}
-                />
-              </Tooltip>
-              <Tooltip title="退出登录">
-                <Button
-                  className="vc-toolbar-btn vc-toolbar-btn--logout"
-                  danger
-                  icon={<LogoutOutlined />}
-                  onClick={onLogout}
-                />
-              </Tooltip>
-            </Space.Compact>
-          </Space>
+                    <div className="vc-status-section">
+                      <div className="vc-status-label">数据时效</div>
+                      <div className="vc-status-stack">
+                        <InlineRow icon={ClockCircleOutlined} label="上次刷新">
+                          <span className="vc-status-value">
+                            {refreshClock}
+                            <span className="vc-status-unit">({refreshElapsedMs}ms)</span>
+                          </span>
+                        </InlineRow>
+                        <InlineRow icon={CheckCircleOutlined} label="数据时点" value={asofClock} />
+                        <InlineRow icon={InfoCircleOutlined} label="结算状态">
+                          <span className={`status-pill ${statusTagClass} vc-status-tag`}>{confirmText}</span>
+                        </InlineRow>
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        marginTop: 12,
+                        paddingTop: 12,
+                        borderTop: '1px solid var(--vc-border-primary)',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => setShowAdvancedStatus(!showAdvancedStatus)}
+                    >
+                      <span style={{ color: 'var(--vc-text-secondary)', fontSize: 12 }}>
+                        {showAdvancedStatus ? '收起高级信息' : '展开高级信息'}
+                      </span>
+                    </div>
+
+                    {showAdvancedStatus && (
+                      <>
+                        <div className="vc-status-section" style={{ marginTop: 12 }}>
+                          <div className="vc-status-label">计算指标</div>
+                          <div className="vc-status-stack">
+                            <InlineRow icon={CloudServerOutlined} label="数据来源" value={estimateCacheHit ? '缓存快照' : '实时拉取'} />
+                            <InlineRow
+                              icon={DatabaseOutlined}
+                              label="计算模式"
+                              value={`${incrementalMode === 'snapshot_hit' ? 'Hit' : 'Calc'} (${incrementalText})`}
+                            />
+                            <InlineRow
+                              icon={PieChartOutlined}
+                              label="覆盖率"
+                              value={`${coverage?.ok ?? 0}/${coverage?.total ?? 0}`}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="vc-status-section">
+                          <div className="vc-status-label">口径说明</div>
+                          <div className="vc-status-stack">
+                            <InlineRow label="数据口径" value={dataStatusText} />
+                            {dataStatusNote && <div className="vc-status-note">{dataStatusNote}</div>}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {marketDataHint && <div className="vc-status-hint">{marketDataHint}</div>}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="vc-btn-group vc-btn-group--actions">
+              <button
+                type="button"
+                className="vc-toolbar-btn vc-toolbar-btn--settings"
+                title="设置中心"
+                onClick={onOpenSettings}
+              >
+                <SettingOutlined />
+              </button>
+              <button
+                type="button"
+                className="vc-toolbar-btn vc-toolbar-btn--logout"
+                title="退出登录"
+                onClick={onLogout}
+              >
+                <LogoutOutlined />
+              </button>
+            </div>
+          </div>
         </div>
       </div>
-    </Header>
+    </header>
   )
 }
