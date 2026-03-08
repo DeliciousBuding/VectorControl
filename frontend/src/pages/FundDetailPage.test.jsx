@@ -62,8 +62,12 @@ describe('FundDetailPage', () => {
     expect(screen.getByText(/交易记录 \(1\)/)).toBeInTheDocument()
     expect(screen.getByText('Execution Snapshot')).toBeInTheDocument()
     expect(screen.getByLabelText('交易执行快照')).toBeInTheDocument()
+    expect(screen.getByText('Holding Snapshot')).toBeInTheDocument()
+    expect(screen.getByLabelText('持仓快照')).toBeInTheDocument()
     expect(screen.getByText('持仓详情')).toBeInTheDocument()
     expect(screen.getAllByText('单位净值').length).toBeGreaterThan(0)
+    expect(screen.getByText('Latest Valuation')).toBeInTheDocument()
+    expect(screen.getByLabelText('最新净值快照')).toBeInTheDocument()
     expect(screen.getByText('当日涨跌')).toBeInTheDocument()
     expect(screen.getByLabelText('基金详情概览')).toBeInTheDocument()
 

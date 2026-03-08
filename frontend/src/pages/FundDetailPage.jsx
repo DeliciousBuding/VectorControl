@@ -231,6 +231,46 @@ export function FundDetailPage({ fundId, onBack }) {
       hint: '仍等待确认或补齐数据的记录。'
     }
   ]
+  const holdingHeaderCards = [
+    {
+      key: 'shares',
+      label: '持有份额',
+      value: Number(fundData.shares) ? formatMoney(fundData.shares, 2) : '--',
+      hint: fundData.start_date ? `建仓于 ${formatDate(fundData.start_date)}` : '暂无建仓日期'
+    },
+    {
+      key: 'cost',
+      label: '持仓成本',
+      value: formatMoney(fundData.cost_basis_cny),
+      hint: fundData.holding_days ? `已持有 ${fundData.holding_days} 天` : '持有时长待计算'
+    },
+    {
+      key: 'day-profit',
+      label: '当日收益',
+      value: formatSignedMoney(fundData.day_profit_cny),
+      hint: fundData.as_of ? `统计时点 ${formatDateTime(fundData.as_of)}` : '等待最新统计时点'
+    }
+  ]
+  const valuationHeaderCards = [
+    {
+      key: 'confirmed-nav',
+      label: '单位净值',
+      value: navLatest?.unit_nav ? formatMoney(navLatest.unit_nav, 4) : '--',
+      hint: navLatest?.trade_date ? `净值日 ${formatDate(navLatest.trade_date)}` : '暂无单位净值日期'
+    },
+    {
+      key: 'estimate-nav',
+      label: '估算净值',
+      value: navLatest?.estimate_nav ? formatMoney(navLatest.estimate_nav, 4) : '--',
+      hint: navLatest?.asof ? `估算时点 ${formatDateTime(navLatest.asof)}` : '暂无估算时间'
+    },
+    {
+      key: 'confirm-state',
+      label: '数据状态',
+      value: confirmStateLabel,
+      hint: fundData.market_group === 'us_overseas' ? '当前标记为海外市场口径。' : '当前标记为 A 股 / 港股口径。'
+    }
+  ]
 
   return (
     <div className="panel fund-detail-page">
@@ -383,11 +423,26 @@ export function FundDetailPage({ fundId, onBack }) {
             className="fund-detail-card"
             size="small"
             title={(
-              <span className="fund-detail-card__title">
-                <WalletOutlined aria-hidden="true" /> 持仓详情
-              </span>
+              <div className="fund-detail-card__header">
+                <div className="fund-detail-card__header-copy">
+                  <span className="fund-detail-card__eyebrow">Holding Snapshot</span>
+                  <span className="fund-detail-card__title">
+                    <WalletOutlined aria-hidden="true" /> 持仓详情
+                  </span>
+                  <p>先看份额、成本和当日收益，再查看细项指标与当前数据状态。</p>
+                </div>
+              </div>
             )}
           >
+            <section className="fund-detail-panel-overview fund-detail-panel-overview--compact" aria-label="持仓快照">
+              {holdingHeaderCards.map((card) => (
+                <article key={card.key} className="fund-detail-panel-overview__card">
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                  <p>{card.hint}</p>
+                </article>
+              ))}
+            </section>
             <Row gutter={[16, 16]} className="fund-detail-metric-grid">
               <Col span={12}>
                 <CompactMetric label="持有份额" value={Number(fundData.shares) ? formatMoney(fundData.shares, 2) : '--'} />
@@ -437,7 +492,30 @@ export function FundDetailPage({ fundId, onBack }) {
 
           {/* 最新净值 */}
           {navLatest && (
-            <Card className="fund-detail-card fund-detail-card--spaced" size="small">
+            <Card
+              className="fund-detail-card fund-detail-card--spaced"
+              size="small"
+              title={(
+                <div className="fund-detail-card__header">
+                  <div className="fund-detail-card__header-copy">
+                    <span className="fund-detail-card__eyebrow">Latest Valuation</span>
+                    <span className="fund-detail-card__title">
+                      <LineChartOutlined aria-hidden="true" /> 最新净值对照
+                    </span>
+                    <p>统一对照单位净值、估算净值与当前确认状态，减少来回对比成本。</p>
+                  </div>
+                </div>
+              )}
+            >
+              <section className="fund-detail-panel-overview fund-detail-panel-overview--compact" aria-label="最新净值快照">
+                {valuationHeaderCards.map((card) => (
+                  <article key={card.key} className="fund-detail-panel-overview__card">
+                    <span>{card.label}</span>
+                    <strong>{card.value}</strong>
+                    <p>{card.hint}</p>
+                  </article>
+                ))}
+              </section>
               <Row className="fund-detail-latest">
                 <Col span={12} className="fund-detail-latest__col fund-detail-latest__col--divider">
                   <div className="fund-detail-latest__label">单位净值</div>
