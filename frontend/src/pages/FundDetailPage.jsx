@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Card, Row, Col, Tag, Table } from 'antd'
+import { Button, Card, Row, Col, Tag, Table, Spin } from 'antd'
 import { ArrowLeftOutlined, LineChartOutlined, HistoryOutlined, WalletOutlined, RiseOutlined, FallOutlined } from '@ant-design/icons'
 import { MultiLineChart } from '../components/MultiLineChart.jsx'
 import { SurfaceState } from '../components/SurfaceState.jsx'
@@ -184,6 +184,53 @@ export function FundDetailPage({ fundId, onBack }) {
       icon: TrendIcon
     }
   ]
+  const currentRangeLabel = rangeOptions.find((item) => item.key === range)?.label || range
+  const estimateDelta = navLatest?.estimate_nav != null && navLatest?.unit_nav != null
+    ? navLatest.estimate_nav - navLatest.unit_nav
+    : null
+  const estimateDeltaLabel = estimateDelta == null
+    ? '--'
+    : `${estimateDelta > 0 ? '+' : estimateDelta < 0 ? '-' : ''}${formatMoney(Math.abs(estimateDelta), 4)}`
+  const chartHeaderCards = [
+    {
+      key: 'confirmed-nav',
+      label: '单位净值',
+      value: navLatest?.unit_nav != null ? formatMoney(navLatest.unit_nav, 4) : '--',
+      hint: navLatest?.trade_date ? `净值日 ${formatDate(navLatest.trade_date)}` : '暂无最新净值日'
+    },
+    {
+      key: 'estimate-delta',
+      label: '估算偏差',
+      value: estimateDeltaLabel,
+      hint: estimateDelta == null ? '需要单位净值与估算净值同时可用。' : '估算值相对单位净值的偏差。'
+    },
+    {
+      key: 'visible-range',
+      label: '可见区间',
+      value: currentRangeLabel,
+      hint: `${chartSeries.length} 个样本点已进入当前视图。`
+    }
+  ]
+  const transactionHeaderCards = [
+    {
+      key: 'total',
+      label: '全部记录',
+      value: String(txSummary.total_count || 0),
+      hint: '当前基金已记录的交易总数。'
+    },
+    {
+      key: 'confirmed',
+      label: '已确认',
+      value: String(txSummary.confirmed_count || 0),
+      hint: '已完成确认并进入持仓计算的记录。'
+    },
+    {
+      key: 'pending',
+      label: '待确认',
+      value: String(txSummary.pending_count || 0),
+      hint: '仍等待确认或补齐数据的记录。'
+    }
+  ]
 
   return (
     <div className="panel fund-detail-page">
@@ -235,9 +282,15 @@ export function FundDetailPage({ fundId, onBack }) {
             className="fund-detail-card"
             size="small"
             title={(
-              <span className="fund-detail-card__title">
-                <LineChartOutlined aria-hidden="true" /> 净值走势
-              </span>
+              <div className="fund-detail-card__header">
+                <div className="fund-detail-card__header-copy">
+                  <span className="fund-detail-card__eyebrow">Performance Snapshot</span>
+                  <span className="fund-detail-card__title">
+                    <LineChartOutlined aria-hidden="true" /> 净值走势
+                  </span>
+                  <p>先看最近净值、估算偏差和当前区间，再进入走势细节。</p>
+                </div>
+              </div>
             )}
             extra={
               <div className="fund-detail-range">
@@ -254,6 +307,15 @@ export function FundDetailPage({ fundId, onBack }) {
               </div>
             }
           >
+            <section className="fund-detail-panel-overview" aria-label="净值快照">
+              {chartHeaderCards.map((card) => (
+                <article key={card.key} className="fund-detail-panel-overview__card">
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                  <p>{card.hint}</p>
+                </article>
+              ))}
+            </section>
             <div className="fund-detail-chart">
               {chartSeries.length > 0 ? (
                 <MultiLineChart
@@ -278,11 +340,26 @@ export function FundDetailPage({ fundId, onBack }) {
             className="fund-detail-card fund-detail-card--spaced"
             size="small"
             title={(
-              <span className="fund-detail-card__title">
-                <HistoryOutlined aria-hidden="true" /> 交易记录 ({txSummary.total_count})
-              </span>
+              <div className="fund-detail-card__header">
+                <div className="fund-detail-card__header-copy">
+                  <span className="fund-detail-card__eyebrow">Execution Snapshot</span>
+                  <span className="fund-detail-card__title">
+                    <HistoryOutlined aria-hidden="true" /> 交易记录 ({txSummary.total_count})
+                  </span>
+                  <p>先看交易状态分布，再下钻最近执行记录。</p>
+                </div>
+              </div>
             )}
           >
+            <section className="fund-detail-panel-overview fund-detail-panel-overview--compact" aria-label="交易执行快照">
+              {transactionHeaderCards.map((card) => (
+                <article key={card.key} className="fund-detail-panel-overview__card">
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                  <p>{card.hint}</p>
+                </article>
+              ))}
+            </section>
             {txLoading ? (
               <div className="fund-detail-loading">
                 <Spin size="small" />

@@ -3997,6 +3997,24 @@ button:disabled {
   padding: 18px;
 }
 
+.fund-detail-card__header {
+  display: grid;
+  gap: 8px;
+}
+
+.fund-detail-card__header-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.fund-detail-card__eyebrow {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .fund-detail-card__title {
   display: inline-flex;
   align-items: center;
@@ -4004,6 +4022,56 @@ button:disabled {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+.fund-detail-card__header-copy p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.fund-detail-panel-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.fund-detail-panel-overview--compact .fund-detail-panel-overview__card {
+  min-height: 94px;
+}
+
+.fund-detail-panel-overview__card {
+  display: grid;
+  gap: 8px;
+  min-height: 106px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  background: rgba(248, 250, 252, 0.86);
+}
+
+.fund-detail-panel-overview__card span {
+  color: var(--vc-text-secondary);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.fund-detail-panel-overview__card strong {
+  color: var(--vc-text-primary);
+  font-size: 22px;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.fund-detail-panel-overview__card p {
+  margin: 0;
+  color: var(--vc-text-secondary);
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 .fund-detail-range {
@@ -4249,6 +4317,10 @@ button.settings-inline-btn {
   .trade-center-overview {
     width: 100%;
     min-width: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .fund-detail-panel-overview {
     grid-template-columns: 1fr;
   }
 
