@@ -5,6 +5,10 @@ import zhCN from 'antd/locale/zh_CN';
 import App from './App.jsx'
 import './index.css'
 
+if (typeof document !== 'undefined' && document.documentElement) {
+  document.documentElement.dataset.theme = 'light'
+}
+
 // 自动更新初始化（仅在 Capacitor 环境下生效）
 if (typeof window !== 'undefined' && window.Capacitor) {
   import('./utils/autoUpdate').then(({ autoUpdate }) => {

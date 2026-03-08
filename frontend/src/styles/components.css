@@ -1922,6 +1922,28 @@
   }
 }
 
+[data-theme="light"] {
+  .sidenav-desktop,
+  .sidenav-mobile-header,
+  .sidenav-mobile {
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.94)) !important;
+  }
+
+  .sidenav-overview,
+  .sidenav-footer,
+  .sidenav-item__icon {
+    background: rgba(255, 255, 255, 0.82);
+  }
+
+  .sidenav-item:hover {
+    background: rgba(49, 94, 251, 0.06);
+  }
+
+  .sidenav-item--active {
+    background: rgba(49, 94, 251, 0.1);
+  }
+}
+
 /* 焦点状态 - 无障碍支持 */
 .sidenav-item:focus-visible {
   outline: 2px solid var(--vc-brand-primary);

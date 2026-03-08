@@ -465,3 +465,44 @@
   --shadow-sm: var(--vc-shadow-sm);
   --shadow-lg: var(--vc-shadow-lg);
 }
+
+[data-theme="light"] {
+  --vc-brand-primary: #4361ee;
+  --vc-brand-primary-hover: #3a0ca3;
+  --vc-brand-primary-light: rgba(67, 97, 238, 0.1);
+  --vc-brand-primary-lighter: rgba(67, 97, 238, 0.06);
+  --vc-brand-gradient-start: #4f46e5;
+  --vc-brand-gradient-end: #3730a3;
+
+  --vc-bg-primary: #ffffff;
+  --vc-bg-secondary: #f8fafc;
+  --vc-bg-tertiary: #f1f5f9;
+  --vc-bg-elevated: #ffffff;
+  --vc-bg-overlay: rgba(15, 23, 42, 0.34);
+
+  --vc-text-primary: #111827;
+  --vc-text-secondary: #6b7280;
+  --vc-text-tertiary: #9ca3af;
+  --vc-text-disabled: #d1d5db;
+  --vc-text-inverse: #ffffff;
+
+  --vc-border-primary: #e2e8f0;
+  --vc-border-secondary: #f1f5f9;
+
+  --vc-chart-up: #ef4444;
+  --vc-chart-down: #10b981;
+  --vc-chart-grid: #e2e8f0;
+
+  --bg: var(--vc-bg-tertiary);
+  --panel: var(--vc-bg-primary);
+  --line: var(--vc-border-primary);
+  --line-light: var(--vc-border-secondary);
+  --text: var(--vc-text-primary);
+  --text-subtle: var(--vc-text-secondary);
+  --muted: var(--vc-text-secondary);
+  --brand: var(--vc-brand-primary);
+  --brand-dark: var(--vc-brand-primary-hover);
+  --shadow: var(--vc-shadow-elevation-1);
+  --shadow-sm: var(--vc-shadow-sm);
+  --shadow-lg: var(--vc-shadow-lg);
+}
