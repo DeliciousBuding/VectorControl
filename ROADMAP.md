@@ -1,6 +1,6 @@
 # VectorControl Unified ROADMAP (Repo Synced Copy)
 
-更新时间：2026-03-08 13:01:11
+更新时间：2026-03-08 23:36:25
 
 规则：`[ ]` 待完成，`[√]` 已完成（完成后尽快归档到 `docs/ROADMAP完成归档.md`）。
 Description: full synced roadmap copy in repository (non-placeholder). Source: `<local>\AGENT\ROADMAP.md`.
@@ -159,6 +159,7 @@ Description: full synced roadmap copy in repository (non-placeholder). Source: `
 - [√] [协同] 本地性能基线脚本（perf_smoke）：跑关键页面计时并落地本地基线文件（不入库）（已落地 `scripts/perf_smoke.py` 与 `.perf/perf_smoke/latest.json`，当前首页/基金详情页/系统状态页本地基线已生成）。
 
 ### 已完成 (Done)
+- [√] [前端] 登录后首页白屏热修复 phase1：修复 `App.jsx` 中 `buildFundSeries` 缺失导入导致的登录后首页运行时异常，并补齐最小回归；已通过 `npm --prefix frontend run test:run -- src/App.test.jsx src/components/PortfolioReturnsPanel.test.jsx`、`python scripts/check_release_preflight.py`。
 - [√] [前端] 基金详情右栏视觉升级 phase18：参考 Apple HIG、Google Material、GitHub Primer 与 OpenAI 官网的 detail sidebar 组织方式，完成 `FundDetailPage` 的持仓详情与最新净值摘要头部、右栏快照卡统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
 - [√] [前端] 基金详情二级区块视觉升级 phase17：参考 Apple HIG、Google Material、GitHub Primer 与 OpenAI 官网的详情页分层经验，完成 `FundDetailPage` 的净值走势与交易记录摘要头部、二级快照卡统一；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
 - [√] [前端] 认证入口视觉升级 phase16：参考 Apple HIG、Google Material、GitHub Primer 与 OpenAI 官网的认证入口组织方式，完成 `LoginPanel` 的工作区头部、摘要卡与模式切换容器统一，并将关键样式收敛到样式层；已通过 `npm --prefix frontend run test:run`、`npm --prefix frontend run analyze`、`python scripts/check_release_preflight.py`。
