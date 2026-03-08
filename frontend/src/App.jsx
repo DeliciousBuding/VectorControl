@@ -15,7 +15,7 @@ import {
   searchFunds,
   syncPendingTransactions
 } from './api.js'
-import { splitMarketGroups } from './utils/chart.js'
+import { buildFundSeries, splitMarketGroups } from './utils/chart.js'
 import { classBySign, formatDate, formatDateTime, formatPercent } from './utils/format.js'
 import { toGuidedError } from './utils/errorFeedback.js'
 import { ErrorBoundary } from './components/ErrorBoundary.jsx'
