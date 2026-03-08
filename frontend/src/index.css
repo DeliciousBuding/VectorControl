@@ -7000,3 +7000,41 @@ button.settings-inline-btn {
     border-color: rgba(129, 140, 248, 0.22);
   }
 }
+
+[data-theme="light"] {
+  .home-overview,
+  .home-main,
+  .chart-panel,
+  .returns-summary-panel,
+  .summary-card,
+  .data-status-banner,
+  .data-status-banner__chip,
+  .home-overview__meta-card,
+  .returns-panel__snapshot,
+  .watch-item,
+  .summary-item,
+  .data-quality-bar .quality-label,
+  .data-quality-bar .quality-item,
+  .top-header,
+  .vc-header-snapshot-card,
+  .vc-user-tag,
+  .vc-context-pill,
+  .benchmark-overview__card,
+  .benchmark-item {
+    color: var(--vc-text-primary);
+    border-color: rgba(148, 163, 184, 0.16);
+  }
+
+  .home-overview {
+    background:
+      radial-gradient(circle at top right, rgba(49, 94, 251, 0.14), transparent 28%),
+      radial-gradient(circle at bottom left, rgba(15, 159, 110, 0.12), transparent 26%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+  }
+
+  .top-header {
+    background:
+      radial-gradient(circle at top right, rgba(49, 94, 251, 0.12), transparent 22%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96)) !important;
+  }
+}
