@@ -7,12 +7,14 @@
 
 body {
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
+  font-family: var(--vc-font-family-base);
   color: var(--text);
   background:
-    radial-gradient(circle at 10% -10%, rgba(59, 130, 246, 0.15), transparent 42%),
-    radial-gradient(circle at 90% -10%, rgba(14, 165, 233, 0.14), transparent 38%),
+    radial-gradient(circle at 12% -8%, rgba(31, 107, 85, 0.18), transparent 34%),
+    radial-gradient(circle at 88% -12%, rgba(182, 128, 40, 0.12), transparent 28%),
+    linear-gradient(180deg, rgba(255, 252, 245, 0.94), rgba(246, 239, 228, 0.98)),
     var(--bg);
+  background-attachment: fixed;
 }
 
 button,
@@ -41,7 +43,7 @@ select {
 .page-shell {
   max-width: 1480px;
   margin: 0 auto;
-  padding: 24px 24px 56px;
+  padding: 32px 24px 64px;
 }
 
 /* 表单统一样式 */
@@ -308,42 +310,47 @@ select {
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 28px 20px 64px;
+  padding: 40px 24px 72px;
 }
 
 .login-panel {
   width: 100%;
-  max-width: 760px;
+  max-width: 1180px;
   padding: 0;
   overflow: hidden;
-  border-radius: 28px !important;
-  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  border-radius: 36px !important;
+  border: 1px solid rgba(17, 35, 27, 0.08) !important;
   background:
-    radial-gradient(circle at top right, rgba(49, 94, 251, 0.1), transparent 26%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96)) !important;
-  box-shadow: 0 24px 48px -32px rgba(15, 23, 42, 0.32) !important;
+    radial-gradient(circle at top right, rgba(31, 107, 85, 0.14), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(182, 128, 40, 0.09), transparent 28%),
+    linear-gradient(135deg, rgba(255, 252, 245, 0.98), rgba(249, 243, 233, 0.98)) !important;
+  box-shadow: 0 38px 90px -54px rgba(17, 35, 27, 0.34) !important;
 }
 
 .login-panel .ant-card-body {
-  padding: 26px !important;
+  padding: 34px !important;
   display: grid;
-  gap: 20px;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  gap: 24px 28px;
+  align-items: start;
 }
 
 .login-panel__hero {
   display: grid;
-  gap: 14px;
+  grid-column: 1;
+  gap: 18px;
+  align-self: stretch;
 }
 
 .login-panel__eyebrow {
   display: inline-flex;
   align-items: center;
   width: fit-content;
-  min-height: 30px;
-  padding: 0 12px;
+  min-height: 32px;
+  padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(49, 94, 251, 0.16);
-  background: rgba(49, 94, 251, 0.08);
+  border: 1px solid rgba(31, 107, 85, 0.16);
+  background: rgba(31, 107, 85, 0.08);
   color: var(--vc-brand-primary);
   font-size: 11px;
   font-weight: 700;
@@ -353,7 +360,7 @@ select {
 
 .login-panel__headline {
   display: grid;
-  gap: 8px;
+  gap: 10px;
 }
 
 .login-panel__headline .ant-typography {
@@ -361,31 +368,34 @@ select {
 }
 
 .login-panel__headline h2.ant-typography {
-  font-size: 38px;
-  line-height: 1.04;
+  max-width: 12ch;
+  font-size: 64px;
+  line-height: 0.95;
   letter-spacing: -0.04em;
 }
 
+.login-panel__headline .ant-typography,
 .login-panel__headline .ant-typography-secondary {
   color: var(--vc-text-secondary);
-  font-size: 16px;
-  line-height: 1.7;
+  font-size: 17px;
+  line-height: 1.75;
 }
 
 .login-panel__overview {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .login-panel__overview-card {
   display: grid;
-  gap: 8px;
-  min-height: 116px;
-  padding: 16px 18px;
-  border-radius: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(255, 255, 255, 0.82);
+  gap: 10px;
+  min-height: 144px;
+  padding: 18px 20px;
+  border-radius: 24px;
+  border: 1px solid rgba(17, 35, 27, 0.08);
+  background: rgba(255, 250, 240, 0.82);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.72);
 }
 
 .login-panel__overview-card span {
@@ -398,8 +408,8 @@ select {
 
 .login-panel__overview-card strong {
   color: var(--vc-text-primary);
-  font-size: 22px;
-  line-height: 1.08;
+  font-size: 26px;
+  line-height: 1.02;
   letter-spacing: -0.03em;
 }
 
@@ -411,27 +421,56 @@ select {
 }
 
 .login-panel__mode-switch {
+  grid-column: 2;
+  grid-row: 1;
   display: inline-grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   padding: 8px;
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.14);
-  background: rgba(248, 250, 252, 0.92);
+  border-radius: 22px;
+  border: 1px solid rgba(17, 35, 27, 0.08);
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(14px);
 }
 
 .login-panel__mode-btn {
-  min-height: 42px;
-  border-radius: 14px !important;
+  min-height: 48px;
+  border-radius: 16px !important;
+  font-weight: 700;
 }
 
 .login-panel__form {
+  grid-column: 2;
+  grid-row: 2;
   display: grid;
-  gap: 4px;
+  gap: 8px;
+  align-self: start;
+  padding: 22px;
+  border-radius: 28px;
+  border: 1px solid rgba(17, 35, 27, 0.08);
+  background: rgba(255, 255, 255, 0.74);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 38px -34px rgba(17, 35, 27, 0.28);
 }
 
 .login-panel__form .ant-form-item {
   margin-bottom: 14px;
+}
+
+.login-panel__form .ant-input-affix-wrapper,
+.login-panel__form .ant-input,
+.login-panel__form .ant-input-password {
+  min-height: 52px;
+  border-radius: 16px !important;
+  background: rgba(255, 251, 244, 0.88);
+}
+
+.login-panel__form .ant-btn-primary {
+  min-height: 52px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  box-shadow: 0 18px 34px -20px rgba(31, 107, 85, 0.42);
 }
 
 .login-panel__submit {
@@ -6672,11 +6711,12 @@ button.settings-inline-btn {
   display: grid;
   gap: 16px;
   background:
-    radial-gradient(circle at top right, rgba(49, 94, 251, 0.12), transparent 22%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96)) !important;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  border-radius: 24px;
-  box-shadow: 0 18px 42px -34px rgba(15, 23, 42, 0.28);
+    radial-gradient(circle at top right, rgba(31, 107, 85, 0.12), transparent 20%),
+    radial-gradient(circle at bottom left, rgba(182, 128, 40, 0.08), transparent 26%),
+    linear-gradient(180deg, rgba(255, 252, 245, 0.98), rgba(246, 239, 228, 0.96)) !important;
+  border: 1px solid rgba(17, 35, 27, 0.08);
+  border-radius: 28px;
+  box-shadow: 0 24px 52px -40px rgba(17, 35, 27, 0.28);
 }
 
 .vc-header-main-row {
@@ -6695,8 +6735,8 @@ button.settings-inline-btn {
   min-height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  background: rgba(49, 94, 251, 0.08);
-  border: 1px solid rgba(49, 94, 251, 0.16);
+  background: rgba(31, 107, 85, 0.08);
+  border: 1px solid rgba(31, 107, 85, 0.16);
   color: var(--vc-brand-primary);
   font-size: 11px;
   font-weight: 700;
@@ -6734,9 +6774,9 @@ button.settings-inline-btn {
   gap: 6px;
   min-height: 92px;
   padding: 14px 16px;
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.8);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 22px;
+  background: rgba(255, 251, 244, 0.8);
+  border: 1px solid rgba(17, 35, 27, 0.08);
 }
 
 .vc-header-snapshot-card span {
@@ -6783,8 +6823,8 @@ button.settings-inline-btn {
   min-height: 40px;
   padding: 0 14px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  background: rgba(255, 251, 244, 0.86);
+  border: 1px solid rgba(17, 35, 27, 0.08);
 }
 
 .vc-context-bar {
@@ -6802,8 +6842,8 @@ button.settings-inline-btn {
   min-height: 34px;
   padding: 0 12px;
   border-radius: 999px;
-  background: rgba(49, 94, 251, 0.06);
-  border: 1px solid rgba(49, 94, 251, 0.12);
+  background: rgba(31, 107, 85, 0.06);
+  border: 1px solid rgba(31, 107, 85, 0.12);
   color: var(--vc-text-primary);
   font-size: 13px;
   font-weight: 600;
@@ -6912,6 +6952,17 @@ button.settings-inline-btn {
     padding: 18px;
   }
 
+  .login-panel .ant-card-body {
+    grid-template-columns: 1fr;
+  }
+
+  .login-panel__hero,
+  .login-panel__mode-switch,
+  .login-panel__form {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
   .vc-brand-text__title {
     font-size: 26px;
   }
@@ -6926,6 +6977,33 @@ button.settings-inline-btn {
 @media (max-width: 768px) {
   .top-header {
     border-radius: 20px;
+  }
+
+  .login-shell {
+    padding: 20px 14px 48px;
+  }
+
+  .login-panel {
+    border-radius: 28px !important;
+  }
+
+  .login-panel .ant-card-body {
+    padding: 18px !important;
+    gap: 18px;
+  }
+
+  .login-panel__headline h2.ant-typography {
+    max-width: none;
+    font-size: 42px;
+  }
+
+  .login-panel__overview {
+    grid-template-columns: 1fr;
+  }
+
+  .login-panel__form {
+    padding: 18px;
+    border-radius: 22px;
   }
 
   .vc-header-snapshot-card,

@@ -13,12 +13,12 @@
   /* ----------------------------------------
      Brand Colors - 品牌色
      ---------------------------------------- */
-  --vc-brand-primary: #4361ee;
-  --vc-brand-primary-hover: #3a0ca3;
-  --vc-brand-primary-light: rgba(67, 97, 238, 0.1);
-  --vc-brand-primary-lighter: rgba(67, 97, 238, 0.06);
-  --vc-brand-gradient-start: #4f46e5;
-  --vc-brand-gradient-end: #3730a3;
+   --vc-brand-primary: #1f6b55;
+   --vc-brand-primary-hover: #184f41;
+   --vc-brand-primary-light: rgba(31, 107, 85, 0.12);
+   --vc-brand-primary-lighter: rgba(31, 107, 85, 0.07);
+   --vc-brand-gradient-start: #215f4d;
+   --vc-brand-gradient-end: #13352b;
 
   /* ----------------------------------------
      Semantic Colors - 语义化颜色系统
@@ -90,19 +90,19 @@
   /* ----------------------------------------
      Surface Colors - 表面色
      ---------------------------------------- */
-  --vc-bg-primary: #ffffff;
-  --vc-bg-secondary: #f8fafc;
-  --vc-bg-tertiary: #f1f5f9;
-  --vc-bg-elevated: #ffffff;
-  --vc-bg-overlay: rgba(15, 23, 42, 0.34);
+   --vc-bg-primary: #fffdf8;
+   --vc-bg-secondary: #f6f1e7;
+   --vc-bg-tertiary: #ece4d6;
+   --vc-bg-elevated: #fffaf0;
+   --vc-bg-overlay: rgba(17, 35, 27, 0.34);
 
   /* ----------------------------------------
      Text Colors - 文本色
      ---------------------------------------- */
-  --vc-text-primary: #111827;
-  --vc-text-secondary: #6b7280;
-  --vc-text-tertiary: #9ca3af;
-  --vc-text-disabled: #d1d5db;
+   --vc-text-primary: #11231b;
+   --vc-text-secondary: #5d6f65;
+   --vc-text-tertiary: #89968e;
+   --vc-text-disabled: #c9c3b7;
   --vc-text-inverse: #ffffff;
   --vc-text-link: var(--vc-brand-primary);
   --vc-text-link-hover: var(--vc-brand-primary-hover);
@@ -110,8 +110,8 @@
   /* ----------------------------------------
      Border Colors - 边框色
      ---------------------------------------- */
-  --vc-border-primary: #e2e8f0;
-  --vc-border-secondary: #f1f5f9;
+   --vc-border-primary: #d7d0c2;
+   --vc-border-secondary: #ebe4d8;
   --vc-border-focus: var(--vc-brand-primary);
   --vc-border-error: var(--vc-error-300);
   --vc-border-success: var(--vc-success-300);
@@ -132,8 +132,8 @@
   /* ----------------------------------------
      Typography - 字体系统
      ---------------------------------------- */
-  --vc-font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans SC', sans-serif;
-  --vc-font-family-mono: 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
+   --vc-font-family-base: 'Space Grotesk', 'Noto Sans SC', 'Segoe UI Variable', sans-serif;
+   --vc-font-family-mono: 'IBM Plex Mono', 'JetBrains Mono', 'SF Mono', Monaco, 'Cascadia Code', monospace;
   --vc-font-family-numeric: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   /* Font Sizes */
@@ -201,19 +201,19 @@
   /* ----------------------------------------
      Shadows - 阴影系统
      ---------------------------------------- */
-  --vc-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --vc-shadow-sm: 0 2px 4px rgba(15, 23, 42, 0.04);
-  --vc-shadow-md: 0 4px 8px rgba(15, 23, 42, 0.06);
-  --vc-shadow-lg: 0 8px 16px rgba(15, 23, 42, 0.08);
-  --vc-shadow-xl: 0 12px 24px rgba(15, 23, 42, 0.1);
-  --vc-shadow-2xl: 0 16px 48px rgba(15, 23, 42, 0.14);
-  --vc-shadow-inner: inset 0 2px 4px rgba(15, 23, 42, 0.04);
-  --vc-shadow-focus: 0 0 0 3px rgba(67, 97, 238, 0.15);
+   --vc-shadow-xs: 0 1px 2px rgba(17, 35, 27, 0.05);
+   --vc-shadow-sm: 0 3px 8px rgba(17, 35, 27, 0.06);
+   --vc-shadow-md: 0 10px 24px rgba(17, 35, 27, 0.08);
+   --vc-shadow-lg: 0 16px 32px rgba(17, 35, 27, 0.1);
+   --vc-shadow-xl: 0 24px 48px rgba(17, 35, 27, 0.12);
+   --vc-shadow-2xl: 0 30px 70px rgba(17, 35, 27, 0.16);
+   --vc-shadow-inner: inset 0 2px 4px rgba(17, 35, 27, 0.04);
+   --vc-shadow-focus: 0 0 0 3px rgba(31, 107, 85, 0.16);
 
   /* Elevation shadows */
-  --vc-shadow-elevation-1: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --vc-shadow-elevation-2: 0 8px 24px rgba(15, 23, 42, 0.1);
-  --vc-shadow-elevation-3: 0 16px 48px rgba(15, 23, 42, 0.14);
+   --vc-shadow-elevation-1: 0 8px 24px rgba(17, 35, 27, 0.07);
+   --vc-shadow-elevation-2: 0 18px 44px rgba(17, 35, 27, 0.11);
+   --vc-shadow-elevation-3: 0 28px 68px rgba(17, 35, 27, 0.15);
 
   /* ----------------------------------------
      Breakpoints - 响应式断点

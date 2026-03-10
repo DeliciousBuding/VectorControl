@@ -20,19 +20,22 @@ if (typeof window !== 'undefined' && window.Capacitor) {
 
 const theme = {
   token: {
-    colorPrimary: '#315efb',
-    colorInfo: '#315efb',
-    colorLink: '#315efb',
-    colorSuccess: '#0f9f6e',
-    colorWarning: '#c27b18',
-    colorError: '#dc4c4c',
-    borderRadius: 14,
-    fontFamily: "'Segoe UI Variable', 'PingFang SC', 'Hiragino Sans GB', -apple-system, BlinkMacSystemFont, sans-serif",
+    colorPrimary: '#1f6b55',
+    colorInfo: '#1f6b55',
+    colorLink: '#1f6b55',
+    colorSuccess: '#1d7a57',
+    colorWarning: '#b68028',
+    colorError: '#c94f3d',
+    colorBgBase: '#fbf7ef',
+    colorTextBase: '#11231b',
+    colorBorder: '#d7d0c2',
+    borderRadius: 18,
+    fontFamily: "'Space Grotesk', 'Noto Sans SC', 'Segoe UI Variable', sans-serif",
   },
   components: {
-    Button: { borderRadius: 12 },
-    Card: { borderRadius: 18 },
-    Input: { borderRadius: 12 },
+    Button: { borderRadius: 16, controlHeight: 46 },
+    Card: { borderRadius: 24 },
+    Input: { borderRadius: 16, controlHeight: 48 },
   },
 };
 
