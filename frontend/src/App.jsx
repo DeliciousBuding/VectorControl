@@ -1814,9 +1814,9 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'row' }}>
+      <div className="app-shell">
         <SideNav active={activeTab} onChange={handleTabChange} />
-        <div style={{ display: 'flex', flexDirection: 'column', background: 'transparent', flex: 1 }}>
+        <div className="app-shell__content">
           {toolbarReady ? (
             <Suspense fallback={<div className="top-header"><div className="chart-empty">正在加载工具栏...</div></div>}>
               <TopToolbar
@@ -1851,7 +1851,7 @@ function App() {
             <div className="top-header"><div className="chart-empty">正在加载工具栏...</div></div>
           )}
 
-          <main className="page-shell" style={{ width: '100%' }}>
+          <main className="page-shell page-shell--workspace">
             {/* 基金详情独立页面 - 最高优先级 */}
             {currentView === 'fund-detail' && (
               <FundDetailPage 
