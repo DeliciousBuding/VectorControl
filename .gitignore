@@ -8,3 +8,7 @@ deploy/data/
 deploy/backups/
 backend/.venv/
 .perf/
+
+VectorControl-debug.apk
+
+node_modules/
