@@ -20,7 +20,7 @@
 
 ### 1.2 工作目录
 
-- 主仓：`<local>\VectorControl`
+- 主仓：`<repo-root>`
 - 不再使用 worktree 多目录开发模式
 
 ## 2. 版本号规则（强制）
