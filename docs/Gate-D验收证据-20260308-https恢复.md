@@ -7,9 +7,8 @@
 ## 1. 基本信息
 
 - 验收时间（北京时间）：`2026-03-08 00:48:18`
-- 目标环境：`prod / production`
+- 目标环境：`production`
 - 域名：`https://vectorcontrol.tech`
-- 公网地址：``
 
 ## 2. 根因
 

@@ -78,7 +78,7 @@
 ## 4. main 推送后默认动作（强制）
 
 - `main` 有新发布后，默认执行 VPS 更新与验证流程：
-  1. SSH 登录 VPS（`root@`）
+  1. SSH 登录生产 VPS
   2. 拉取 `origin/main`
   3. 执行更新脚本
   4. 执行发布一致性校验脚本（`check_main_release.py`）
